@@ -1,25 +1,34 @@
 {
   "expo": {
-    "name": "orange-taxi-rider",
+    "name": "Orange Taxi",
     "slug": "orange-taxi-rider",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0D11",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.orangetaxi.rider",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Orange Taxi needs your location to detect your pickup point."
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+      "package": "com.orangetaxi.rider",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD-IOH9cMppWtKjw_zn-m7XOE3ut62HVX8"
+        }
       },
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0D11",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
     }
   }
 }
