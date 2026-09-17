@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, Platform } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { MapPin, Navigation, Car } from 'lucide-react-native';
 
@@ -7,6 +7,7 @@ interface RideMapProps {
   pickup: { lat: number; lng: number; name?: string };
   drop: { lat: number; lng: number; name?: string };
   driverLocation?: { lat: number; lng: number } | null;
+  status?: string;
   height?: number;
   interactive?: boolean;
 }
@@ -33,25 +34,60 @@ const DARK_MAP_STYLE = [
   { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] },
 ];
 
-export function RideMap({ pickup, drop, driverLocation, height = 220, interactive = true }: RideMapProps) {
+export function RideMap({
+  pickup,
+  drop,
+  driverLocation,
+  status = 'searching',
+  height = 220,
+  interactive = true,
+}: RideMapProps) {
   const mapRef = useRef<MapView>(null);
+  const isInProgress = status === 'in_progress';
 
   useEffect(() => {
     if (mapRef.current && pickup.lat && drop.lat) {
-      const coords = [{ latitude: pickup.lat, longitude: pickup.lng }, { latitude: drop.lat, longitude: drop.lng }];
-      if (driverLocation?.lat && driverLocation?.lng) {
-        coords.push({ latitude: driverLocation.lat, longitude: driverLocation.lng });
+      let coords = [];
+      if (isInProgress) {
+        // En route to destination: Focus from current car GPS to Drop location
+        const currentCar = driverLocation?.lat && driverLocation?.lng
+          ? { latitude: driverLocation.lat, longitude: driverLocation.lng }
+          : { latitude: pickup.lat, longitude: pickup.lng };
+        coords = [currentCar, { latitude: drop.lat, longitude: drop.lng }];
+      } else if (status === 'accepted' || status === 'arrived') {
+        // Driver en route to pickup
+        if (driverLocation?.lat && driverLocation?.lng) {
+          coords = [
+            { latitude: driverLocation.lat, longitude: driverLocation.lng },
+            { latitude: pickup.lat, longitude: pickup.lng },
+          ];
+        } else {
+          coords = [{ latitude: pickup.lat, longitude: pickup.lng }, { latitude: drop.lat, longitude: drop.lng }];
+        }
+      } else {
+        coords = [{ latitude: pickup.lat, longitude: pickup.lng }, { latitude: drop.lat, longitude: drop.lng }];
       }
 
       mapRef.current.fitToCoordinates(coords, {
-        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
         animated: true,
       });
     }
-  }, [pickup.lat, pickup.lng, drop.lat, drop.lng, driverLocation?.lat, driverLocation?.lng]);
+  }, [pickup.lat, pickup.lng, drop.lat, drop.lng, driverLocation?.lat, driverLocation?.lng, status]);
 
-  const midLat = (pickup.lat + drop.lat) / 2;
-  const midLng = (pickup.lng + drop.lng) / 2;
+  const currentCarCoord = driverLocation?.lat && driverLocation?.lng
+    ? { latitude: driverLocation.lat, longitude: driverLocation.lng }
+    : { latitude: pickup.lat, longitude: pickup.lng };
+
+  const polylineCoords = isInProgress
+    ? [currentCarCoord, { latitude: drop.lat, longitude: drop.lng }]
+    : status === 'accepted' && driverLocation?.lat
+    ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }, { latitude: pickup.lat, longitude: pickup.lng }]
+    : [
+        { latitude: pickup.lat, longitude: pickup.lng },
+        ...(driverLocation?.lat ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
+        { latitude: drop.lat, longitude: drop.lng },
+      ];
 
   return (
     <View style={[styles.container, { height }]}>
@@ -64,40 +100,40 @@ export function RideMap({ pickup, drop, driverLocation, height = 220, interactiv
         scrollEnabled={interactive}
         zoomEnabled={interactive}
         initialRegion={{
-          latitude: midLat || 28.6139,
-          longitude: midLng || 77.209,
+          latitude: (pickup.lat + drop.lat) / 2 || 28.6139,
+          longitude: (pickup.lng + drop.lng) / 2 || 77.209,
           latitudeDelta: Math.abs(pickup.lat - drop.lat) * 1.5 || 0.09,
           longitudeDelta: Math.abs(pickup.lng - drop.lng) * 1.5 || 0.09,
         }}
       >
-        {/* Pickup Marker */}
+        {/* Pickup Pin */}
         <Marker
           coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
           title="Pickup Location"
-          description={pickup.name || 'Your location'}
+          description={pickup.name || 'Pickup Point'}
         >
           <View style={styles.pickupPin}>
             <View style={styles.innerPinGreen} />
           </View>
         </Marker>
 
-        {/* Destination Marker */}
+        {/* Destination Pin */}
         <Marker
           coordinate={{ latitude: drop.lat, longitude: drop.lng }}
           title="Drop Destination"
-          description={drop.name || 'Destination'}
+          description={drop.name || 'Drop Point'}
         >
           <View style={styles.dropPin}>
             <View style={styles.innerPinOrange} />
           </View>
         </Marker>
 
-        {/* Driver Live Marker (When assigned) */}
+        {/* Driver / Car Marker */}
         {driverLocation && driverLocation.lat && driverLocation.lng && (
           <Marker
             coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
             title="Orange Chauffeur"
-            description="Driver on route"
+            description={isInProgress ? 'En route to destination' : 'En route to pickup'}
           >
             <View style={styles.driverCarMarker}>
               <Car size={16} color="#FFFFFF" />
@@ -107,21 +143,23 @@ export function RideMap({ pickup, drop, driverLocation, height = 220, interactiv
 
         {/* Route Line */}
         <Polyline
-          coordinates={[
-            { latitude: pickup.lat, longitude: pickup.lng },
-            ...(driverLocation ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
-            { latitude: drop.lat, longitude: drop.lng },
-          ]}
-          strokeColor="#F56B00"
-          strokeWidth={3.5}
+          coordinates={polylineCoords}
+          strokeColor={isInProgress ? '#22C55E' : '#F56B00'}
+          strokeWidth={4}
           lineDashPattern={[0]}
         />
       </MapView>
 
-      {/* Floating Tag */}
+      {/* Dynamic Status Pill */}
       <View style={styles.floatingPill}>
-        <View style={styles.liveIndicator} />
-        <Text style={styles.floatingPillText}>Live Route Preview</Text>
+        <View style={[styles.liveIndicator, isInProgress && { backgroundColor: '#22C55E' }]} />
+        <Text style={styles.floatingPillText}>
+          {isInProgress
+            ? '🟢 Live GPS to Destination'
+            : status === 'accepted' || status === 'arrived'
+            ? '🚗 Chauffeur En Route to Pickup'
+            : '📍 Route Preview'}
+        </Text>
       </View>
     </View>
   );
@@ -194,9 +232,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(15, 18, 24, 0.85)',
+    backgroundColor: 'rgba(15, 18, 24, 0.9)',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -205,7 +243,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#F56B00',
   },
   floatingPillText: {
     color: '#D1D5DB',

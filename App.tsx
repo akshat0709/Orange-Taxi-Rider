@@ -45,11 +45,15 @@ import {
   LogOut,
   Mail,
   Lock,
+  MessageSquare,
+  Star,
 } from 'lucide-react-native';
 import { supabase } from './src/lib/supabase';
 import { VehicleCategory, Booking, Driver } from './src/types';
 import { ALL_PRESETS, PresetLocation } from './src/lib/presets';
 import { RideMap } from './src/components/RideMap';
+import { InRideChatModal } from './src/components/InRideChatModal';
+import { RatingModal } from './src/components/RatingModal';
 
 const { width } = Dimensions.get('window');
 
@@ -104,6 +108,10 @@ export default function App() {
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [assignedDriver, setAssignedDriver] = useState<Driver | null>(null);
 
+  // In-Ride Chat & Post-Ride Rating Modals
+  const [chatModalVisible, setChatModalVisible] = useState(false);
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+
   useEffect(() => {
     // 1. Listen for Supabase auth state changes
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -136,7 +144,7 @@ export default function App() {
     }
 
     async function fetchDriver() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('drivers')
         .select('*')
         .eq('id', driverId)
@@ -149,7 +157,7 @@ export default function App() {
 
     fetchDriver();
 
-    // Subscribe to live driver updates (GPS location broadcasting from Driver Console)
+    // Subscribe to live driver updates (GPS coordinates broadcasting from Driver Console)
     const driverChannel = supabase
       .channel(`driver-loc-${driverId}`)
       .on(
@@ -265,7 +273,7 @@ export default function App() {
   const distKm = Math.max(2.5, Math.round(rawDist * 10) / 10);
   const durationMin = Math.round(distKm / 0.45);
 
-  // Fare calculations exactly matching the website formula
+  // Fare calculations
   const baseFare = selectedVehicle?.base_fare || 59;
   const perKm = selectedVehicle?.per_km || 15;
   const minFare = selectedVehicle?.minimum_fare || 129;
@@ -275,26 +283,65 @@ export default function App() {
   const platformFee = 0;
   const totalEstimatedFare = preTax + taxAmount + platformFee;
 
-  // Realtime subscription for active ride updates from Driver Console / Admin
+  /* ========================================================================= */
+  /* BULLETPROOF DUAL-LAYER AUTO-REFRESH (WEBSOCKET + ACTIVE 2.5s POLLING)     */
+  /* ========================================================================= */
   useEffect(() => {
     if (!activeBooking?.id) return;
 
+    function applyBookingUpdate(newBooking: any) {
+      if (!newBooking) return;
+      setActiveBooking((prev) => {
+        if (!prev) return newBooking;
+        const statusChanged = prev.status !== newBooking.status;
+        const driverChanged = prev.driver_id !== newBooking.driver_id;
+
+        if (statusChanged || driverChanged) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+          // Trip is completed -> trigger 5-Star Rating Modal!
+          if (newBooking.status === 'completed') {
+            setRatingModalVisible(true);
+          }
+
+          return { ...prev, ...newBooking };
+        }
+        return prev;
+      });
+    }
+
+    // Layer 1: Supabase Realtime WebSocket Push
     const channel = supabase
-      .channel(`booking-${activeBooking.id}`)
+      .channel(`booking-auto-${activeBooking.id}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${activeBooking.id}` },
         (payload: any) => {
           if (payload.new) {
-            setActiveBooking((prev) => (prev ? { ...prev, ...payload.new } : payload.new));
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            applyBookingUpdate(payload.new);
           }
         }
       )
       .subscribe();
 
+    // Layer 2: Fast 2.5s Polling (Guarantees auto-refresh even on mobile network jitter)
+    const pollTimer = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('id', activeBooking.id)
+          .maybeSingle();
+
+        if (data) {
+          applyBookingUpdate(data);
+        }
+      } catch (e) {}
+    }, 2500);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollTimer);
     };
   }, [activeBooking?.id]);
 
@@ -379,7 +426,6 @@ export default function App() {
   /* REAL BOOKING SUBMISSION TO SUPABASE                                       */
   /* ========================================================================= */
   async function handleConfirmBooking() {
-    // 1. Require Authentication first
     if (!user) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setAuthMode('signin');
@@ -398,7 +444,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('bookings')
         .insert({
-          customer_id: user.id, // Mandatory RLS foreign key
+          customer_id: user.id,
           reference: ref,
           pickup_area: effectivePickup,
           pickup_address: `${pickupCoords.lat},${pickupCoords.lng}`,
@@ -454,7 +500,6 @@ export default function App() {
     ]);
   }
 
-  // Filter presets based on city & search query
   const filteredPresets = ALL_PRESETS.filter((p) => {
     const matchesCity = activeCity === 'All' || p.city === activeCity;
     const matchesQuery =
@@ -469,7 +514,7 @@ export default function App() {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor="#0B0D11" />
 
-        {/* Website Branded Header with Real Auth State */}
+        {/* Website Branded Header */}
         <View style={styles.header}>
           <View style={styles.brandRow}>
             <View style={styles.logoBadge}>
@@ -562,7 +607,7 @@ export default function App() {
           </View>
         ) : step === 4 && activeBooking ? (
           /* ========================================================================= */
-          /* STEP 4: ACTIVE RIDE & LIVE DATABASE STATUS                                */
+          /* STEP 4: ACTIVE RIDE, LIVE GPS MAP & REAL-TIME DRIVER STATUS               */
           /* ========================================================================= */
           <ScrollView contentContainerStyle={styles.activeRideScroll}>
             <View style={styles.activeCard}>
@@ -576,12 +621,12 @@ export default function App() {
                     : activeBooking.status === 'arrived'
                     ? 'Chauffeur Arrived at your Pickup'
                     : activeBooking.status === 'in_progress'
-                    ? 'Ride in Progress ⚡'
+                    ? 'Ride in Progress · En Route to Drop ⚡'
                     : 'Ride Completed'}
                 </Text>
               </View>
 
-              {/* LIVE MAP TRACKING */}
+              {/* LIVE MAP TRACKING (Auto-flips to destination when in_progress) */}
               <View style={{ marginTop: 14 }}>
                 <RideMap
                   pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickup_area }}
@@ -591,7 +636,8 @@ export default function App() {
                       ? { lat: assignedDriver.current_lat, lng: assignedDriver.current_lng }
                       : null
                   }
-                  height={200}
+                  status={activeBooking.status}
+                  height={220}
                 />
               </View>
 
@@ -655,30 +701,36 @@ export default function App() {
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.searchingTitle}>Awaiting Chauffeur Acceptance</Text>
                     <Text style={styles.searchingSub}>
-                      Requested: {activeBooking.vehicle_name}. Driver details and registration plate will appear the moment a driver accepts.
+                      Requested: {activeBooking.vehicle_name}. Driver details and vehicle plate will update automatically when accepted.
                     </Text>
                   </View>
                 </View>
               )}
 
-              {/* Call Chauffeur Button */}
-              {assignedDriver?.phone ? (
+              {/* In-Ride Communication Action Buttons (Chat & Call) */}
+              <View style={styles.dualCommRow}>
                 <TouchableOpacity
-                  style={styles.callChauffeurBtn}
-                  onPress={() => Linking.openURL(`tel:${assignedDriver.phone}`)}
+                  style={styles.chatChauffeurBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setChatModalVisible(true);
+                  }}
+                >
+                  <MessageSquare size={16} color="#FFFFFF" />
+                  <Text style={styles.chatChauffeurText}>In-Ride Chat</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.callChauffeurBtnDual}
+                  onPress={() => {
+                    const phone = assignedDriver?.phone || '+911140007000';
+                    Linking.openURL(`tel:${phone}`);
+                  }}
                 >
                   <Phone size={16} color="#FFFFFF" />
-                  <Text style={styles.callChauffeurText}>Call Chauffeur ({assignedDriver.phone})</Text>
+                  <Text style={styles.callChauffeurText}>Call Chauffeur</Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.callChauffeurBtn}
-                  onPress={() => Linking.openURL('tel:+911140007000')}
-                >
-                  <Phone size={16} color="#FFFFFF" />
-                  <Text style={styles.callChauffeurText}>Call 24x7 Fleet Hotline (+91 11 4000 7000)</Text>
-                </TouchableOpacity>
-              )}
+              </View>
 
               {/* Guardian Safety Badge */}
               <View style={styles.guardianShieldCard}>
@@ -1114,9 +1166,35 @@ export default function App() {
           </ScrollView>
         )}
 
-        {/* ========================================================================= */}
-        /* AUTHENTICATION MODAL                                                      */
-        /* ========================================================================= */
+        {/* IN-RIDE CHAT MODAL */}
+        {activeBooking && (
+          <InRideChatModal
+            visible={chatModalVisible}
+            onClose={() => setChatModalVisible(false)}
+            bookingId={activeBooking.id}
+            customerName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Passenger'}
+            driverName={assignedDriver?.full_name || 'Orange Chauffeur'}
+            driverPhone={assignedDriver?.phone}
+          />
+        )}
+
+        {/* POST-RIDE RATING MODAL */}
+        {activeBooking && (
+          <RatingModal
+            visible={ratingModalVisible}
+            bookingId={activeBooking.id}
+            driverName={assignedDriver?.full_name || 'Orange Chauffeur'}
+            vehicleName={assignedDriver?.vehicle_model || activeBooking.vehicle_name}
+            onDismiss={() => {
+              setRatingModalVisible(false);
+              setActiveBooking(null);
+              setAssignedDriver(null);
+              setStep(1);
+            }}
+          />
+        )}
+
+        {/* AUTHENTICATION MODAL */}
         <Modal
           visible={authModalVisible}
           animationType="slide"
@@ -2121,23 +2199,46 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
   },
-  callChauffeurBtn: {
+
+  /* In-Ride Communication Action Buttons */
+  dualCommRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  chatChauffeurBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F56B00',
+    paddingVertical: 13,
+    borderRadius: 12,
+  },
+  chatChauffeurText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  callChauffeurBtnDual: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#1E293B',
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 13,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#334155',
-    marginBottom: 10,
   },
   callChauffeurText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },
+
   guardianShieldCard: {
     flexDirection: 'row',
     alignItems: 'center',
