@@ -132,6 +132,7 @@ export default function App() {
 
   // In-Ride Chat & Post-Ride Rating Modals
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
 
   // -------------------------------------------------------------------------
@@ -839,11 +840,17 @@ export default function App() {
                   style={styles.chatChauffeurBtn}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setUnreadChatCount(0);
                     setChatModalVisible(true);
                   }}
                 >
                   <MessageSquare size={16} color="#FFFFFF" />
                   <Text style={styles.chatChauffeurText}>In-Ride Chat</Text>
+                  {unreadChatCount > 0 && (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>{unreadChatCount}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1256,8 +1263,17 @@ export default function App() {
             visible={chatModalVisible}
             onClose={() => setChatModalVisible(false)}
             bookingId={activeBooking.id}
+            bookingReference={activeBooking.reference || activeBooking.id.substring(0, 8)}
             driverName={assignedDriver?.full_name || 'Orange Chauffeur'}
+            driverPhone={assignedDriver?.phone}
             customerName={user?.email?.split('@')[0] || 'Passenger'}
+            currentUserLocation={pickupCoords}
+            driverLocation={
+              assignedDriver?.current_lat && assignedDriver?.current_lng
+                ? { lat: assignedDriver.current_lat, lng: assignedDriver.current_lng }
+                : null
+            }
+            onUnreadCountChange={(count) => setUnreadChatCount(count)}
           />
         )}
 
@@ -2248,6 +2264,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  chatBadge: {
+    backgroundColor: '#F56B00',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  chatBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   callChauffeurBtnDual: {
     flex: 1,
