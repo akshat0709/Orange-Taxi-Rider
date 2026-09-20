@@ -63,6 +63,7 @@ import {
   EXPANDED_PRESETS,
   getDefaultCityCenter,
   searchPlaces,
+  isCoordinateInIndia,
 } from './src/lib/locationService';
 
 const { width, height } = Dimensions.get('window');
@@ -103,13 +104,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   // Active City Selector
-  const [activeCity, setActiveCity] = useState<'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad'>('Delhi NCR');
+  const [activeCity, setActiveCity] = useState<'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad'>('Bengaluru');
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
 
-  // Locations State
-  const [pickupText, setPickupText] = useState('Connaught Place (CP), New Delhi');
-  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({ lat: 28.6315, lng: 77.2167 });
-  const [dropLocation, setDropLocation] = useState<LocationItem>(EXPANDED_PRESETS[0]);
+  // Locations State (Auto-detects live GPS & IP)
+  const [pickupText, setPickupText] = useState('📍 Auto-detecting your location...');
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937 });
+  const [dropLocation, setDropLocation] = useState<LocationItem>(
+    EXPANDED_PRESETS.find((p) => p.city === 'Bengaluru') || EXPANDED_PRESETS[0]
+  );
   const [pickupPillar, setPickupPillar] = useState('');
   const [nearbyCabs, setNearbyCabs] = useState<NearbyCab[]>([]);
 
@@ -165,6 +168,37 @@ export default function App() {
       setNearbyCabs(generateNearbyCabs(pickupCoords.lat, pickupCoords.lng));
     }
   }, [pickupCoords.lat, pickupCoords.lng]);
+
+  // Real-time background location watcher (updates automatically as user moves)
+  useEffect(() => {
+    let watcherSub: any = null;
+
+    async function startLiveLocationWatch() {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          watcherSub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 4000,
+              distanceInterval: 10,
+            },
+            (loc) => {
+              if (isCoordinateInIndia(loc.coords.latitude, loc.coords.longitude)) {
+                setPickupCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+              }
+            }
+          );
+        }
+      } catch (e) {}
+    }
+
+    startLiveLocationWatch();
+
+    return () => {
+      if (watcherSub) watcherSub.remove();
+    };
+  }, []);
 
   // Fetch driver details whenever driver_id is assigned
   useEffect(() => {

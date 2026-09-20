@@ -155,55 +155,106 @@ export interface SanitizedLocationResult {
 }
 
 export async function getSanitizedLocation(
-  fallbackCity: 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' = 'Delhi NCR'
+  fallbackCity: 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' = 'Bengaluru'
 ): Promise<SanitizedLocationResult> {
+  let coords: { latitude: number; longitude: number } | null = null;
+  let permissionGranted = false;
+
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      return getDefaultCityCenter(fallbackCity, true);
+    permissionGranted = status === 'granted';
+
+    if (permissionGranted) {
+      // 1. First try instant last-known position
+      try {
+        const last = await Location.getLastKnownPositionAsync();
+        if (last && isCoordinateInIndia(last.coords.latitude, last.coords.longitude)) {
+          coords = { latitude: last.coords.latitude, longitude: last.coords.longitude };
+        }
+      } catch (e) {}
+
+      // 2. High-accuracy current position
+      if (!coords) {
+        try {
+          const current = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          if (isCoordinateInIndia(current.coords.latitude, current.coords.longitude)) {
+            coords = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+          }
+        } catch (e) {}
+      }
     }
+  } catch (err) {}
 
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-
-    const { latitude, longitude } = position.coords;
-
-    // Check if device is in India (if not, e.g. iOS Simulator Cupertino, return Indian fallback)
-    if (!isCoordinateInIndia(latitude, longitude)) {
-      return getDefaultCityCenter(fallbackCity, true);
-    }
-
-    // Try reverse geocoding
+  // 3. If no Indian GPS coordinate obtained (e.g. Xcode Simulator defaulting to Cupertino, CA, or permission pending):
+  // Automatically detect user's actual location via IP Geolocation!
+  if (!coords) {
     try {
-      const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
+      clearTimeout(timer);
+
+      if (ipRes.ok) {
+        const ipData = await ipRes.json();
+        if (ipData?.success && ipData.latitude && ipData.longitude) {
+          coords = { latitude: ipData.latitude, longitude: ipData.longitude };
+          const detectedCity = detectCityFromName(ipData.city || ipData.region);
+          const areaName = ipData.city || 'Current Area';
+          const regionName = ipData.region || 'India';
+
+          return {
+            lat: ipData.latitude,
+            lng: ipData.longitude,
+            displayText: `${areaName}, ${regionName}`,
+            cityName: detectedCity,
+            isSimulated: false,
+          };
+        }
+      }
+    } catch (ipErr) {}
+  }
+
+  // 4. If we have coordinates, perform reverse geocoding to get human-friendly street/area
+  if (coords) {
+    try {
+      const [geo] = await Location.reverseGeocodeAsync({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+
       if (geo) {
-        const street = geo.street || geo.name || geo.district || 'Current Location';
+        const parts: string[] = [];
+        if (geo.name && geo.name !== geo.street) parts.push(geo.name);
+        if (geo.street) parts.push(geo.street);
+        if (geo.district && !parts.includes(geo.district)) parts.push(geo.district);
+
+        const locality = parts.length > 0 ? parts.join(', ') : 'Current Location';
         const city = geo.city || geo.subregion || 'Metro Area';
         const detectedCity = detectCityFromName(city);
 
         return {
-          lat: latitude,
-          lng: longitude,
-          displayText: `${street}, ${city}`,
+          lat: coords.latitude,
+          lng: coords.longitude,
+          displayText: `${locality}, ${city}`,
           cityName: detectedCity,
           isSimulated: false,
         };
       }
-    } catch (e) {
-      // ignore geocode failure and return coordinates
-    }
+    } catch (e) {}
 
     return {
-      lat: latitude,
-      lng: longitude,
+      lat: coords.latitude,
+      lng: coords.longitude,
       displayText: 'Current GPS Location',
       cityName: fallbackCity,
       isSimulated: false,
     };
-  } catch (err) {
-    return getDefaultCityCenter(fallbackCity, true);
   }
+
+  // 5. Ultimate fallback if offline
+  return getDefaultCityCenter(fallbackCity, true);
 }
 
 export function getDefaultCityCenter(
