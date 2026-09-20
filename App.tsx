@@ -53,6 +53,7 @@ import {
 } from 'lucide-react-native';
 import { supabase } from './src/lib/supabase';
 import { VehicleCategory, Booking, Driver } from './src/types';
+import { getResolvedVehicleDetails } from './src/lib/rideVehicle';
 import { RideMap } from './src/components/RideMap';
 import { InRideChatModal } from './src/components/InRideChatModal';
 import { RatingModal } from './src/components/RatingModal';
@@ -227,7 +228,22 @@ export default function App() {
         .maybeSingle();
 
       if (data) {
-        setAssignedDriver(data as Driver);
+        let hydrated: any = { ...data };
+        if (data.vehicle_code && typeof data.vehicle_code === 'string' && data.vehicle_code.startsWith('ORANGE_META:')) {
+          try {
+            const meta = JSON.parse(data.vehicle_code.replace('ORANGE_META:', ''));
+            if (meta.plate && (!hydrated.vehicle_number || hydrated.vehicle_number === 'Unassigned')) {
+              hydrated.vehicle_number = meta.plate;
+            }
+            if (meta.model && !hydrated.vehicle_model) {
+              hydrated.vehicle_model = meta.model;
+            }
+            if (meta.photo && !hydrated.photo_url) {
+              hydrated.photo_url = meta.photo;
+            }
+          } catch (e) {}
+        }
+        setAssignedDriver(hydrated as Driver);
       }
     }
 
@@ -240,7 +256,22 @@ export default function App() {
         { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${driverId}` },
         (payload: any) => {
           if (payload.new) {
-            setAssignedDriver((prev: any) => (prev ? { ...prev, ...payload.new } : payload.new));
+            let updated: any = payload.new;
+            if (updated.vehicle_code && typeof updated.vehicle_code === 'string' && updated.vehicle_code.startsWith('ORANGE_META:')) {
+              try {
+                const meta = JSON.parse(updated.vehicle_code.replace('ORANGE_META:', ''));
+                if (meta.plate && (!updated.vehicle_number || updated.vehicle_number === 'Unassigned')) {
+                  updated.vehicle_number = meta.plate;
+                }
+                if (meta.model && !updated.vehicle_model) {
+                  updated.vehicle_model = meta.model;
+                }
+                if (meta.photo && !updated.photo_url) {
+                  updated.photo_url = meta.photo;
+                }
+              } catch (e) {}
+            }
+            setAssignedDriver((prev: any) => (prev ? { ...prev, ...updated } : updated));
           }
         }
       )
@@ -382,11 +413,17 @@ export default function App() {
         if (!prev) return newBooking;
         const statusChanged = prev.status !== newBooking.status;
         const driverChanged = prev.driver_id !== newBooking.driver_id;
+        const vehicleChanged =
+          prev.vehicle_name !== newBooking.vehicle_name ||
+          prev.vehicle_number !== newBooking.vehicle_number;
+        const otpChanged = prev.ride_otp !== newBooking.ride_otp;
 
-        if (statusChanged || driverChanged) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (statusChanged || driverChanged || vehicleChanged || otpChanged) {
+          if (statusChanged) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
 
-          if (newBooking.status === 'completed') {
+          if (newBooking.status === 'completed' && prev.status !== 'completed') {
             setRatingModalVisible(true);
           }
           return { ...prev, ...newBooking };
@@ -623,6 +660,9 @@ export default function App() {
   // Top popular hubs for the active city to show on the Home Screen
   const popularHubs = EXPANDED_PRESETS.filter((p) => p.city === activeCity).slice(0, 4);
 
+  // Resolved dynamic vehicle & chauffeur details
+  const resolvedVehicle = getResolvedVehicleDetails(assignedDriver, activeBooking, activeCity);
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -818,6 +858,141 @@ export default function App() {
                 </View>
               ) : null}
 
+              {/* DYNAMIC CHAUFFEUR & VEHICLE DETAILS CARD */}
+              {activeBooking.status === 'searching' ? (
+                <View style={styles.carSearchingCard}>
+                  <View style={styles.searchingHeaderRow}>
+                    <View style={styles.searchingIconBox}>
+                      <ActivityIndicator size="small" color="#F59E0B" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.searchingTitle}>Assigning Nearby Electric Fleet...</Text>
+                      <Text style={styles.searchingSub}>
+                        Notifying nearest Orange Chauffeur (100% Zero Emission)
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.searchingVehiclePill}>
+                    <Car size={14} color="#F59E0B" />
+                    <Text style={styles.searchingVehicleText}>
+                      Requested: {activeBooking.vehicle_name || 'Orange Sedan'} (100% Electric EV)
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.prominentVehicleCard}>
+                  {/* Card Header with Status */}
+                  <View style={styles.cardTopHeader}>
+                    <View style={styles.cardTopTitleRow}>
+                      <Car size={16} color="#F56B00" />
+                      <Text style={styles.cardTopTitle}>
+                        {activeBooking.status === 'in_progress' ? 'Your Ride Vehicle & Chauffeur' : 'Assigned Vehicle & Driver'}
+                      </Text>
+                    </View>
+                    <View style={styles.liveStatusBadge}>
+                      <View style={styles.greenPulsingDot} />
+                      <Text style={styles.liveStatusText}>
+                        {activeBooking.status === 'in_progress'
+                          ? 'On Journey ⚡'
+                          : activeBooking.status === 'arrived'
+                          ? 'Arrived 📍'
+                          : 'En Route 📍'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* High-Contrast Vehicle Model & Registration Plate Highlight Bar */}
+                  <View style={styles.vehicleHighlightBox}>
+                    <View style={styles.vehicleModelSection}>
+                      <Text style={styles.vehicleMicroLabel}>VEHICLE MODEL</Text>
+                      <Text style={styles.vehicleModelTitle}>
+                        {resolvedVehicle.modelName}
+                      </Text>
+                      <View style={styles.evGreenBadge}>
+                        <Text style={styles.evGreenBadgeText}>100% Electric EV</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.plateSection}>
+                      <Text style={styles.plateMicroLabel}>REGISTRATION PLATE</Text>
+                      <View style={styles.largePlatePill}>
+                        <Text style={styles.largePlateText}>
+                          {resolvedVehicle.plateNumber}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Chauffeur Identity & Verified Status */}
+                  <View style={styles.chauffeurRow}>
+                    <View style={styles.driverAvatarBox}>
+                      <Text style={styles.driverAvatarInitial}>
+                        {resolvedVehicle.chauffeurName.charAt(0) || 'D'}
+                      </Text>
+                    </View>
+                    <View style={styles.driverInfoContent}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.driverNameTitle}>
+                          {resolvedVehicle.chauffeurName}
+                        </Text>
+                        <View style={styles.verifiedChauffeurBadge}>
+                          <Text style={styles.verifiedChauffeurText}>✓ Verified Chauffeur</Text>
+                        </View>
+                        {resolvedVehicle.isPartner && (
+                          <View style={styles.partnerBadge}>
+                            <Text style={styles.partnerBadgeText}>Partner EV</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.driverSubText}>
+                        ⭐ {resolvedVehicle.rating} · {resolvedVehicle.totalRides} rides completed
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Tri-Action Buttons (In-Ride Chat, Call Driver & Guardian Call) */}
+                  <View style={styles.dualCommRow}>
+                    <TouchableOpacity
+                      style={styles.chatChauffeurBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setUnreadChatCount(0);
+                        setChatModalVisible(true);
+                      }}
+                    >
+                      <MessageSquare size={15} color="#FFFFFF" />
+                      <Text style={styles.chatChauffeurText}>Chat</Text>
+                      {unreadChatCount > 0 && (
+                        <View style={styles.chatBadge}>
+                          <Text style={styles.chatBadgeText}>{unreadChatCount}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.callChauffeurBtnDual}
+                      onPress={() => {
+                        Linking.openURL(`tel:${resolvedVehicle.phone}`);
+                      }}
+                    >
+                      <Phone size={15} color="#FFFFFF" />
+                      <Text style={styles.callChauffeurText}>Call Driver</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.guardianCallActionBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setGuardianModalVisible(true);
+                      }}
+                    >
+                      <ShieldCheck size={15} color="#FFFFFF" />
+                      <Text style={styles.guardianCallActionText}>Guardian</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               {/* Trip Reference & Fare */}
               <View style={styles.tripMetaRow}>
                 <View>
@@ -849,78 +1024,6 @@ export default function App() {
                 </View>
               </View>
 
-              {/* DYNAMIC CHAUFFEUR & VEHICLE CARD */}
-              <View style={styles.carAssignedCard}>
-                <View style={styles.carIconBox}>
-                  <Car size={26} color="#F56B00" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={styles.carName}>
-                      {assignedDriver?.full_name || 'Assigned Chauffeur'}
-                    </Text>
-                    <View style={styles.evBadge}>
-                      <Text style={styles.evBadgeText}>100% Electric</Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                    <Text style={styles.carModelText}>
-                      {assignedDriver?.vehicle_model || activeBooking.vehicle_name || 'Mahindra BE.6 EV'}
-                    </Text>
-                    <View style={styles.platePill}>
-                      <Text style={styles.platePillText}>
-                        {assignedDriver?.vehicle_number || 'DL 01 EV 1001'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.driverSubText}>
-                    ⭐ {assignedDriver?.rating ? Number(assignedDriver.rating).toFixed(1) : '4.9'} · {assignedDriver?.total_rides || 1} rides completed
-                  </Text>
-                </View>
-              </View>
-
-              {/* Tri-Action Buttons (In-Ride Chat, Call Driver & Guardian Call) */}
-              <View style={styles.dualCommRow}>
-                <TouchableOpacity
-                  style={styles.chatChauffeurBtn}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setUnreadChatCount(0);
-                    setChatModalVisible(true);
-                  }}
-                >
-                  <MessageSquare size={15} color="#FFFFFF" />
-                  <Text style={styles.chatChauffeurText}>Chat</Text>
-                  {unreadChatCount > 0 && (
-                    <View style={styles.chatBadge}>
-                      <Text style={styles.chatBadgeText}>{unreadChatCount}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.callChauffeurBtnDual}
-                  onPress={() => {
-                    const phone = assignedDriver?.phone || '+911140007000';
-                    Linking.openURL(`tel:${phone}`);
-                  }}
-                >
-                  <Phone size={15} color="#FFFFFF" />
-                  <Text style={styles.callChauffeurText}>Call Driver</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.guardianCallActionBtn}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setGuardianModalVisible(true);
-                  }}
-                >
-                  <ShieldCheck size={15} color="#FFFFFF" />
-                  <Text style={styles.guardianCallActionText}>Guardian</Text>
-                </TouchableOpacity>
-              </View>
-
               {/* Interactive Guardian Shield Card */}
               <TouchableOpacity
                 style={styles.guardianShieldCard}
@@ -942,11 +1045,13 @@ export default function App() {
                 <ChevronRight size={16} color="#10B981" />
               </TouchableOpacity>
 
-              {/* Cancel Button */}
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
-                <X size={16} color="#EF4444" />
-                <Text style={styles.cancelBtnText}>Cancel Ride (Fee Exempt)</Text>
-              </TouchableOpacity>
+              {/* Cancel Button (Fee Exempt - only before trip starts) */}
+              {activeBooking.status !== 'in_progress' && activeBooking.status !== 'completed' && (
+                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
+                  <X size={16} color="#EF4444" />
+                  <Text style={styles.cancelBtnText}>Cancel Ride (Fee Exempt)</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
         ) : step === 2 ? (
@@ -1034,6 +1139,9 @@ export default function App() {
                             <Text style={styles.sheetSeatsText}>{v.seats} Seats</Text>
                           </View>
                         </View>
+                        <Text style={styles.sheetFleetTagline} numberOfLines={1}>
+                          {v.tagline || (v.code === 'ORANGE_SEDAN' ? 'Mahindra BE.6 Luxury EV' : v.code === 'ORANGE_XL' ? '6-Seater Electric SUV' : 'Tata Tiago Smart EV')}
+                        </Text>
                         <Text style={styles.sheetFleetEta}>
                           {v.code === 'ORANGE_SEDAN' ? '⚡ 3 min away · Most Popular' : '⚡ 4-5 min away'}
                         </Text>
@@ -1353,8 +1461,8 @@ export default function App() {
             visible={ratingModalVisible}
             bookingId={activeBooking.id}
             driverId={assignedDriver?.id || activeBooking.driver_id}
-            driverName={assignedDriver?.full_name || 'Orange Chauffeur'}
-            vehicleName={activeBooking.vehicle_name}
+            driverName={resolvedVehicle.chauffeurName}
+            vehicleName={`${resolvedVehicle.modelName} (${resolvedVehicle.plateNumber})`}
             onRatingSubmitted={(newRating, totalRides) => {
               if (assignedDriver) {
                 setAssignedDriver({
@@ -1939,6 +2047,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  sheetFleetTagline: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    marginTop: 2,
+  },
   sheetFleetEta: {
     color: '#22C55E',
     fontSize: 11,
@@ -2333,69 +2446,178 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  carAssignedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1B202B',
-    borderRadius: 16,
-    padding: 14,
+  prominentVehicleCard: {
+    backgroundColor: '#161B26',
+    borderRadius: 18,
+    padding: 16,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#263041',
+    borderColor: 'rgba(245, 107, 0, 0.3)',
   },
-  carIconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(245, 107, 0, 0.15)',
+  cardTopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#232A38',
+  },
+  cardTopTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTopTitle: {
+    color: '#E5E7EB',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  liveStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  liveStatusText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  vehicleHighlightBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 107, 0, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(245, 107, 0, 0.3)',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
   },
-  carName: {
+  vehicleModelSection: {
+    flex: 1,
+    minWidth: 150,
+  },
+  vehicleMicroLabel: {
+    color: '#F56B00',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  vehicleModelTitle: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
   },
-  evBadge: {
+  evGreenBadge: {
+    alignSelf: 'flex-start',
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
+    marginTop: 4,
   },
-  evBadgeText: {
+  evGreenBadgeText: {
+    color: '#10B981',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  plateSection: {
+    alignItems: 'flex-end',
+  },
+  plateMicroLabel: {
+    color: '#9CA3AF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  largePlatePill: {
+    backgroundColor: '#090B0E',
+    borderWidth: 1.5,
+    borderColor: '#F56B00',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  largePlateText: {
+    color: '#F56B00',
+    fontSize: 14,
+    fontWeight: '900',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 1,
+  },
+  chauffeurRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#232A38',
+  },
+  driverAvatarBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(245, 107, 0, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#F56B00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverAvatarInitial: {
+    color: '#F56B00',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  driverInfoContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  driverNameTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  verifiedChauffeurBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  verifiedChauffeurText: {
     color: '#10B981',
     fontSize: 10,
     fontWeight: '700',
   },
-  carModelText: {
-    color: '#D1D5DB',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  platePill: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  partnerBadge: {
+    backgroundColor: 'rgba(245, 107, 0, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(245, 107, 0, 0.4)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    borderColor: 'rgba(245, 107, 0, 0.3)',
   },
-  platePillText: {
+  partnerBadgeText: {
     color: '#F56B00',
-    fontSize: 11,
-    fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 0.5,
-  },
-  carPlate: {
-    color: '#F56B00',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    marginTop: 1,
   },
   driverSubText: {
     color: '#9CA3AF',
@@ -2403,14 +2625,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   carSearchingCard: {
+    backgroundColor: '#161B26',
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  searchingHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1B202B',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#263041',
+  },
+  searchingIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchingTitle: {
     color: '#F59E0B',
@@ -2422,6 +2654,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
     lineHeight: 15,
+  },
+  searchingVehiclePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  searchingVehicleText: {
+    color: '#FCD34D',
+    fontSize: 11,
+    fontWeight: '600',
   },
   dualCommRow: {
     flexDirection: 'row',

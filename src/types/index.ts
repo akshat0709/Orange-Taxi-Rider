@@ -26,6 +26,8 @@ export interface Booking {
   drop_area: string;
   estimated_fare: number;
   vehicle_name: string;
+  vehicle_number?: string;
+  vehicle_model?: string;
   ride_otp: string;
   driver_id?: string | null;
   distance_km?: number;
@@ -39,6 +41,10 @@ export interface Driver {
   phone: string;
   vehicle_model: string;
   vehicle_number: string;
+  vehicle_code?: string;
+  photo_url?: string;
+  driver_type?: string;
+  owns_vehicle?: boolean;
   rating: number;
   total_rides?: number;
   current_lat?: number;
