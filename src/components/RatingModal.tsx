@@ -15,9 +15,11 @@ import { supabase } from '../lib/supabase';
 interface RatingModalProps {
   visible: boolean;
   bookingId: string;
+  driverId?: string | null;
   driverName: string;
   vehicleName: string;
   onDismiss: () => void;
+  onRatingSubmitted?: (newRating: number, totalRides: number) => void;
 }
 
 const COMPLIMENT_OPTIONS = [
@@ -39,9 +41,11 @@ const STAR_LABELS: Record<number, string> = {
 export function RatingModal({
   visible,
   bookingId,
+  driverId,
   driverName,
   vehicleName,
   onDismiss,
+  onRatingSubmitted,
 }: RatingModalProps) {
   const [rating, setRating] = useState<number>(5);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
@@ -66,7 +70,7 @@ export function RatingModal({
         reviewText.trim(),
       ].filter(Boolean).join(' · ');
 
-      // Update Supabase bookings table with rating and review
+      // 1. Update Supabase bookings table with rating and review
       await supabase
         .from('bookings')
         .update({
@@ -74,6 +78,61 @@ export function RatingModal({
           review: fullReview,
         })
         .eq('id', bookingId);
+
+      // 2. Recalculate and update driver rating & total completed rides
+      let newAvgRating = rating;
+      let newTotalRides = 1;
+
+      let resolvedDriverId = driverId;
+      if (!resolvedDriverId && bookingId) {
+        try {
+          const { data: b } = await supabase
+            .from('bookings')
+            .select('driver_id')
+            .eq('id', bookingId)
+            .maybeSingle();
+          if (b?.driver_id) resolvedDriverId = b.driver_id;
+        } catch (e) {}
+      }
+
+      if (resolvedDriverId) {
+        try {
+          const [{ data: ratedBookings }, { count: completedCount }] = await Promise.all([
+            supabase
+              .from('bookings')
+              .select('id, rating')
+              .eq('driver_id', resolvedDriverId)
+              .not('rating', 'is', null),
+            supabase
+              .from('bookings')
+              .select('id', { count: 'exact', head: true })
+              .eq('driver_id', resolvedDriverId)
+              .eq('status', 'completed'),
+          ]);
+
+          const otherRatings = (ratedBookings || [])
+            .filter((b: any) => b.id !== bookingId && b.rating)
+            .map((b: any) => Number(b.rating));
+          otherRatings.push(rating);
+
+          newAvgRating = Number(
+            (otherRatings.reduce((a, b) => a + b, 0) / otherRatings.length).toFixed(1)
+          );
+          newTotalRides = Math.max(completedCount || 0, otherRatings.length, 1);
+
+          await supabase
+            .from('drivers')
+            .update({
+              rating: newAvgRating,
+              total_rides: newTotalRides,
+            })
+            .eq('id', resolvedDriverId);
+
+          onRatingSubmitted?.(newAvgRating, newTotalRides);
+        } catch (e) {
+          console.warn('Driver aggregate update notice in app:', e);
+        }
+      }
 
       setSubmitted(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

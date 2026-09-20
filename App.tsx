@@ -16,6 +16,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import {
@@ -24,6 +25,7 @@ import {
   Car,
   Snowflake,
   VolumeX,
+  Shield,
   ShieldCheck,
   CheckCircle,
   ArrowRight,
@@ -55,6 +57,8 @@ import { RideMap } from './src/components/RideMap';
 import { InRideChatModal } from './src/components/InRideChatModal';
 import { RatingModal } from './src/components/RatingModal';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
+import { ProfileModal, GuardianContact } from './src/components/ProfileModal';
+import { GuardianSafetyModal } from './src/components/GuardianSafetyModal';
 import {
   LocationItem,
   getSanitizedLocation,
@@ -130,10 +134,13 @@ export default function App() {
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [assignedDriver, setAssignedDriver] = useState<Driver | null>(null);
 
-  // In-Ride Chat & Post-Ride Rating Modals
+  // In-Ride Chat, Rating, Profile & Guardian Safety Modals
   const [chatModalVisible, setChatModalVisible] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [guardianModalVisible, setGuardianModalVisible] = useState(false);
+  const [guardianContact, setGuardianContact] = useState<GuardianContact | null>(null);
 
   // -------------------------------------------------------------------------
   // INITIALIZATION & AUTH LISTENER
@@ -150,6 +157,18 @@ export default function App() {
       setUser(session?.user ?? null);
       if (session?.user) {
         checkActiveRide(session.user.id);
+      }
+    });
+
+    // Load saved guardian contact from local storage
+    AsyncStorage.getItem('@orange_guardian_contact').then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.name && parsed?.phone) {
+            setGuardianContact(parsed);
+          }
+        } catch {}
       }
     });
 
@@ -636,12 +655,17 @@ export default function App() {
 
             {/* Auth Profile / Sign In Pill */}
             {user ? (
-              <TouchableOpacity style={styles.userProfilePill} onPress={handleSignOut}>
+              <TouchableOpacity
+                style={styles.userProfilePill}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setProfileModalVisible(true);
+                }}
+              >
                 <UserIcon size={12} color="#F56B00" />
                 <Text style={styles.userProfileText} numberOfLines={1}>
-                  {user.email?.split('@')[0]}
+                  {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'Profile'}
                 </Text>
-                <LogOut size={12} color="#9CA3AF" />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -770,12 +794,29 @@ export default function App() {
                 />
               </View>
 
-              {/* OTP HERO SECTION */}
-              <View style={styles.otpHero}>
-                <Text style={styles.otpLabel}>YOUR RIDE START OTP</Text>
-                <Text style={styles.otpValue}>{activeBooking.ride_otp}</Text>
-                <Text style={styles.otpSub}>Share this 6-digit code with your driver to begin the journey</Text>
-              </View>
+              {/* TRIP STATUS / OTP HERO SECTION */}
+              {activeBooking.status === 'in_progress' ? (
+                <View style={styles.tripInProgressHero}>
+                  <View style={styles.tripInProgressIcon}>
+                    <CheckCircle size={22} color="#10B981" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={styles.greenPulsingDot} />
+                      <Text style={styles.tripInProgressTitle}>RIDE IN PROGRESS · OTP VERIFIED</Text>
+                    </View>
+                    <Text style={styles.tripInProgressSub}>
+                      Chauffeur verified OTP · Cruising safely to destination
+                    </Text>
+                  </View>
+                </View>
+              ) : activeBooking.status !== 'completed' && activeBooking.ride_otp ? (
+                <View style={styles.otpHero}>
+                  <Text style={styles.otpLabel}>YOUR RIDE START OTP</Text>
+                  <Text style={styles.otpValue}>{activeBooking.ride_otp}</Text>
+                  <Text style={styles.otpSub}>Share this 6-digit code with your driver to begin the journey</Text>
+                </View>
+              ) : null}
 
               {/* Trip Reference & Fare */}
               <View style={styles.tripMetaRow}>
@@ -808,33 +849,37 @@ export default function App() {
                 </View>
               </View>
 
-              {/* DYNAMIC CHAUFFEUR CARD */}
-              {assignedDriver ? (
-                <View style={styles.carAssignedCard}>
-                  <Car size={24} color="#F56B00" />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.carName}>{assignedDriver.full_name}</Text>
-                    <Text style={styles.carPlate}>
-                      {assignedDriver.vehicle_model || activeBooking.vehicle_name} · {assignedDriver.vehicle_number}
-                    </Text>
-                    <Text style={styles.driverSubText}>
-                      ⭐ {assignedDriver.rating?.toFixed(1) || '4.9'} · {assignedDriver.total_rides || 1} rides completed
-                    </Text>
-                  </View>
+              {/* DYNAMIC CHAUFFEUR & VEHICLE CARD */}
+              <View style={styles.carAssignedCard}>
+                <View style={styles.carIconBox}>
+                  <Car size={26} color="#F56B00" />
                 </View>
-              ) : (
-                <View style={styles.carSearchingCard}>
-                  <Radio size={22} color="#F59E0B" />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.searchingTitle}>Awaiting Chauffeur Acceptance</Text>
-                    <Text style={styles.searchingSub}>
-                      Requested: {activeBooking.vehicle_name}. Driver details and vehicle plate will update automatically.
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={styles.carName}>
+                      {assignedDriver?.full_name || 'Assigned Chauffeur'}
                     </Text>
+                    <View style={styles.evBadge}>
+                      <Text style={styles.evBadgeText}>100% Electric</Text>
+                    </View>
                   </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                    <Text style={styles.carModelText}>
+                      {assignedDriver?.vehicle_model || activeBooking.vehicle_name || 'Mahindra BE.6 EV'}
+                    </Text>
+                    <View style={styles.platePill}>
+                      <Text style={styles.platePillText}>
+                        {assignedDriver?.vehicle_number || 'DL 01 EV 1001'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.driverSubText}>
+                    ⭐ {assignedDriver?.rating ? Number(assignedDriver.rating).toFixed(1) : '4.9'} · {assignedDriver?.total_rides || 1} rides completed
+                  </Text>
                 </View>
-              )}
+              </View>
 
-              {/* Dual Action Buttons (In-Ride Chat & Call) */}
+              {/* Tri-Action Buttons (In-Ride Chat, Call Driver & Guardian Call) */}
               <View style={styles.dualCommRow}>
                 <TouchableOpacity
                   style={styles.chatChauffeurBtn}
@@ -844,8 +889,8 @@ export default function App() {
                     setChatModalVisible(true);
                   }}
                 >
-                  <MessageSquare size={16} color="#FFFFFF" />
-                  <Text style={styles.chatChauffeurText}>In-Ride Chat</Text>
+                  <MessageSquare size={15} color="#FFFFFF" />
+                  <Text style={styles.chatChauffeurText}>Chat</Text>
                   {unreadChatCount > 0 && (
                     <View style={styles.chatBadge}>
                       <Text style={styles.chatBadgeText}>{unreadChatCount}</Text>
@@ -860,19 +905,42 @@ export default function App() {
                     Linking.openURL(`tel:${phone}`);
                   }}
                 >
-                  <Phone size={16} color="#FFFFFF" />
-                  <Text style={styles.callChauffeurText}>Call Chauffeur</Text>
+                  <Phone size={15} color="#FFFFFF" />
+                  <Text style={styles.callChauffeurText}>Call Driver</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.guardianCallActionBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setGuardianModalVisible(true);
+                  }}
+                >
+                  <ShieldCheck size={15} color="#FFFFFF" />
+                  <Text style={styles.guardianCallActionText}>Guardian</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Guardian Shield Card */}
-              <View style={styles.guardianShieldCard}>
-                <ShieldCheck size={18} color="#22C55E" />
+              {/* Interactive Guardian Shield Card */}
+              <TouchableOpacity
+                style={styles.guardianShieldCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setGuardianModalVisible(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <ShieldCheck size={20} color="#10B981" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.guardianTitle}>Orange Guardian Shield Active</Text>
-                  <Text style={styles.guardianSub}>GPS & telemetry monitored 24x7 by Safety Operations Control</Text>
+                  <Text style={styles.guardianSub}>
+                    {guardianContact
+                      ? `Tap for 1-Tap Guardian Call (${guardianContact.name}) & SOS`
+                      : 'Tap to configure Guardian Call & 24x7 SOS Escalation'}
+                  </Text>
                 </View>
-              </View>
+                <ChevronRight size={16} color="#10B981" />
+              </TouchableOpacity>
 
               {/* Cancel Button */}
               <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
@@ -1284,8 +1352,18 @@ export default function App() {
           <RatingModal
             visible={ratingModalVisible}
             bookingId={activeBooking.id}
+            driverId={assignedDriver?.id || activeBooking.driver_id}
             driverName={assignedDriver?.full_name || 'Orange Chauffeur'}
             vehicleName={activeBooking.vehicle_name}
+            onRatingSubmitted={(newRating, totalRides) => {
+              if (assignedDriver) {
+                setAssignedDriver({
+                  ...assignedDriver,
+                  rating: newRating,
+                  total_rides: totalRides,
+                });
+              }
+            }}
             onDismiss={() => {
               setRatingModalVisible(false);
               setActiveBooking(null);
@@ -1294,6 +1372,29 @@ export default function App() {
             }}
           />
         )}
+
+        {/* ================================================================= */}
+        {/* RIDER PROFILE MODAL                                               */}
+        {/* ================================================================= */}
+        <ProfileModal
+          visible={profileModalVisible}
+          onDismiss={() => setProfileModalVisible(false)}
+          user={user}
+          onSignOut={handleSignOut}
+          onGuardianUpdated={(g) => setGuardianContact(g)}
+        />
+
+        {/* ================================================================= */}
+        {/* GUARDIAN SAFETY SUITE MODAL                                       */}
+        {/* ================================================================= */}
+        <GuardianSafetyModal
+          visible={guardianModalVisible}
+          onDismiss={() => setGuardianModalVisible(false)}
+          booking={activeBooking}
+          driver={assignedDriver}
+          guardian={guardianContact}
+          onOpenGuardianSetup={() => setProfileModalVisible(true)}
+        />
 
         {/* ================================================================= */}
         {/* SUPABASE AUTH MODAL                                               */}
@@ -2111,6 +2212,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2A3345',
   },
+  tripInProgressHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  tripInProgressIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tripInProgressTitle: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  tripInProgressSub: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  greenPulsingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+  },
   otpLabel: {
     color: '#F56B00',
     fontSize: 11,
@@ -2200,16 +2337,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1B202B',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: '#263041',
   },
+  carIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(245, 107, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 107, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   carName: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  evBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  evBadgeText: {
+    color: '#10B981',
+    fontSize: 10,
     fontWeight: '700',
+  },
+  carModelText: {
+    color: '#D1D5DB',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  platePill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 107, 0, 0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  platePillText: {
+    color: '#F56B00',
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 0.5,
   },
   carPlate: {
     color: '#F56B00',
@@ -2220,7 +2400,7 @@ const styles = StyleSheet.create({
   driverSubText: {
     color: '#9CA3AF',
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 4,
   },
   carSearchingCard: {
     flexDirection: 'row',
@@ -2245,7 +2425,7 @@ const styles = StyleSheet.create({
   },
   dualCommRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginTop: 12,
   },
   chatChauffeurBtn: {
@@ -2253,7 +2433,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: '#1E232F',
     paddingVertical: 11,
     borderRadius: 12,
@@ -2273,7 +2453,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 6,
+    marginLeft: 4,
   },
   chatBadgeText: {
     color: '#FFFFFF',
@@ -2285,8 +2465,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#22C55E',
+    gap: 5,
+    backgroundColor: '#10B981',
     paddingVertical: 11,
     borderRadius: 12,
   },
@@ -2294,6 +2474,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  guardianCallActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 107, 0, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 107, 0, 0.4)',
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  guardianCallActionText: {
+    color: '#F56B00',
+    fontSize: 12,
+    fontWeight: '800',
   },
   guardianShieldCard: {
     flexDirection: 'row',
