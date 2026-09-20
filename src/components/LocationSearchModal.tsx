@@ -8,25 +8,20 @@ import {
   FlatList,
   Modal,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   ArrowLeft,
-  Search,
   X,
   MapPin,
-  Navigation,
   Crosshair,
   Plane,
   Building2,
   Train,
   ShoppingBag,
   Map,
-  Clock,
 } from 'lucide-react-native';
 import { LocationItem, searchPlaces, EXPANDED_PRESETS } from '../lib/locationService';
 
@@ -60,23 +55,35 @@ export function LocationSearchModal({
   onChangeCity,
 }: LocationSearchModalProps) {
   const [activeField, setActiveField] = useState<'pickup' | 'drop'>('drop');
-  const [query, setQuery] = useState('');
+  const [pickupInput, setPickupInput] = useState(pickupText);
+  const [dropInput, setDropInput] = useState('');
   const [results, setResults] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
 
-  // Initialize with recommendations when modal opens or active city changes
+  // Sync inputs and load initial recommendations whenever the modal opens
   useEffect(() => {
     if (visible) {
-      loadInitialResults();
+      setPickupInput(pickupText);
+      setDropInput('');
+      setActiveField('drop');
+      executeSearch('', activeCity);
     }
-  }, [visible, activeCity, activeField]);
+  }, [visible]);
 
-  async function loadInitialResults() {
+  // If active city changes while modal is open, reload recommendations
+  useEffect(() => {
+    if (visible) {
+      const currentQuery = activeField === 'pickup' ? pickupInput : dropInput;
+      executeSearch(currentQuery, activeCity);
+    }
+  }, [activeCity]);
+
+  async function executeSearch(queryText: string, city: typeof activeCity) {
     setLoading(true);
     try {
-      const initial = await searchPlaces('', activeCity, pickupCoords);
-      setResults(initial);
+      const found = await searchPlaces(queryText, city, pickupCoords);
+      setResults(found);
     } catch (e) {
       setResults(EXPANDED_PRESETS.slice(0, 10));
     } finally {
@@ -84,34 +91,33 @@ export function LocationSearchModal({
     }
   }
 
-  // Handle live search as user types
-  function handleQueryChange(text: string) {
-    setQuery(text);
+  // Handle live debounced search as user types
+  function handleTextChange(text: string, field: 'pickup' | 'drop') {
+    if (field === 'pickup') {
+      setPickupInput(text);
+    } else {
+      setDropInput(text);
+    }
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
     if (!text.trim()) {
-      loadInitialResults();
+      executeSearch('', activeCity);
       return;
     }
 
     setLoading(true);
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const found = await searchPlaces(text, activeCity, pickupCoords);
-        setResults(found);
-      } catch (err) {
-        console.warn('Search error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }, 280);
+    searchTimeoutRef.current = setTimeout(() => {
+      executeSearch(text, activeCity);
+    }, 250);
   }
 
   function handleSelectLocation(item: LocationItem) {
     Haptics.selectionAsync();
     if (activeField === 'pickup') {
+      setPickupInput(item.name);
       onSelectPickup({
         name: item.name,
         lat: item.lat,
@@ -120,8 +126,9 @@ export function LocationSearchModal({
       });
       // Switch focus to destination
       setActiveField('drop');
-      setQuery('');
+      executeSearch(dropInput, activeCity);
     } else {
+      setDropInput(item.name);
       onSelectDrop(item);
       onClose();
     }
@@ -134,6 +141,8 @@ export function LocationSearchModal({
     if (item.tag?.includes('Mall') || item.tag?.includes('Market')) return <ShoppingBag size={18} color="#EC4899" />;
     return <MapPin size={18} color="#9CA3AF" />;
   }
+
+  const currentQuery = activeField === 'pickup' ? pickupInput : dropInput;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
@@ -164,67 +173,69 @@ export function LocationSearchModal({
 
           <View style={styles.inputFieldsColumn}>
             {/* Pickup Input Field */}
-            <TouchableOpacity
-              activeOpacity={0.9}
+            <View
               style={[
                 styles.inputRow,
                 activeField === 'pickup' && styles.inputRowActive,
               ]}
-              onPress={() => {
-                setActiveField('pickup');
-                setQuery('');
-              }}
             >
               <TextInput
                 style={styles.textInput}
                 placeholder="Enter pickup point..."
                 placeholderTextColor="#6B7280"
-                value={activeField === 'pickup' ? query : pickupText}
+                value={pickupInput}
                 onFocus={() => {
                   setActiveField('pickup');
-                  setQuery('');
+                  executeSearch(pickupInput, activeCity);
                 }}
-                onChangeText={handleQueryChange}
+                onChangeText={(text) => handleTextChange(text, 'pickup')}
               />
-              {activeField === 'pickup' && query.length > 0 && (
-                <TouchableOpacity onPress={() => handleQueryChange('')} style={styles.clearBtn}>
+              {pickupInput.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setPickupInput('');
+                    executeSearch('', activeCity);
+                  }}
+                  style={styles.clearBtn}
+                >
                   <X size={14} color="#9CA3AF" />
                 </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.inputDivider} />
 
             {/* Destination Input Field */}
-            <TouchableOpacity
-              activeOpacity={0.9}
+            <View
               style={[
                 styles.inputRow,
                 activeField === 'drop' && styles.inputRowActive,
               ]}
-              onPress={() => {
-                setActiveField('drop');
-                setQuery('');
-              }}
             >
               <TextInput
                 style={styles.textInput}
                 placeholder="Search destination, airport, hub..."
                 placeholderTextColor="#6B7280"
-                value={activeField === 'drop' ? query : dropLocation.name}
+                value={dropInput}
                 autoFocus={true}
                 onFocus={() => {
                   setActiveField('drop');
-                  setQuery('');
+                  executeSearch(dropInput, activeCity);
                 }}
-                onChangeText={handleQueryChange}
+                onChangeText={(text) => handleTextChange(text, 'drop')}
               />
-              {activeField === 'drop' && query.length > 0 && (
-                <TouchableOpacity onPress={() => handleQueryChange('')} style={styles.clearBtn}>
+              {dropInput.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setDropInput('');
+                    executeSearch('', activeCity);
+                  }}
+                  style={styles.clearBtn}
+                >
                   <X size={14} color="#9CA3AF" />
                 </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -235,10 +246,8 @@ export function LocationSearchModal({
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onUseCurrentGPS();
-              if (activeField === 'pickup') {
-                setActiveField('drop');
-                setQuery('');
-              }
+              setPickupInput(pickupText);
+              setActiveField('drop');
             }}
           >
             <Crosshair size={14} color="#22C55E" />
@@ -286,9 +295,9 @@ export function LocationSearchModal({
           <Text style={styles.resultsHeaderTitle}>
             {loading
               ? 'SEARCHING LIVE LOCATIONS...'
-              : query.trim().length > 0
-              ? `RESULTS FOR "${query}"`
-              : `POPULAR HUBS IN ${activeCity.toUpperCase()}`}
+              : currentQuery.trim().length > 0
+              ? `RESULTS FOR "${currentQuery}"`
+              : `POPULAR IN ${activeCity.toUpperCase()}`}
           </Text>
           {loading && <ActivityIndicator size="small" color="#F56B00" />}
         </View>
@@ -328,7 +337,7 @@ export function LocationSearchModal({
                 <MapPin size={36} color="#4B5563" />
                 <Text style={styles.emptyTitle}>No locations matched</Text>
                 <Text style={styles.emptySub}>
-                  Try searching for a street, metro station, landmark or popular hub in India.
+                  Try searching for an area, street, landmark or airport.
                 </Text>
               </View>
             ) : null
@@ -423,7 +432,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   clearBtn: {
-    padding: 4,
+    padding: 6,
   },
   inputDivider: {
     height: 1,
