@@ -9,6 +9,7 @@ import {
   Modal,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -59,15 +60,24 @@ export function LocationSearchModal({
   const [dropInput, setDropInput] = useState('');
   const [results, setResults] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const searchTimeoutRef = useRef<any>(null);
 
-  // Sync inputs and load initial recommendations whenever the modal opens
+  const searchTimeoutRef = useRef<any>(null);
+  const dropInputRef = useRef<TextInput>(null);
+  const pickupInputRef = useRef<TextInput>(null);
+
+  // Sync inputs and load initial recommendations when modal opens
   useEffect(() => {
     if (visible) {
       setPickupInput(pickupText);
       setDropInput('');
       setActiveField('drop');
       executeSearch('', activeCity);
+
+      // Smooth autofocus after modal transition
+      const timer = setTimeout(() => {
+        dropInputRef.current?.focus();
+      }, 200);
+      return () => clearTimeout(timer);
     }
   }, [visible]);
 
@@ -103,15 +113,16 @@ export function LocationSearchModal({
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (!text.trim()) {
+    const query = text.trim();
+    if (!query) {
       executeSearch('', activeCity);
       return;
     }
 
-    setLoading(true);
+    // Schedule background search after user stops typing
     searchTimeoutRef.current = setTimeout(() => {
-      executeSearch(text, activeCity);
-    }, 250);
+      executeSearch(query, activeCity);
+    }, 280);
   }
 
   function handleSelectLocation(item: LocationItem) {
@@ -126,6 +137,7 @@ export function LocationSearchModal({
       });
       // Switch focus to destination
       setActiveField('drop');
+      dropInputRef.current?.focus();
       executeSearch(dropInput, activeCity);
     } else {
       setDropInput(item.name);
@@ -180,14 +192,14 @@ export function LocationSearchModal({
               ]}
             >
               <TextInput
+                ref={pickupInputRef}
                 style={styles.textInput}
                 placeholder="Enter pickup point..."
                 placeholderTextColor="#6B7280"
                 value={pickupInput}
-                onFocus={() => {
-                  setActiveField('pickup');
-                  executeSearch(pickupInput, activeCity);
-                }}
+                autoCorrect={false}
+                autoCapitalize="words"
+                onFocus={() => setActiveField('pickup')}
                 onChangeText={(text) => handleTextChange(text, 'pickup')}
               />
               {pickupInput.length > 0 && (
@@ -213,15 +225,14 @@ export function LocationSearchModal({
               ]}
             >
               <TextInput
+                ref={dropInputRef}
                 style={styles.textInput}
                 placeholder="Search destination, airport, hub..."
                 placeholderTextColor="#6B7280"
                 value={dropInput}
-                autoFocus={true}
-                onFocus={() => {
-                  setActiveField('drop');
-                  executeSearch(dropInput, activeCity);
-                }}
+                autoCorrect={false}
+                autoCapitalize="words"
+                onFocus={() => setActiveField('drop')}
                 onChangeText={(text) => handleTextChange(text, 'drop')}
               />
               {dropInput.length > 0 && (
@@ -248,6 +259,7 @@ export function LocationSearchModal({
               onUseCurrentGPS();
               setPickupInput(pickupText);
               setActiveField('drop');
+              dropInputRef.current?.focus();
             }}
           >
             <Crosshair size={14} color="#22C55E" />
