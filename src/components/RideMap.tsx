@@ -3,13 +3,10 @@ import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-nati
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { MapPin, Navigation, Car, Crosshair, Map } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { NearbyCab } from '../lib/locationService';
-
 interface RideMapProps {
   pickup: { lat: number; lng: number; name?: string };
   drop?: { lat: number; lng: number; name?: string };
   driverLocation?: { lat: number; lng: number } | null;
-  nearbyCabs?: NearbyCab[];
   status?: string;
   height?: number | string;
   interactive?: boolean;
@@ -50,7 +47,6 @@ export function RideMap({
   pickup,
   drop,
   driverLocation,
-  nearbyCabs = [],
   status = 'searching',
   height = 220,
   interactive = true,
@@ -95,15 +91,15 @@ export function RideMap({
           animated: true,
         });
       } else {
-        // Idle / Explore mode: center on pickup
+        // Idle / Explore mode: tightly zoom in to street-level on user GPS
         mapRef.current.animateToRegion(
           {
             latitude: pickup.lat,
             longitude: pickup.lng,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
           },
-          600
+          500
         );
       }
     }
@@ -153,10 +149,10 @@ export function RideMap({
           }
         }}
         initialRegion={{
-          latitude: pickup.lat || 28.6315,
-          longitude: pickup.lng || 77.2167,
-          latitudeDelta: hasValidDrop ? 0.08 : 0.03,
-          longitudeDelta: hasValidDrop ? 0.08 : 0.03,
+          latitude: pickup.lat || 12.9719,
+          longitude: pickup.lng || 77.5937,
+          latitudeDelta: hasValidDrop ? 0.08 : 0.005,
+          longitudeDelta: hasValidDrop ? 0.08 : 0.005,
         }}
       >
         {/* Pickup Pin (when not actively picking pickup on map) */}
@@ -191,23 +187,7 @@ export function RideMap({
           </Marker>
         )}
 
-        {/* Nearby Simulated Cabs (Uber/Ola Explore Mode) */}
-        {!hasValidDrop &&
-          nearbyCabs.map((cab) => (
-            <Marker
-              key={cab.id}
-              coordinate={{ latitude: cab.lat, longitude: cab.lng }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              flat={true}
-              rotation={cab.rotation}
-            >
-              <View style={styles.nearbyCabBadge}>
-                <Car size={13} color="#F56B00" />
-              </View>
-            </Marker>
-          ))}
-
-        {/* Assigned Chauffeur Marker */}
+        {/* Real Assigned Chauffeur Marker (Only when driver is assigned) */}
         {driverLocation && driverLocation.lat && driverLocation.lng && (
           <Marker
             coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
@@ -278,8 +258,8 @@ export function RideMap({
                 {
                   latitude: pickup.lat,
                   longitude: pickup.lng,
-                  latitudeDelta: 0.025,
-                  longitudeDelta: 0.025,
+                  latitudeDelta: 0.005,
+                  longitudeDelta: 0.005,
                 },
                 500
               );
@@ -349,21 +329,6 @@ const styles = StyleSheet.create({
     width: 2,
     height: 6,
     backgroundColor: '#F56B00',
-  },
-  nearbyCabBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#1E232F',
-    borderWidth: 1.5,
-    borderColor: '#F56B00',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.4,
-    shadowRadius: 2,
-    elevation: 3,
   },
   driverCarMarker: {
     width: 34,

@@ -57,9 +57,7 @@ import { RatingModal } from './src/components/RatingModal';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
 import {
   LocationItem,
-  NearbyCab,
   getSanitizedLocation,
-  generateNearbyCabs,
   EXPANDED_PRESETS,
   getDefaultCityCenter,
   searchPlaces,
@@ -114,7 +112,6 @@ export default function App() {
     EXPANDED_PRESETS.find((p) => p.city === 'Bengaluru') || EXPANDED_PRESETS[0]
   );
   const [pickupPillar, setPickupPillar] = useState('');
-  const [nearbyCabs, setNearbyCabs] = useState<NearbyCab[]>([]);
 
   // Search Modal & Map Pin Picker States
   const [searchModalVisible, setSearchModalVisible] = useState(false);
@@ -162,12 +159,6 @@ export default function App() {
     };
   }, []);
 
-  // Update nearby simulated cabs whenever pickup coordinates change
-  useEffect(() => {
-    if (pickupCoords.lat && pickupCoords.lng) {
-      setNearbyCabs(generateNearbyCabs(pickupCoords.lat, pickupCoords.lng));
-    }
-  }, [pickupCoords.lat, pickupCoords.lng]);
 
   // Real-time background location watcher (updates automatically as user moves)
   useEffect(() => {
@@ -1096,7 +1087,6 @@ export default function App() {
             <View style={{ flex: 1 }}>
               <RideMap
                 pickup={pickupCoords}
-                nearbyCabs={nearbyCabs}
                 interactive={true}
                 height="100%"
                 onMapPress={handleHomeMapPress}
