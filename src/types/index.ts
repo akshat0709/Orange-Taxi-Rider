@@ -28,6 +28,8 @@ export interface Booking {
   vehicle_name: string;
   ride_otp: string;
   driver_id?: string | null;
+  distance_km?: number;
+  duration_min?: number;
   created_at: string;
 }
 
