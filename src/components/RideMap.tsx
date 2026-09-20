@@ -16,6 +16,7 @@ interface RideMapProps {
   isPinPickerMode?: boolean;
   pinPickerTarget?: 'pickup' | 'drop';
   onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
+  onMapPress?: (coords: { lat: number; lng: number }) => void;
   onRecenterPress?: () => void;
   routeDistanceKm?: number;
   routeDurationMin?: number;
@@ -56,6 +57,7 @@ export function RideMap({
   isPinPickerMode = false,
   pinPickerTarget = 'drop',
   onPinLocationChange,
+  onMapPress,
   onRecenterPress,
   routeDistanceKm,
   routeDurationMin,
@@ -142,6 +144,14 @@ export function RideMap({
         pitchEnabled={interactive}
         rotateEnabled={interactive}
         onRegionChangeComplete={handleRegionChangeComplete}
+        onPress={(e) => {
+          if (onMapPress && e.nativeEvent.coordinate) {
+            onMapPress({
+              lat: e.nativeEvent.coordinate.latitude,
+              lng: e.nativeEvent.coordinate.longitude,
+            });
+          }
+        }}
         initialRegion={{
           latitude: pickup.lat || 28.6315,
           longitude: pickup.lng || 77.2167,

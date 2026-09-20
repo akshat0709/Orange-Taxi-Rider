@@ -321,6 +321,30 @@ export default function App() {
     setDropLocation(matchingDrop);
   }
 
+  // Handle 1-Tap Map Press to adjust pickup point anywhere on map
+  async function handleHomeMapPress(coords: { lat: number; lng: number }) {
+    if (step !== 1) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPickupCoords(coords);
+    try {
+      const [geo] = await Location.reverseGeocodeAsync({
+        latitude: coords.lat,
+        longitude: coords.lng,
+      });
+      if (geo) {
+        const parts: string[] = [];
+        if (geo.name && geo.name !== geo.street) parts.push(geo.name);
+        if (geo.street) parts.push(geo.street);
+        if (geo.district && !parts.includes(geo.district)) parts.push(geo.district);
+        const locality = parts.length > 0 ? parts.join(', ') : 'Selected Point';
+        const city = geo.city || geo.subregion || activeCity;
+        setPickupText(`${locality}, ${city}`);
+      }
+    } catch (e) {
+      setPickupText(`Pin (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
+    }
+  }
+
   // Distance & Fare Calculations
   const rawDist = haversine(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
   const distKm = Math.max(2.5, Math.round(rawDist * 10) / 10);
@@ -1075,12 +1099,51 @@ export default function App() {
                 nearbyCabs={nearbyCabs}
                 interactive={true}
                 height="100%"
+                onMapPress={handleHomeMapPress}
                 onRecenterPress={() => refreshLocation(activeCity)}
               />
             </View>
 
             {/* Bottom "Where to?" Card & Popular Places */}
             <View style={styles.homeBottomCard}>
+              {/* Interactive Current Pickup Point Bar (Tap to edit or set pin) */}
+              <View style={styles.homePickupRow}>
+                <TouchableOpacity
+                  style={styles.homePickupBar}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSearchModalVisible(true);
+                  }}
+                >
+                  <View style={styles.pickupLivePulse}>
+                    <View style={styles.pickupLiveDot} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={styles.pickupMicroText}>CURRENT PICKUP POINT</Text>
+                      <Text style={styles.pickupTapToEditText}>Tap to edit ✎</Text>
+                    </View>
+                    <Text style={styles.pickupTitleText} numberOfLines={1}>
+                      {pickupText}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.setPinShortcutBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setPinPickerTarget('pickup');
+                    setPinCurrentCoords(pickupCoords);
+                    setPinAddressText(pickupText);
+                    setPinPickerActive(true);
+                  }}
+                >
+                  <MapIcon size={16} color="#F56B00" />
+                </TouchableOpacity>
+              </View>
+
               {/* Uber-Style "Where to?" Search Bar */}
               <TouchableOpacity
                 style={styles.whereToBar}
@@ -1491,6 +1554,64 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
+  },
+  homePickupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  homePickupBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161A23',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#232A38',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  pickupLivePulse: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickupLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22C55E',
+  },
+  pickupMicroText: {
+    color: '#6B7280',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  pickupTapToEditText: {
+    color: '#F56B00',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  pickupTitleText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  setPinShortcutBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#1B202B',
+    borderWidth: 1,
+    borderColor: '#293244',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   whereToBar: {
     flexDirection: 'row',

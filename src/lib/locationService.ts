@@ -165,24 +165,22 @@ export async function getSanitizedLocation(
     permissionGranted = status === 'granted';
 
     if (permissionGranted) {
-      // 1. First try instant last-known position
+      // 1. High-accuracy GPS position first (accurate down to 5-15 meters)
       try {
-        const last = await Location.getLastKnownPositionAsync();
-        if (last && isCoordinateInIndia(last.coords.latitude, last.coords.longitude)) {
-          coords = { latitude: last.coords.latitude, longitude: last.coords.longitude };
+        const current = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+        });
+        if (isCoordinateInIndia(current.coords.latitude, current.coords.longitude)) {
+          coords = { latitude: current.coords.latitude, longitude: current.coords.longitude };
         }
-      } catch (e) {}
-
-      // 2. High-accuracy current position
-      if (!coords) {
+      } catch (e) {
+        // Fallback to last known position if current times out indoors
         try {
-          const current = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
-          });
-          if (isCoordinateInIndia(current.coords.latitude, current.coords.longitude)) {
-            coords = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+          const last = await Location.getLastKnownPositionAsync();
+          if (last && isCoordinateInIndia(last.coords.latitude, last.coords.longitude)) {
+            coords = { latitude: last.coords.latitude, longitude: last.coords.longitude };
           }
-        } catch (e) {}
+        } catch (e2) {}
       }
     }
   } catch (err) {}
