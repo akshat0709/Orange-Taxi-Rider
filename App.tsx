@@ -61,6 +61,7 @@ import { LocationSearchModal } from './src/components/LocationSearchModal';
 import { ProfileModal, GuardianContact } from './src/components/ProfileModal';
 import { RideHistoryModal } from './src/components/RideHistoryModal';
 import { GuardianSafetyModal } from './src/components/GuardianSafetyModal';
+import { AmenitiesModal } from './src/components/AmenitiesModal';
 import {
   LocationItem,
   getSanitizedLocation,
@@ -146,6 +147,7 @@ export default function App() {
   // Minimalist Redesign (Option B) States
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'chat' | 'profile'>('home');
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [amenitiesModalVisible, setAmenitiesModalVisible] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(250);
 
   // -------------------------------------------------------------------------
@@ -1170,6 +1172,27 @@ export default function App() {
                 </View>
               ) : null}
 
+              {/* Onboard Amenities Tray */}
+              <TouchableOpacity
+                style={styles.onboardAmenitiesBar}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setAmenitiesModalVisible(true);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <Sparkles size={13} color="#F97316" />
+                  <Text style={styles.onboardAmenitiesText} numberOfLines={1}>
+                    Onboard: Chilled Water · In-Seat Screen · Dailies
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Text style={styles.onboardAmenitiesViewText}>Perks</Text>
+                  <ChevronRight size={12} color="#F97316" />
+                </View>
+              </TouchableOpacity>
+
               {/* Safety & SOS Strip */}
               <View style={styles.safetyStripRow}>
                 <TouchableOpacity
@@ -1287,6 +1310,53 @@ export default function App() {
                   );
                 })}
               </View>
+
+              {/* INCLUDED IN-CAB AMENITIES CARD */}
+              <TouchableOpacity
+                style={styles.step2AmenitiesCard}
+                activeOpacity={0.88}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAmenitiesModalVisible(true);
+                }}
+              >
+                <View style={styles.step2AmenitiesHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={14} color="#F97316" />
+                    <Text style={styles.step2AmenitiesTitle}>Included With Your {selectedVehicle?.name || 'Ride'}</Text>
+                  </View>
+                  <View style={styles.freeTagBadge}>
+                    <Text style={styles.freeTagBadgeText}>100% INCLUDED</Text>
+                  </View>
+                </View>
+
+                <View style={styles.step2AmenitiesGrid}>
+                  <View style={styles.step2AmenityItem}>
+                    <Text style={styles.step2AmenityEmoji}>📺</Text>
+                    <Text style={styles.step2AmenityText}>In-Seat Screen</Text>
+                  </View>
+                  <View style={styles.step2AmenityItem}>
+                    <Text style={styles.step2AmenityEmoji}>🎵</Text>
+                    <Text style={styles.step2AmenityText}>Studio Audio</Text>
+                  </View>
+                  <View style={styles.step2AmenityItem}>
+                    <Text style={styles.step2AmenityEmoji}>💧</Text>
+                    <Text style={styles.step2AmenityText}>Bottled Water</Text>
+                  </View>
+                  <View style={styles.step2AmenityItem}>
+                    <Text style={styles.step2AmenityEmoji}>📰</Text>
+                    <Text style={styles.step2AmenityText}>Daily Papers</Text>
+                  </View>
+                </View>
+
+                <View style={styles.step2AmenitiesFooter}>
+                  <Text style={styles.step2AmenitiesFooterText}>Pre-cooled AC · Clean EV · Zero surge guarantee</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Text style={styles.step2AmenitiesDetailsLink}>Details</Text>
+                    <ChevronRight size={12} color="#F97316" />
+                  </View>
+                </View>
+              </TouchableOpacity>
 
               {/* SIGNATURE HOSPITALITY PREFERENCES */}
               <View style={styles.sheetHospitalityCard}>
@@ -1495,6 +1565,52 @@ export default function App() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* INSIDE EVERY ORANGE - AMENITIES SHOWCASE BANNER */}
+              <TouchableOpacity
+                style={styles.homeAmenitiesBanner}
+                activeOpacity={0.88}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAmenitiesModalVisible(true);
+                }}
+              >
+                <View style={styles.homeAmenitiesHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={13} color="#F97316" />
+                    <Text style={styles.homeAmenitiesTitle}>Inside Every Orange Ride</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Text style={styles.homeAmenitiesViewAll}>Perks</Text>
+                    <ChevronRight size={13} color="#F97316" />
+                  </View>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.homeAmenitiesScroll}
+                >
+                  <View style={styles.homeAmenityPill}>
+                    <Text style={styles.homeAmenityPillText}>📺 In-Seat HD Screen</Text>
+                  </View>
+                  <View style={styles.homeAmenityPill}>
+                    <Text style={styles.homeAmenityPillText}>🎵 Studio Acoustics</Text>
+                  </View>
+                  <View style={styles.homeAmenityPill}>
+                    <Text style={styles.homeAmenityPillText}>💧 Bottled Water</Text>
+                  </View>
+                  <View style={styles.homeAmenityPill}>
+                    <Text style={styles.homeAmenityPillText}>📰 Daily Papers</Text>
+                  </View>
+                  <View style={styles.homeAmenityPill}>
+                    <Text style={styles.homeAmenityPillText}>❄️ Pre-Cooled AC</Text>
+                  </View>
+                  <View style={styles.homeAmenityPill}>
+                    <Text style={styles.homeAmenityPillText}>⚡ BE.6 Luxury EV</Text>
+                  </View>
+                </ScrollView>
+              </TouchableOpacity>
             </View>
 
             {/* Floating Bottom Navigation Dock with Elevated Taxi FAB (Option B) */}
@@ -1686,6 +1802,10 @@ export default function App() {
             setAuthMode('signin');
             setAuthModalVisible(true);
           }}
+          onOpenAmenities={() => {
+            setProfileModalVisible(false);
+            setAmenitiesModalVisible(true);
+          }}
           walletBalance={walletBalance}
         />
 
@@ -1700,6 +1820,21 @@ export default function App() {
           }}
           user={user}
           onRepeatTrip={handleRepeatTrip}
+        />
+
+        {/* ================================================================= */}
+        {/* IN-CAB AMENITIES & FACILITIES SHOWCASE MODAL                       */}
+        {/* ================================================================= */}
+        <AmenitiesModal
+          visible={amenitiesModalVisible}
+          onClose={() => setAmenitiesModalVisible(false)}
+          onBookNow={() => {
+            if (dropLocation && dropLocation.name) {
+              setStep(2);
+            } else {
+              setSearchModalVisible(true);
+            }
+          }}
         />
 
         {/* ================================================================= */}
@@ -2162,6 +2297,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // Home Amenities Showcase Banner
+  homeAmenitiesBanner: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  homeAmenitiesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  homeAmenitiesTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.2,
+  },
+  homeAmenitiesViewAll: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F97316',
+  },
+  homeAmenitiesScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  homeAmenityPill: {
+    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  homeAmenityPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F97316',
+  },
+
   // Floating Navigation Dock
   floatingNavDock: {
     position: 'absolute',
@@ -2464,6 +2642,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  onboardAmenitiesBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 10,
+  },
+  onboardAmenitiesText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C2410C',
+    flex: 1,
+  },
+  onboardAmenitiesViewText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F97316',
+  },
   safetyStripRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2635,6 +2836,78 @@ const styles = StyleSheet.create({
   sheetFleetPerKm: {
     color: '#9CA3AF',
     fontSize: 10,
+  },
+  step2AmenitiesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+    padding: 12,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  step2AmenitiesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  step2AmenitiesTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  freeTagBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  freeTagBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 0.4,
+  },
+  step2AmenitiesGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 8,
+    marginBottom: 8,
+  },
+  step2AmenityItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  step2AmenityEmoji: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  step2AmenityText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  step2AmenitiesFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  step2AmenitiesFooterText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  step2AmenitiesDetailsLink: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F97316',
   },
   sheetHospitalityCard: {
     backgroundColor: '#FFFFFF',

@@ -53,6 +53,7 @@ interface ProfileModalProps {
   onGuardianUpdated?: (guardian: GuardianContact | null) => void;
   onOpenRideHistory?: () => void;
   onOpenAuth?: () => void;
+  onOpenAmenities?: () => void;
   walletBalance?: number;
 }
 
@@ -71,6 +72,7 @@ export function ProfileModal({
   onGuardianUpdated,
   onOpenRideHistory,
   onOpenAuth,
+  onOpenAmenities,
   walletBalance = 250,
 }: ProfileModalProps) {
   // Guardian state
@@ -372,6 +374,38 @@ export function ProfileModal({
               <View style={styles.historyActionRight}>
                 <Text style={styles.historyActionText}>View All</Text>
                 <ChevronRight size={16} color="#3B82F6" />
+              </View>
+            </TouchableOpacity>
+
+            {/* IN-CAB AMENITIES & FACILITIES SHORTCUT CARD */}
+            <TouchableOpacity
+              style={styles.amenitiesCard}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.selectionAsync();
+                onDismiss();
+                onOpenAmenities?.();
+              }}
+            >
+              <View style={styles.amenitiesCardLeft}>
+                <View style={styles.amenitiesIconWrap}>
+                  <Sparkles size={20} color="#F97316" />
+                </View>
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.amenitiesTitle}>The Orange Experience</Text>
+                    <View style={styles.amenitiesIncludedBadge}>
+                      <Text style={styles.amenitiesIncludedText}>INCLUDED</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.amenitiesSub}>
+                    LED screens · Studio audio · Daily papers · Bottled water
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.amenitiesActionRight}>
+                <Text style={styles.amenitiesActionText}>Explore</Text>
+                <ChevronRight size={16} color="#F97316" />
               </View>
             </TouchableOpacity>
 
@@ -911,6 +945,70 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#3B82F6',
+  },
+  amenitiesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#14171F',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+    padding: 16,
+    marginBottom: 20,
+  },
+  amenitiesCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  amenitiesIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  amenitiesTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  amenitiesIncludedBadge: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  amenitiesIncludedText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#F97316',
+    letterSpacing: 0.5,
+  },
+  amenitiesSub: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  amenitiesActionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  amenitiesActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F97316',
   },
   sectionHeader: {
     flexDirection: 'row',
