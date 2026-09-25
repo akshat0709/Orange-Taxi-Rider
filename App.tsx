@@ -114,9 +114,7 @@ export default function App() {
   // Locations State (Auto-detects live GPS & IP)
   const [pickupText, setPickupText] = useState('📍 Auto-detecting your location...');
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937 });
-  const [dropLocation, setDropLocation] = useState<LocationItem>(
-    EXPANDED_PRESETS.find((p) => p.city === 'Bengaluru') || EXPANDED_PRESETS[0]
-  );
+  const [dropLocation, setDropLocation] = useState<LocationItem | null>(null);
   const [pickupPillar, setPickupPillar] = useState('');
 
   // Search Modal & Map Pin Picker States
@@ -424,12 +422,6 @@ export default function App() {
     setPickupCoords({ lat: locResult.lat, lng: locResult.lng });
     setPickupText(locResult.displayText);
     setActiveCity(locResult.cityName);
-
-    // Pick top preset matching that city as default drop
-    const matchingDrop = EXPANDED_PRESETS.find((p) => p.city === locResult.cityName);
-    if (matchingDrop) {
-      setDropLocation(matchingDrop);
-    }
   }
 
   // Handle City Switch from Quick Header Dropdown
@@ -441,12 +433,7 @@ export default function App() {
     const defaultHub = getDefaultCityCenter(city, false);
     setPickupCoords({ lat: defaultHub.lat, lng: defaultHub.lng });
     setPickupText(defaultHub.displayText);
-
-    const matchingDrop = EXPANDED_PRESETS.find((p) => p.city === city && p.isAirport) ||
-      EXPANDED_PRESETS.find((p) => p.city === city) ||
-      EXPANDED_PRESETS[0];
-
-    setDropLocation(matchingDrop);
+    setDropLocation(null);
   }
 
   // Handle 1-Tap Map Press to adjust pickup point anywhere on map
@@ -468,7 +455,9 @@ export default function App() {
   }
 
   // Distance & Fare Calculations
-  const rawDist = haversine(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
+  const rawDist = dropLocation
+    ? haversine(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng)
+    : 10;
   const distKm = Math.max(2.5, Math.round(rawDist * 10) / 10);
   const durationMin = Math.round(distKm / 0.45);
 
@@ -590,6 +579,12 @@ export default function App() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setAuthMode('signin');
       setAuthModalVisible(true);
+      return;
+    }
+
+    if (!dropLocation) {
+      Alert.alert('Destination Required', 'Please select your drop-off destination before confirming.');
+      setSearchModalVisible(true);
       return;
     }
 
@@ -972,7 +967,11 @@ export default function App() {
             <View style={StyleSheet.absoluteFill}>
               <RideMap
                 pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickup_area }}
-                drop={{ lat: dropLocation.lat, lng: dropLocation.lng, name: activeBooking.drop_area }}
+                drop={{
+                  lat: dropLocation?.lat ?? (activeBooking.drop_address && activeBooking.drop_address.includes(',') ? Number(activeBooking.drop_address.split(',')[0]) : pickupCoords.lat),
+                  lng: dropLocation?.lng ?? (activeBooking.drop_address && activeBooking.drop_address.includes(',') ? Number(activeBooking.drop_address.split(',')[1]) : pickupCoords.lng),
+                  name: activeBooking.drop_area,
+                }}
                 driverLocation={
                   assignedDriver?.current_lat && assignedDriver?.current_lng
                     ? { lat: assignedDriver.current_lat, lng: assignedDriver.current_lng }
@@ -1167,7 +1166,7 @@ export default function App() {
             <View style={{ height: height * 0.33 }}>
               <RideMap
                 pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: pickupText }}
-                drop={{ lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name }}
+                drop={dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name } : undefined}
                 interactive={true}
                 height="100%"
                 routeDistanceKm={distKm}
@@ -1192,7 +1191,7 @@ export default function App() {
                     {pickupText}
                   </Text>
                   <Text style={styles.sheetRouteDrop} numberOfLines={1}>
-                    {dropLocation.name}
+                    {dropLocation ? dropLocation.name : 'Select drop-off destination'}
                   </Text>
                 </View>
                 <View style={styles.sheetEditBtn}>
@@ -1430,7 +1429,10 @@ export default function App() {
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.destMicroLabel}>Pick Off</Text>
-                  <Text style={styles.destPlaceholderText} numberOfLines={1}>
+                  <Text
+                    style={dropLocation ? styles.destPrimaryAddress : styles.destPlaceholderText}
+                    numberOfLines={1}
+                  >
                     {dropLocation ? dropLocation.name : 'Where you want to go?'}
                   </Text>
                 </View>
@@ -1579,8 +1581,8 @@ export default function App() {
           onChooseOnMap={(target) => {
             setSearchModalVisible(false);
             setPinPickerTarget(target);
-            setPinCurrentCoords(target === 'pickup' ? pickupCoords : { lat: dropLocation.lat, lng: dropLocation.lng });
-            setPinAddressText(target === 'pickup' ? pickupText : dropLocation.name);
+            setPinCurrentCoords(target === 'pickup' ? pickupCoords : (dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng } : pickupCoords));
+            setPinAddressText(target === 'pickup' ? pickupText : (dropLocation?.name || 'Set destination on map'));
             setPinPickerActive(true);
           }}
           onUseCurrentGPS={() => refreshLocation(activeCity)}

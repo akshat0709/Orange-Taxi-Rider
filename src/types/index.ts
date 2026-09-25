@@ -23,7 +23,9 @@ export interface Booking {
   reference: string;
   status: 'searching' | 'accepted' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
   pickup_area: string;
+  pickup_address?: string;
   drop_area: string;
+  drop_address?: string;
   estimated_fare: number;
   vehicle_name: string;
   vehicle_number?: string;

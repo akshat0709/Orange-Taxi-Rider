@@ -31,7 +31,7 @@ interface LocationSearchModalProps {
   onClose: () => void;
   pickupText: string;
   pickupCoords: { lat: number; lng: number };
-  dropLocation: LocationItem;
+  dropLocation?: LocationItem | null;
   onSelectPickup: (loc: { name: string; lat: number; lng: number; city: string }) => void;
   onSelectDrop: (loc: LocationItem) => void;
   onChooseOnMap: (target: 'pickup' | 'drop') => void;
