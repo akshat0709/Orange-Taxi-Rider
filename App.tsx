@@ -59,6 +59,7 @@ import { InRideChatModal } from './src/components/InRideChatModal';
 import { RatingModal } from './src/components/RatingModal';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
 import { ProfileModal, GuardianContact } from './src/components/ProfileModal';
+import { RideHistoryModal } from './src/components/RideHistoryModal';
 import { GuardianSafetyModal } from './src/components/GuardianSafetyModal';
 import {
   LocationItem,
@@ -144,6 +145,7 @@ export default function App() {
 
   // Minimalist Redesign (Option B) States
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'chat' | 'profile'>('home');
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(250);
 
   // -------------------------------------------------------------------------
@@ -627,6 +629,18 @@ export default function App() {
       }
 
       setActiveBooking(data as Booking);
+      if (data?.id) {
+        try {
+          const stored = await AsyncStorage.getItem('@orange_booking_history_ids');
+          const idList: string[] = stored ? JSON.parse(stored) : [];
+          if (!idList.includes(data.id)) {
+            idList.unshift(data.id);
+            await AsyncStorage.setItem('@orange_booking_history_ids', JSON.stringify(idList.slice(0, 50)));
+          }
+        } catch (e) {
+          console.warn('Could not cache booking id in AsyncStorage:', e);
+        }
+      }
       setStep(4);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
@@ -634,6 +648,26 @@ export default function App() {
     } finally {
       setBookingLoading(false);
     }
+  }
+
+  function handleRepeatTrip(pickupName: string, dropName: string) {
+    setHistoryModalVisible(false);
+    setActiveTab('home');
+    if (pickupName) {
+      setPickupText(pickupName);
+    }
+    if (dropName) {
+      setDropLocation({
+        id: 'repeat_' + Date.now(),
+        name: dropName,
+        subtitle: 'Past Trip Destination',
+        city: (activeCity as any) || 'Bengaluru',
+        lat: pickupCoords.lat + 0.05,
+        lng: pickupCoords.lng + 0.05,
+      });
+    }
+    setStep(2);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
   async function handleCancelRide() {
@@ -767,12 +801,7 @@ export default function App() {
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
-                if (user) {
-                  setProfileModalVisible(true);
-                } else {
-                  setAuthMode('signin');
-                  setAuthModalVisible(true);
-                }
+                setProfileModalVisible(true);
               }}
             >
               {user ? (
@@ -1488,17 +1517,11 @@ export default function App() {
                 onPress={() => {
                   Haptics.selectionAsync();
                   setActiveTab('history');
-                  Alert.alert(
-                    'Trip History',
-                    user ? 'You have no active pending trips. All past trips are recorded in Supabase.' : 'Please sign in to view your trip receipts and ride history.',
-                    [
-                      { text: user ? 'OK' : 'Sign In', onPress: () => { if (!user) setAuthModalVisible(true); } },
-                      { text: 'Cancel', style: 'cancel' }
-                    ]
-                  );
+                  setHistoryModalVisible(true);
                 }}
               >
                 <Clock size={22} color={activeTab === 'history' ? '#F97316' : '#9CA3AF'} />
+                {activeTab === 'history' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
 
               {/* Elevated Center Taxi FAB */}
@@ -1538,6 +1561,7 @@ export default function App() {
                 }}
               >
                 <MessageSquare size={22} color={activeTab === 'chat' ? '#F97316' : '#9CA3AF'} />
+                {activeTab === 'chat' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
 
               {/* Settings / Profile Tab */}
@@ -1546,15 +1570,11 @@ export default function App() {
                 onPress={() => {
                   Haptics.selectionAsync();
                   setActiveTab('profile');
-                  if (user) {
-                    setProfileModalVisible(true);
-                  } else {
-                    setAuthMode('signin');
-                    setAuthModalVisible(true);
-                  }
+                  setProfileModalVisible(true);
                 }}
               >
                 <UserIcon size={22} color={activeTab === 'profile' ? '#F97316' : '#9CA3AF'} />
+                {activeTab === 'profile' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
             </View>
           </View>
@@ -1649,10 +1669,37 @@ export default function App() {
         {/* ================================================================= */}
         <ProfileModal
           visible={profileModalVisible}
-          onDismiss={() => setProfileModalVisible(false)}
+          onDismiss={() => {
+            setProfileModalVisible(false);
+            setActiveTab('home');
+          }}
           user={user}
           onSignOut={handleSignOut}
           onGuardianUpdated={(g) => setGuardianContact(g)}
+          onOpenRideHistory={() => {
+            setProfileModalVisible(false);
+            setActiveTab('history');
+            setHistoryModalVisible(true);
+          }}
+          onOpenAuth={() => {
+            setProfileModalVisible(false);
+            setAuthMode('signin');
+            setAuthModalVisible(true);
+          }}
+          walletBalance={walletBalance}
+        />
+
+        {/* ================================================================= */}
+        {/* RIDE HISTORY MODAL (CONNECTED TO SUPABASE)                         */}
+        {/* ================================================================= */}
+        <RideHistoryModal
+          visible={historyModalVisible}
+          onClose={() => {
+            setHistoryModalVisible(false);
+            setActiveTab('home');
+          }}
+          user={user}
+          onRepeatTrip={handleRepeatTrip}
         />
 
         {/* ================================================================= */}

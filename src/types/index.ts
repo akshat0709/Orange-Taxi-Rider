@@ -32,6 +32,12 @@ export interface Booking {
   vehicle_model?: string;
   ride_otp: string;
   driver_id?: string | null;
+  customer_id?: string;
+  vehicle_code?: string;
+  payment_method?: string;
+  base_fare?: number;
+  distance_fare?: number;
+  tax_amount?: number;
   distance_km?: number;
   duration_min?: number;
   created_at: string;
