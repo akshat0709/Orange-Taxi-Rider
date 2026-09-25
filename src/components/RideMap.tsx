@@ -21,26 +21,25 @@ interface RideMapProps {
 
 const { width } = Dimensions.get('window');
 
-// Dark luxury map styling for Apple & Google Maps
-const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#141822' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#141822' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8A94A6' }] },
-  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#E2E8F0' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6B7280' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1A2321' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#4ADE80' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#252B3B' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1E2330' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#CBD5E1' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#384156' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1E2330' }] },
-  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#FCD34D' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#252D3D' }] },
-  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#F56B00' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0B101B' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4B5563' }] },
-  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#0B101B' }] },
+// Minimalist, modern light grayscale cartography for clean Uber-style look (Option B)
+const MINIMAL_LIGHT_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#F4F5F7' }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#6B7280' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }, { weight: 2 }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#1F2937' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#E5E7EB' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#E5E7EB' }, { weight: 1 }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9CA3AF' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#D1D5DB' }, { weight: 1.5 }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#4B5563' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#E0E7FF' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9CA3AF' }] },
 ];
 
 export function RideMap({
@@ -133,8 +132,8 @@ export function RideMap({
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
-        customMapStyle={DARK_MAP_STYLE}
-        userInterfaceStyle="dark"
+        customMapStyle={MINIMAL_LIGHT_MAP_STYLE}
+        userInterfaceStyle="light"
         scrollEnabled={interactive}
         zoomEnabled={interactive}
         pitchEnabled={interactive}
@@ -155,7 +154,7 @@ export function RideMap({
           longitudeDelta: hasValidDrop ? 0.08 : 0.005,
         }}
       >
-        {/* Pickup Pin (when not actively picking pickup on map) */}
+        {/* Pickup Pin - Signature Glowing Orange Halo */}
         {(!isPinPickerMode || pinPickerTarget !== 'pickup') && pickup.lat && (
           <Marker
             coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
@@ -170,7 +169,7 @@ export function RideMap({
           </Marker>
         )}
 
-        {/* Destination Pin (when not actively picking drop on map) */}
+        {/* Destination Pin */}
         {(!isPinPickerMode || pinPickerTarget !== 'drop') && hasValidDrop && drop && (
           <Marker
             coordinate={{ latitude: drop.lat, longitude: drop.lng }}
@@ -187,32 +186,39 @@ export function RideMap({
           </Marker>
         )}
 
-        {/* Real Assigned Chauffeur Marker (Only when driver is assigned) */}
+        {/* Real Assigned Chauffeur Marker with Floating ETA Badge */}
         {driverLocation && driverLocation.lat && driverLocation.lng && (
           <Marker
             coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
             title="Orange Chauffeur"
             description={isInProgress ? 'En route to destination' : 'En route to pickup'}
-            anchor={{ x: 0.5, y: 0.5 }}
+            anchor={{ x: 0.5, y: 0.8 }}
           >
-            <View style={styles.driverCarMarker}>
-              <Car size={16} color="#FFFFFF" />
+            <View style={styles.driverCarMarkerWrapper}>
+              <View style={styles.carEtaBadge}>
+                <Text style={styles.carEtaText}>
+                  {routeDurationMin ? `${routeDurationMin} min` : '3 min'}
+                </Text>
+              </View>
+              <View style={styles.driverCarMarker}>
+                <Car size={15} color="#FFFFFF" />
+              </View>
             </View>
           </Marker>
         )}
 
-        {/* Route Line */}
+        {/* Route Line - Crisp Charcoal Black Contrast (as in reference mockup) */}
         {polylineCoords.length > 1 && (
           <Polyline
             coordinates={polylineCoords}
-            strokeColor={isInProgress ? '#22C55E' : '#F56B00'}
+            strokeColor="#18181B"
             strokeWidth={4.5}
             lineDashPattern={[0]}
           />
         )}
       </MapView>
 
-      {/* CENTER PIN FOR "SET ON MAP" MODE (Uber style fixed center pin) */}
+      {/* CENTER PIN FOR "SET ON MAP" MODE */}
       {isPinPickerMode && (
         <View pointerEvents="none" style={styles.centerPinContainer}>
           <View style={styles.pinTooltip}>
@@ -220,7 +226,7 @@ export function RideMap({
               Drag map to place {pinPickerTarget === 'pickup' ? 'pickup point' : 'destination'}
             </Text>
           </View>
-          <View style={[styles.centerPinHead, pinPickerTarget === 'pickup' && { backgroundColor: '#22C55E' }]}>
+          <View style={[styles.centerPinHead, pinPickerTarget === 'pickup' && { backgroundColor: '#F97316' }]}>
             {pinPickerTarget === 'pickup' ? (
               <MapPin size={18} color="#FFFFFF" />
             ) : (
@@ -247,10 +253,11 @@ export function RideMap({
         </View>
       )}
 
-      {/* Recenter GPS Floating Button */}
+      {/* Recenter GPS Floating Button - Crisp White Pill */}
       {onRecenterPress && (
         <TouchableOpacity
           style={styles.recenterBtn}
+          activeOpacity={0.85}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             if (mapRef.current && pickup.lat) {
@@ -267,7 +274,7 @@ export function RideMap({
             onRecenterPress();
           }}
         >
-          <Crosshair size={18} color="#FFFFFF" />
+          <Crosshair size={20} color="#F97316" />
         </TouchableOpacity>
       )}
     </View>
@@ -276,36 +283,38 @@ export function RideMap({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#232936',
-    backgroundColor: '#141822',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F8FAFC',
     position: 'relative',
   },
   map: {
     ...StyleSheet.absoluteFill,
   },
   pickupPulseContainer: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pickupPulseOuter: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(34, 197, 94, 0.25)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(249, 115, 22, 0.22)',
     borderWidth: 2,
-    borderColor: '#22C55E',
+    borderColor: '#F97316',
     position: 'absolute',
   },
   pickupPulseInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22C55E',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#F97316',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   dropMarkerContainer: {
     alignItems: 'center',
@@ -314,85 +323,108 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F56B00',
+    backgroundColor: '#18181B',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
     elevation: 4,
   },
   dropMarkerPin: {
     width: 2,
     height: 6,
-    backgroundColor: '#F56B00',
+    backgroundColor: '#18181B',
+  },
+  driverCarMarkerWrapper: {
+    alignItems: 'center',
+  },
+  carEtaBadge: {
+    backgroundColor: '#F97316',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginBottom: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  carEtaText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   driverCarMarker: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#F56B00',
-    borderWidth: 2,
+    backgroundColor: '#F97316',
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
   floatingRoutePill: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 14,
+    left: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(15, 18, 24, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 4,
   },
   liveIndicator: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#F56B00',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F97316',
   },
   floatingRouteText: {
-    color: '#E5E7EB',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
   },
   recenterBtn: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1E232F',
-    borderWidth: 1,
-    borderColor: '#2D3748',
+    bottom: 14,
+    right: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   centerPinContainer: {
     position: 'absolute',
@@ -404,13 +436,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pinTooltip: {
-    backgroundColor: 'rgba(15, 18, 24, 0.94)',
+    backgroundColor: '#18181B',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   pinTooltipText: {
     color: '#FFFFFF',
@@ -418,25 +453,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   centerPinHead: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F56B00',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F97316',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
     elevation: 6,
   },
   centerPinShadow: {
     width: 8,
     height: 4,
     borderRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     marginTop: 2,
   },
 });

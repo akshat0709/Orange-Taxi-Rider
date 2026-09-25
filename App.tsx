@@ -143,6 +143,10 @@ export default function App() {
   const [guardianModalVisible, setGuardianModalVisible] = useState(false);
   const [guardianContact, setGuardianContact] = useState<GuardianContact | null>(null);
 
+  // Minimalist Redesign (Option B) States
+  const [activeTab, setActiveTab] = useState<'home' | 'history' | 'chat' | 'profile'>('home');
+  const [walletBalance, setWalletBalance] = useState<number>(250);
+
   // -------------------------------------------------------------------------
   // INITIALIZATION & AUTH LISTENER
   // -------------------------------------------------------------------------
@@ -666,79 +670,154 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="light-content" backgroundColor="#0B0D11" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-        {/* TOP BRAND & CITY SELECTOR HEADER */}
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoChar}>O</Text>
-            </View>
-            <View>
-              <Text style={styles.brandTitle}>ORANGE TAXI</Text>
-              <Text style={styles.brandSubtitle}>100% ELECTRIC MOBILITY</Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {/* Quick City Switcher Dropdown Button */}
-            {step === 1 && !pinPickerActive && (
-              <TouchableOpacity
-                style={styles.citySelectorBtn}
-                onPress={() => setCityPickerVisible(!cityPickerVisible)}
-              >
-                <MapPin size={11} color="#F56B00" />
-                <Text style={styles.citySelectorText}>{activeCity}</Text>
-                <ChevronDown size={12} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
-
-            {/* Auth Profile / Sign In Pill */}
-            {user ? (
-              <TouchableOpacity
-                style={styles.userProfilePill}
-                onPress={() => {
-                  Haptics.selectionAsync();
+        {/* ================================================================= */}
+        {/* FLOATING TOP HEADERS (OPTION B MINIMAL DESIGN)                    */}
+        {/* ================================================================= */}
+        {pinPickerActive ? null : step === 1 ? (
+          /* STEP 1: FLOATING ISLAND HEADER */
+          <View style={styles.floatingIslandHeader}>
+            {/* User Profile Avatar Circle */}
+            <TouchableOpacity
+              style={styles.floatingAvatarBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.selectionAsync();
+                if (user) {
                   setProfileModalVisible(true);
-                }}
-              >
-                <UserIcon size={12} color="#F56B00" />
-                <Text style={styles.userProfileText} numberOfLines={1}>
-                  {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'Profile'}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.signInButton}
-                onPress={() => {
+                } else {
                   setAuthMode('signin');
                   setAuthModalVisible(true);
-                }}
-              >
-                <UserIcon size={12} color="#FFFFFF" />
-                <Text style={styles.signInButtonText}>Sign In</Text>
-              </TouchableOpacity>
+                }
+              }}
+            >
+              {user ? (
+                <View style={styles.avatarInner}>
+                  <Text style={styles.avatarChar}>
+                    {(user.user_metadata?.full_name?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase()}
+                  </Text>
+                </View>
+              ) : (
+                <UserIcon size={19} color="#18181B" />
+              )}
+            </TouchableOpacity>
+
+            {/* Floating Wallet Pill [ 💳  ₹ 250   + ] */}
+            <TouchableOpacity
+              style={styles.floatingWalletPill}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.selectionAsync();
+                Alert.alert(
+                  'Orange Electric Wallet',
+                  `Current Available Balance: ₹${walletBalance}\n\n100% Zero-Emission Travel. Instant auto-pay enabled.`,
+                  [
+                    {
+                      text: 'Add ₹500',
+                      onPress: () => {
+                        setWalletBalance((b) => b + 500);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      },
+                    },
+                    { text: 'Close', style: 'cancel' },
+                  ]
+                );
+              }}
+            >
+              <CreditCard size={15} color="#18181B" />
+              <Text style={styles.floatingWalletText}>₹ {walletBalance}</Text>
+              <View style={styles.walletPlusCircle}>
+                <Text style={styles.walletPlusText}>+</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* City Switcher Circular Button */}
+            <TouchableOpacity
+              style={styles.floatingCityBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setCityPickerVisible(!cityPickerVisible);
+              }}
+            >
+              <MapPin size={18} color="#F97316" />
+            </TouchableOpacity>
+
+            {/* Floating City Dropdown Menu */}
+            {cityPickerVisible && (
+              <View style={styles.floatingCityMenu}>
+                <Text style={styles.cityMenuHeader}>SELECT CITY</Text>
+                {(['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad'] as const).map((city) => (
+                  <TouchableOpacity
+                    key={city}
+                    style={[styles.cityMenuItem, activeCity === city && styles.cityMenuItemActive]}
+                    onPress={() => {
+                      handleSelectCity(city);
+                      setCityPickerVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.cityMenuItemText, activeCity === city && styles.cityMenuItemTextActive]}>
+                      {city}
+                    </Text>
+                    {activeCity === city && <Check size={14} color="#F97316" />}
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
           </View>
-        </View>
+        ) : step === 4 ? (
+          /* STEP 4: FLOATING ARRIVING / IN-PROGRESS HEADER */
+          <View style={styles.arrivingTopHeader}>
+            <TouchableOpacity
+              style={styles.arrivingBackBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setStep(1);
+              }}
+            >
+              <ArrowLeft size={18} color="#18181B" />
+            </TouchableOpacity>
 
-        {/* CITY SELECTION POPUP DRAWER */}
-        {cityPickerVisible && (
-          <View style={styles.cityDropdownMenu}>
-            {(['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad'] as const).map((city) => (
-              <TouchableOpacity
-                key={city}
-                style={[styles.cityDropdownItem, activeCity === city && styles.cityDropdownItemActive]}
-                onPress={() => handleSelectCity(city)}
-              >
-                <Text style={[styles.cityDropdownItemText, activeCity === city && styles.cityDropdownItemTextActive]}>
-                  {city}
-                </Text>
-                {activeCity === city && <Check size={14} color="#F56B00" />}
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.arrivingHeaderTitle}>
+              {activeBooking?.status === 'in_progress'
+                ? 'Ride in Progress'
+                : activeBooking?.status === 'arrived'
+                ? 'Chauffeur Arrived'
+                : activeBooking?.status === 'accepted'
+                ? 'Arriving'
+                : 'Connecting'}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.arrivingShieldBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setGuardianModalVisible(true);
+              }}
+            >
+              <ShieldCheck size={18} color="#10B981" />
+            </TouchableOpacity>
           </View>
-        )}
+        ) : step === 2 ? (
+          /* STEP 2: MINIMAL VEHICLE SELECTION HEADER */
+          <View style={styles.step2Header}>
+            <TouchableOpacity
+              style={styles.step2BackBtn}
+              activeOpacity={0.85}
+              onPress={() => setStep(1)}
+            >
+              <ArrowLeft size={18} color="#18181B" />
+            </TouchableOpacity>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.step2HeaderTitle}>Select Ride</Text>
+              <Text style={styles.step2HeaderSub}>100% Zero-Emission EV Fleet</Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
+        ) : null}
 
         {/* ================================================================= */}
         {/* VIEW ROUTER                                                       */}
@@ -758,7 +837,7 @@ export default function App() {
                 style={styles.pinPickerBackBtn}
                 onPress={() => setPinPickerActive(false)}
               >
-                <ArrowLeft size={20} color="#FFFFFF" />
+                <ArrowLeft size={20} color="#0F172A" />
               </TouchableOpacity>
               <Text style={styles.pinPickerTitle}>
                 Set {pinPickerTarget === 'pickup' ? 'Pickup Location' : 'Destination'} on Map
@@ -800,260 +879,195 @@ export default function App() {
           /* =============================================================== */
           /* STEP 4: ACTIVE RIDE, LIVE GPS & REAL-TIME DRIVER STATUS         */
           /* =============================================================== */
-          <ScrollView contentContainerStyle={styles.activeRideScroll}>
-            <View style={styles.activeCard}>
-              <View style={styles.statusHeader}>
-                <View style={[styles.pulsingDot, !assignedDriver && styles.pulsingDotAmber]} />
-                <Text style={[styles.statusTitle, !assignedDriver && styles.statusTitleAmber]}>
-                  {activeBooking.status === 'searching'
-                    ? 'Broadcasting to nearby Orange Chauffeurs...'
-                    : activeBooking.status === 'accepted'
-                    ? 'Chauffeur En Route 📍'
-                    : activeBooking.status === 'arrived'
-                    ? 'Chauffeur Arrived at your Pickup'
-                    : activeBooking.status === 'in_progress'
-                    ? 'Ride in Progress · En Route to Drop ⚡'
-                    : 'Ride Completed'}
-                </Text>
+          <View style={{ flex: 1, position: 'relative' }}>
+            {/* Live Interactive Map Tracking */}
+            <View style={StyleSheet.absoluteFill}>
+              <RideMap
+                pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickup_area }}
+                drop={{ lat: dropLocation.lat, lng: dropLocation.lng, name: activeBooking.drop_area }}
+                driverLocation={
+                  assignedDriver?.current_lat && assignedDriver?.current_lng
+                    ? { lat: assignedDriver.current_lat, lng: assignedDriver.current_lng }
+                    : null
+                }
+                status={activeBooking.status}
+                height="100%"
+                routeDistanceKm={activeBooking.distance_km}
+                routeDurationMin={activeBooking.duration_min}
+              />
+            </View>
+
+            {/* Floating Minimal Arriving HUD Card (Option B) */}
+            <View style={styles.floatingArrivingCard}>
+              {/* Header: Title + ETA badge */}
+              <View style={styles.arrivingCardHeader}>
+                <View>
+                  <Text style={styles.arrivingTitleText}>
+                    {activeBooking.status === 'in_progress'
+                      ? 'In Progress'
+                      : activeBooking.status === 'arrived'
+                      ? 'Arrived'
+                      : activeBooking.status === 'accepted'
+                      ? 'Arriving'
+                      : 'Connecting'}
+                  </Text>
+                  <Text style={styles.arrivingSubSubtitle}>
+                    {activeBooking.status === 'in_progress'
+                      ? 'Cruising safely to destination'
+                      : activeBooking.status === 'arrived'
+                      ? 'Chauffeur waiting at pickup'
+                      : activeBooking.status === 'accepted'
+                      ? 'Chauffeur en route to pickup'
+                      : 'Locating closest verified electric cab'}
+                  </Text>
+                </View>
+
+                <View style={styles.arrivingEtaBadge}>
+                  <Text style={styles.arrivingEtaText}>
+                    {activeBooking.status === 'in_progress'
+                      ? `⚡ ${activeBooking.distance_km || 12} km`
+                      : activeBooking.status === 'accepted'
+                      ? '3 min'
+                      : '⚡ Active'}
+                  </Text>
+                </View>
               </View>
 
-              {/* LIVE MAP TRACKING */}
-              <View style={{ marginTop: 14 }}>
-                <RideMap
-                  pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickup_area }}
-                  drop={{ lat: dropLocation.lat, lng: dropLocation.lng, name: activeBooking.drop_area }}
-                  driverLocation={
-                    assignedDriver?.current_lat && assignedDriver?.current_lng
-                      ? { lat: assignedDriver.current_lat, lng: assignedDriver.current_lng }
-                      : null
-                  }
-                  status={activeBooking.status}
-                  height={220}
-                  routeDistanceKm={activeBooking.distance_km}
-                  routeDurationMin={activeBooking.duration_min}
-                />
-              </View>
-
-              {/* TRIP STATUS / OTP HERO SECTION */}
-              {activeBooking.status === 'in_progress' ? (
-                <View style={styles.tripInProgressHero}>
-                  <View style={styles.tripInProgressIcon}>
-                    <CheckCircle size={22} color="#10B981" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={styles.greenPulsingDot} />
-                      <Text style={styles.tripInProgressTitle}>RIDE IN PROGRESS · OTP VERIFIED</Text>
-                    </View>
-                    <Text style={styles.tripInProgressSub}>
-                      Chauffeur verified OTP · Cruising safely to destination
+              {/* Chauffeur & Vehicle Profile Row */}
+              {activeBooking.status === 'searching' ? (
+                <View style={styles.searchingFleetRow}>
+                  <ActivityIndicator size="small" color="#F97316" />
+                  <Text style={styles.searchingFleetText}>
+                    Broadcasting to nearby Orange EV Chauffeurs...
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.driverProfileMinimalRow}>
+                  {/* Driver Avatar */}
+                  <View style={styles.driverAvatarCircle}>
+                    <Text style={styles.driverAvatarLetter}>
+                      {resolvedVehicle.chauffeurName.charAt(0) || 'D'}
                     </Text>
                   </View>
+
+                  {/* Driver & Car Meta */}
+                  <View style={styles.driverMetaCol}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.driverNameTitle} numberOfLines={1}>
+                        {resolvedVehicle.chauffeurName}
+                      </Text>
+                      {resolvedVehicle.isPartner && (
+                        <View style={styles.partnerPill}>
+                          <Text style={styles.partnerPillText}>Partner</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.vehicleModelSub} numberOfLines={1}>
+                      {resolvedVehicle.modelName} · 100% EV
+                    </Text>
+                  </View>
+
+                  {/* Rating & Number Plate Pills */}
+                  <View style={styles.driverPillsRow}>
+                    <View style={styles.ratingPillYellow}>
+                      <Text style={styles.ratingPillText}>★ {resolvedVehicle.rating}</Text>
+                    </View>
+                    <View style={styles.platePillMono}>
+                      <Text style={styles.platePillText}>{resolvedVehicle.plateNumber}</Text>
+                    </View>
+                  </View>
                 </View>
-              ) : activeBooking.status !== 'completed' && activeBooking.ride_otp ? (
-                <View style={styles.otpHero}>
-                  <Text style={styles.otpLabel}>YOUR RIDE START OTP</Text>
-                  <Text style={styles.otpValue}>{activeBooking.ride_otp}</Text>
-                  <Text style={styles.otpSub}>Share this 6-digit code with your driver to begin the journey</Text>
+              )}
+
+              {/* Circular Tactile Action Buttons Row (Mockup: Cancel, Chat, Call) */}
+              <View style={styles.circularActionsRow}>
+                {/* Circular Cancel Action */}
+                {activeBooking.status !== 'in_progress' && activeBooking.status !== 'completed' ? (
+                  <TouchableOpacity
+                    style={styles.circularActionCancel}
+                    activeOpacity={0.8}
+                    onPress={handleCancelRide}
+                  >
+                    <X size={20} color="#64748B" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.circularActionCancel, { backgroundColor: '#ECFDF5' }]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      Alert.alert('Trip Information', `Booking: ${activeBooking.reference}\nFare: ₹${activeBooking.estimated_fare}\nDestination: ${activeBooking.drop_area}`);
+                    }}
+                  >
+                    <Check size={20} color="#10B981" />
+                  </TouchableOpacity>
+                )}
+
+                {/* Circular In-Ride Chat Action */}
+                <TouchableOpacity
+                  style={styles.circularActionChat}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setUnreadChatCount(0);
+                    setChatModalVisible(true);
+                  }}
+                >
+                  <MessageSquare size={20} color="#FFFFFF" />
+                  {unreadChatCount > 0 && (
+                    <View style={styles.chatBadgeAbsolute}>
+                      <Text style={styles.chatBadgeText}>{unreadChatCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Circular Call Action */}
+                <TouchableOpacity
+                  style={styles.circularActionCall}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    if (resolvedVehicle.phone) {
+                      Linking.openURL(`tel:${resolvedVehicle.phone}`);
+                    } else {
+                      Linking.openURL('tel:1800123456');
+                    }
+                  }}
+                >
+                  <Phone size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Ride Start OTP Pill (or Verified Status) */}
+              {activeBooking.status === 'in_progress' ? (
+                <View style={styles.inProgressPillBar}>
+                  <CheckCircle size={15} color="#10B981" />
+                  <Text style={styles.inProgressPillText}>OTP Verified · Fare ₹{activeBooking.estimated_fare}</Text>
+                </View>
+              ) : activeBooking.ride_otp ? (
+                <View style={styles.otpPillBar}>
+                  <Text style={styles.otpPillLabel}>START OTP</Text>
+                  <Text style={styles.otpPillCode}>{activeBooking.ride_otp}</Text>
+                  <Text style={styles.otpPillSub}>Share with chauffeur</Text>
                 </View>
               ) : null}
 
-              {/* DYNAMIC CHAUFFEUR & VEHICLE DETAILS CARD */}
-              {activeBooking.status === 'searching' ? (
-                <View style={styles.carSearchingCard}>
-                  <View style={styles.searchingHeaderRow}>
-                    <View style={styles.searchingIconBox}>
-                      <ActivityIndicator size="small" color="#F59E0B" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.searchingTitle}>Assigning Nearby Electric Fleet...</Text>
-                      <Text style={styles.searchingSub}>
-                        Notifying nearest Orange Chauffeur (100% Zero Emission)
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.searchingVehiclePill}>
-                    <Car size={14} color="#F59E0B" />
-                    <Text style={styles.searchingVehicleText}>
-                      Requested: {activeBooking.vehicle_name || 'Orange Sedan'} (100% Electric EV)
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.prominentVehicleCard}>
-                  {/* Card Header with Status */}
-                  <View style={styles.cardTopHeader}>
-                    <View style={styles.cardTopTitleRow}>
-                      <Car size={16} color="#F56B00" />
-                      <Text style={styles.cardTopTitle}>
-                        {activeBooking.status === 'in_progress' ? 'Your Ride Vehicle & Chauffeur' : 'Assigned Vehicle & Driver'}
-                      </Text>
-                    </View>
-                    <View style={styles.liveStatusBadge}>
-                      <View style={styles.greenPulsingDot} />
-                      <Text style={styles.liveStatusText}>
-                        {activeBooking.status === 'in_progress'
-                          ? 'On Journey ⚡'
-                          : activeBooking.status === 'arrived'
-                          ? 'Arrived 📍'
-                          : 'En Route 📍'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* High-Contrast Vehicle Model & Registration Plate Highlight Bar */}
-                  <View style={styles.vehicleHighlightBox}>
-                    <View style={styles.vehicleModelSection}>
-                      <Text style={styles.vehicleMicroLabel}>VEHICLE MODEL</Text>
-                      <Text style={styles.vehicleModelTitle}>
-                        {resolvedVehicle.modelName}
-                      </Text>
-                      <View style={styles.evGreenBadge}>
-                        <Text style={styles.evGreenBadgeText}>100% Electric EV</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.plateSection}>
-                      <Text style={styles.plateMicroLabel}>REGISTRATION PLATE</Text>
-                      <View style={styles.largePlatePill}>
-                        <Text style={styles.largePlateText}>
-                          {resolvedVehicle.plateNumber}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Chauffeur Identity & Verified Status */}
-                  <View style={styles.chauffeurRow}>
-                    <View style={styles.driverAvatarBox}>
-                      <Text style={styles.driverAvatarInitial}>
-                        {resolvedVehicle.chauffeurName.charAt(0) || 'D'}
-                      </Text>
-                    </View>
-                    <View style={styles.driverInfoContent}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={styles.driverNameTitle}>
-                          {resolvedVehicle.chauffeurName}
-                        </Text>
-                        <View style={styles.verifiedChauffeurBadge}>
-                          <Text style={styles.verifiedChauffeurText}>✓ Verified Chauffeur</Text>
-                        </View>
-                        {resolvedVehicle.isPartner && (
-                          <View style={styles.partnerBadge}>
-                            <Text style={styles.partnerBadgeText}>Partner EV</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.driverSubText}>
-                        ⭐ {resolvedVehicle.rating} · {resolvedVehicle.totalRides} rides completed
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Tri-Action Buttons (In-Ride Chat, Call Driver & Guardian Call) */}
-                  <View style={styles.dualCommRow}>
-                    <TouchableOpacity
-                      style={styles.chatChauffeurBtn}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setUnreadChatCount(0);
-                        setChatModalVisible(true);
-                      }}
-                    >
-                      <MessageSquare size={15} color="#FFFFFF" />
-                      <Text style={styles.chatChauffeurText}>Chat</Text>
-                      {unreadChatCount > 0 && (
-                        <View style={styles.chatBadge}>
-                          <Text style={styles.chatBadgeText}>{unreadChatCount}</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.callChauffeurBtnDual}
-                      onPress={() => {
-                        Linking.openURL(`tel:${resolvedVehicle.phone}`);
-                      }}
-                    >
-                      <Phone size={15} color="#FFFFFF" />
-                      <Text style={styles.callChauffeurText}>Call Driver</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.guardianCallActionBtn}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setGuardianModalVisible(true);
-                      }}
-                    >
-                      <ShieldCheck size={15} color="#FFFFFF" />
-                      <Text style={styles.guardianCallActionText}>Guardian</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Trip Reference & Fare */}
-              <View style={styles.tripMetaRow}>
-                <View>
-                  <Text style={styles.metaLabel}>Booking Reference</Text>
-                  <Text style={styles.metaValue}>{activeBooking.reference}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.metaLabel}>Guaranteed Fare</Text>
-                  <Text style={styles.metaFare}>₹{activeBooking.estimated_fare}</Text>
-                </View>
-              </View>
-
-              {/* Route Summary */}
-              <View style={styles.routeBox}>
-                <View style={styles.routeStop}>
-                  <View style={styles.greenDot} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.stopLabel}>PICKUP LOCATION</Text>
-                    <Text style={styles.stopName}>{activeBooking.pickup_area}</Text>
-                  </View>
-                </View>
-                <View style={styles.routeConnector} />
-                <View style={styles.routeStop}>
-                  <View style={styles.orangeDot} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.stopLabel}>DESTINATION</Text>
-                    <Text style={styles.stopName}>{activeBooking.drop_area}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Interactive Guardian Shield Card */}
-              <TouchableOpacity
-                style={styles.guardianShieldCard}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setGuardianModalVisible(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <ShieldCheck size={20} color="#10B981" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.guardianTitle}>Orange Guardian Shield Active</Text>
-                  <Text style={styles.guardianSub}>
-                    {guardianContact
-                      ? `Tap for 1-Tap Guardian Call (${guardianContact.name}) & SOS`
-                      : 'Tap to configure Guardian Call & 24x7 SOS Escalation'}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color="#10B981" />
-              </TouchableOpacity>
-
-              {/* Cancel Button (Fee Exempt - only before trip starts) */}
-              {activeBooking.status !== 'in_progress' && activeBooking.status !== 'completed' && (
-                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
-                  <X size={16} color="#EF4444" />
-                  <Text style={styles.cancelBtnText}>Cancel Ride (Fee Exempt)</Text>
+              {/* Safety & SOS Strip */}
+              <View style={styles.safetyStripRow}>
+                <TouchableOpacity
+                  style={styles.safetyStripBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setGuardianModalVisible(true);
+                  }}
+                >
+                  <ShieldCheck size={14} color="#10B981" />
+                  <Text style={styles.safetyStripText}>Orange Guardian Active</Text>
                 </TouchableOpacity>
-              )}
+                <Text style={styles.bookingRefMicro}>Ref: {activeBooking.reference}</Text>
+              </View>
             </View>
-          </ScrollView>
+          </View>
         ) : step === 2 ? (
           /* =============================================================== */
           /* STEP 2: RIDE SELECTION & ROUTE REVIEW (UBER/OLA STYLE SHEET)     */
@@ -1265,9 +1279,9 @@ export default function App() {
           /* =============================================================== */
           /* STEP 1: UBER / OLA MAP-FIRST HOME SCREEN                        */
           /* =============================================================== */
-          <View style={{ flex: 1 }}>
-            {/* Full Screen Interactive Map with Nearby Cabs */}
-            <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            {/* Full Screen Interactive Minimalist Map */}
+            <View style={StyleSheet.absoluteFill}>
               <RideMap
                 pickup={pickupCoords}
                 interactive={true}
@@ -1277,34 +1291,26 @@ export default function App() {
               />
             </View>
 
-            {/* Bottom "Where to?" Card & Popular Places */}
-            <View style={styles.homeBottomCard}>
-              {/* Interactive Current Pickup Point Bar (Tap to edit or set pin) */}
-              <View style={styles.homePickupRow}>
+            {/* Floating Minimal Two-Stop Destination Card (Option B) */}
+            <View style={styles.minimalDestCard}>
+              {/* Pickup Row: "Where are you?" */}
+              <TouchableOpacity
+                style={styles.destStopRow}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSearchModalVisible(true);
+                }}
+              >
+                <View style={styles.destOrangeHollowRing} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.destMicroLabel}>Where are you?</Text>
+                  <Text style={styles.destPrimaryAddress} numberOfLines={1}>
+                    {pickupText}
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={styles.homePickupBar}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSearchModalVisible(true);
-                  }}
-                >
-                  <View style={styles.pickupLivePulse}>
-                    <View style={styles.pickupLiveDot} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={styles.pickupMicroText}>CURRENT PICKUP POINT</Text>
-                      <Text style={styles.pickupTapToEditText}>Tap to edit ✎</Text>
-                    </View>
-                    <Text style={styles.pickupTitleText} numberOfLines={1}>
-                      {pickupText}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.setPinShortcutBtn}
+                  style={styles.destPinIconBtn}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setPinPickerTarget('pickup');
@@ -1313,42 +1319,46 @@ export default function App() {
                     setPinPickerActive(true);
                   }}
                 >
-                  <MapIcon size={16} color="#F56B00" />
+                  <MapIcon size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
 
-              {/* Uber-Style "Where to?" Search Bar */}
+              {/* Vertical connector line */}
+              <View style={styles.destConnectorLine} />
+
+              {/* Destination Row: "Where you want to go?" */}
               <TouchableOpacity
-                style={styles.whereToBar}
-                activeOpacity={0.9}
+                style={styles.destStopRow}
+                activeOpacity={0.8}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSearchModalVisible(true);
                 }}
               >
-                <View style={styles.whereToSearchIcon}>
-                  <Search size={18} color="#F56B00" />
+                <View style={styles.destCarIconBox}>
+                  <Car size={16} color="#18181B" />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.whereToPlaceholder}>Where to?</Text>
-                  <Text style={styles.whereToSub}>Airport, CyberHub, Tech Parks, Metro...</Text>
+                  <Text style={styles.destMicroLabel}>Pick Off</Text>
+                  <Text style={styles.destPlaceholderText} numberOfLines={1}>
+                    {dropLocation ? dropLocation.name : 'Where you want to go?'}
+                  </Text>
                 </View>
-                <View style={styles.whereToArrowBadge}>
-                  <ChevronRight size={18} color="#FFFFFF" />
+                <View style={styles.destSearchCircle}>
+                  <Search size={15} color="#F97316" />
                 </View>
               </TouchableOpacity>
 
-              {/* Quick Hub Filter Chips */}
-              <View style={styles.quickChipsRow}>
+              {/* Quick Filter Chips */}
+              <View style={styles.minimalChipsRow}>
                 {[
-                  { tag: '✈️ Airport', query: 'Airport' },
-                  { tag: '💼 Tech Park', query: 'Tech Park' },
-                  { tag: '🚇 Metro Hub', query: 'Metro' },
-                  { tag: '🛍️ Mall', query: 'Mall' },
-                ].map(({ tag, query }) => (
+                  { label: '✈️ Airport', query: 'Airport' },
+                  { label: '💼 Work / Tech Park', query: 'Tech Park' },
+                  { label: '🛍️ Mall', query: 'Mall' },
+                ].map(({ label, query }) => (
                   <TouchableOpacity
-                    key={tag}
-                    style={styles.quickChip}
+                    key={label}
+                    style={styles.minimalChip}
                     onPress={async () => {
                       Haptics.selectionAsync();
                       const matches = await searchPlaces(query, activeCity, pickupCoords);
@@ -1360,39 +1370,100 @@ export default function App() {
                       }
                     }}
                   >
-                    <Text style={styles.quickChipText}>{tag}</Text>
+                    <Text style={styles.minimalChipText}>{label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
 
-              {/* Popular Transit Hubs in Active City */}
-              <View style={styles.popularHubsSection}>
-                <Text style={styles.popularHubsTitle}>POPULAR IN {activeCity.toUpperCase()}</Text>
-                {popularHubs.map((hub) => (
-                  <TouchableOpacity
-                    key={hub.id}
-                    style={styles.popularHubItem}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setDropLocation(hub);
-                      setStep(2);
-                    }}
-                  >
-                    <View style={styles.popularHubIconBox}>
-                      <MapPin size={16} color="#F56B00" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.popularHubName} numberOfLines={1}>
-                        {hub.name}
-                      </Text>
-                      <Text style={styles.popularHubSub} numberOfLines={1}>
-                        {hub.subtitle}
-                      </Text>
-                    </View>
-                    <ChevronRight size={14} color="#6B7280" />
-                  </TouchableOpacity>
-                ))}
-              </View>
+            {/* Floating Bottom Navigation Dock with Elevated Taxi FAB (Option B) */}
+            <View style={styles.floatingNavDock}>
+              {/* Home Tab */}
+              <TouchableOpacity
+                style={styles.navDockItem}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setActiveTab('home');
+                }}
+              >
+                <Navigation size={22} color={activeTab === 'home' ? '#F97316' : '#9CA3AF'} />
+                {activeTab === 'home' && <View style={styles.activeTabIndicator} />}
+              </TouchableOpacity>
+
+              {/* History Tab */}
+              <TouchableOpacity
+                style={styles.navDockItem}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setActiveTab('history');
+                  Alert.alert(
+                    'Trip History',
+                    user ? 'You have no active pending trips. All past trips are recorded in Supabase.' : 'Please sign in to view your trip receipts and ride history.',
+                    [
+                      { text: user ? 'OK' : 'Sign In', onPress: () => { if (!user) setAuthModalVisible(true); } },
+                      { text: 'Cancel', style: 'cancel' }
+                    ]
+                  );
+                }}
+              >
+                <Clock size={22} color={activeTab === 'history' ? '#F97316' : '#9CA3AF'} />
+              </TouchableOpacity>
+
+              {/* Elevated Center Taxi FAB */}
+              <TouchableOpacity
+                style={styles.navDockCenterFab}
+                activeOpacity={0.88}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                  if (dropLocation && dropLocation.name) {
+                    setStep(2);
+                  } else {
+                    setSearchModalVisible(true);
+                  }
+                }}
+              >
+                <Car size={26} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {/* Chat Tab */}
+              <TouchableOpacity
+                style={styles.navDockItem}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setActiveTab('chat');
+                  if (activeBooking) {
+                    setChatModalVisible(true);
+                  } else {
+                    Alert.alert(
+                      '24x7 Orange Support',
+                      'Our 24x7 customer support & concierge line is always available for assistance.',
+                      [
+                        { text: 'Call Concierge', onPress: () => Linking.openURL('tel:1800123456') },
+                        { text: 'Close', style: 'cancel' }
+                      ]
+                    );
+                  }
+                }}
+              >
+                <MessageSquare size={22} color={activeTab === 'chat' ? '#F97316' : '#9CA3AF'} />
+              </TouchableOpacity>
+
+              {/* Settings / Profile Tab */}
+              <TouchableOpacity
+                style={styles.navDockItem}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setActiveTab('profile');
+                  if (user) {
+                    setProfileModalVisible(true);
+                  } else {
+                    setAuthMode('signin');
+                    setAuthModalVisible(true);
+                  }
+                }}
+              >
+                <UserIcon size={22} color={activeTab === 'profile' ? '#F97316' : '#9CA3AF'} />
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1518,7 +1589,7 @@ export default function App() {
                   {authMode === 'signin' ? 'Sign In to Orange Taxi' : 'Create Orange Account'}
                 </Text>
                 <TouchableOpacity onPress={() => setAuthModalVisible(false)}>
-                  <X size={20} color="#9CA3AF" />
+                  <X size={20} color="#64748B" />
                 </TouchableOpacity>
               </View>
 
@@ -1535,7 +1606,7 @@ export default function App() {
                     <TextInput
                       style={styles.authInput}
                       placeholder="e.g. Akshat Gupta"
-                      placeholderTextColor="#6B7280"
+                      placeholderTextColor="#94A3B8"
                       value={authFullName}
                       onChangeText={setAuthFullName}
                     />
@@ -1545,7 +1616,7 @@ export default function App() {
                     <TextInput
                       style={styles.authInput}
                       placeholder="e.g. +91 98765 43210"
-                      placeholderTextColor="#6B7280"
+                      placeholderTextColor="#94A3B8"
                       keyboardType="phone-pad"
                       value={authPhone}
                       onChangeText={setAuthPhone}
@@ -1559,7 +1630,7 @@ export default function App() {
                 <TextInput
                   style={styles.authInput}
                   placeholder="name@domain.com"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={authEmail}
@@ -1572,7 +1643,7 @@ export default function App() {
                 <TextInput
                   style={styles.authInput}
                   placeholder="••••••••"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor="#94A3B8"
                   secureTextEntry
                   value={authPassword}
                   onChangeText={setAuthPassword}
@@ -1614,310 +1685,669 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0D11',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#0B0D11',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A202C',
-    zIndex: 10,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logoBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F56B00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoChar: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 16,
-  },
-  brandTitle: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  brandSubtitle: {
-    color: '#F56B00',
-    fontSize: 8,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  citySelectorBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#161A23',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#232A36',
-  },
-  citySelectorText: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  cityDropdownMenu: {
-    position: 'absolute',
-    top: 55,
-    right: 70,
-    backgroundColor: '#1E232F',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2D3748',
-    paddingVertical: 4,
-    zIndex: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  cityDropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 12,
-  },
-  cityDropdownItemActive: {
-    backgroundColor: 'rgba(245, 107, 0, 0.1)',
-  },
-  cityDropdownItemText: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cityDropdownItemTextActive: {
-    color: '#F56B00',
-    fontWeight: '700',
-  },
-  userProfilePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#161A23',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#232A36',
-  },
-  userProfileText: {
-    color: '#D1D5DB',
-    fontSize: 11,
-    fontWeight: '600',
-    maxWidth: 80,
-  },
-  signInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F56B00',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  signInButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    backgroundColor: '#F8FAFC',
   },
   centerLoading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0B0D11',
+    backgroundColor: '#F8FAFC',
   },
   loadingText: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 13,
     marginTop: 12,
+    fontWeight: '600',
   },
 
   // -------------------------------------------------------------------------
-  // HOME SCREEN (STEP 1)
+  // FLOATING ISLAND HEADER (STEP 1 - OPTION B)
   // -------------------------------------------------------------------------
-  homeBottomCard: {
-    backgroundColor: '#12151C',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderColor: '#1E232F',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  homePickupRow: {
+  floatingIslandHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 12 : 14,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    zIndex: 40,
   },
-  homePickupBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161A23',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#232A38',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  pickupLivePulse: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickupLiveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#22C55E',
-  },
-  pickupMicroText: {
-    color: '#6B7280',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  pickupTapToEditText: {
-    color: '#F56B00',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  pickupTitleText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  setPinShortcutBtn: {
+  floatingAvatarBtn: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: '#1B202B',
-    borderWidth: 1,
-    borderColor: '#293244',
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  whereToBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1B202B',
-    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
     borderWidth: 1,
-    borderColor: '#293244',
-    padding: 12,
+    borderColor: '#F1F5F9',
   },
-  whereToSearchIcon: {
+  avatarInner: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(245, 107, 0, 0.15)',
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F97316',
   },
-  whereToPlaceholder: {
-    color: '#FFFFFF',
+  avatarChar: {
+    color: '#F97316',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  whereToSub: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  whereToArrowBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F56B00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickChipsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    marginBottom: 14,
-  },
-  quickChip: {
-    flex: 1,
-    backgroundColor: '#1A1F2A',
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#252D3D',
-  },
-  quickChipText: {
-    color: '#D1D5DB',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  popularHubsSection: {
-    borderTopWidth: 1,
-    borderTopColor: '#1A202C',
-    paddingTop: 12,
-  },
-  popularHubsTitle: {
-    color: '#6B7280',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  popularHubItem: {
+  floatingWalletPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: '#161A22',
+    borderRadius: 22,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  popularHubIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: '#1A202C',
+  floatingWalletText: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  walletPlusCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#F97316',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  popularHubName: {
-    color: '#E2E8F0',
+  walletPlusText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 15,
+  },
+  floatingCityBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  floatingCityMenu: {
+    position: 'absolute',
+    top: 56,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 6,
+    width: 170,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    zIndex: 50,
+  },
+  cityMenuHeader: {
+    color: '#9CA3AF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  cityMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  cityMenuItemActive: {
+    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+  },
+  cityMenuItemText: {
+    color: '#4B5563',
     fontSize: 13,
     fontWeight: '600',
   },
-  popularHubSub: {
+  cityMenuItemTextActive: {
+    color: '#F97316',
+    fontWeight: '800',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 4 ARRIVING & IN-PROGRESS TOP BAR
+  // -------------------------------------------------------------------------
+  arrivingTopHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 12 : 14,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 40,
+  },
+  arrivingBackBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  arrivingHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  arrivingShieldBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 2 VEHICLE SELECTION HEADER
+  // -------------------------------------------------------------------------
+  step2Header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    zIndex: 20,
+  },
+  step2BackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  step2HeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  step2HeaderSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F97316',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 1: FLOATING DESTINATION CARD & BOTTOM DOCK (OPTION B)
+  // -------------------------------------------------------------------------
+  minimalDestCard: {
+    position: 'absolute',
+    bottom: 84,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    zIndex: 20,
+  },
+  destStopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  destOrangeHollowRing: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 3.5,
+    borderColor: '#F97316',
+    backgroundColor: '#FFFFFF',
+  },
+  destCarIconBox: {
+    width: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  destMicroLabel: {
     color: '#9CA3AF',
     fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  destPrimaryAddress: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  destPlaceholderText: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  destPinIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  destConnectorLine: {
+    width: 2,
+    height: 18,
+    backgroundColor: '#E2E8F0',
+    marginLeft: 7,
+    marginVertical: 2,
+  },
+  destSearchCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  minimalChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  minimalChip: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 7,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  minimalChipText: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Floating Navigation Dock
+  floatingNavDock: {
+    position: 'absolute',
+    bottom: 12,
+    left: 16,
+    right: 16,
+    height: 60,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    zIndex: 25,
+    paddingHorizontal: 12,
+  },
+  navDockItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+  },
+  activeTabIndicator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#F97316',
+    marginTop: 4,
+  },
+  navDockCenterFab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -24,
+    borderWidth: 3.5,
+    borderColor: '#FFFFFF',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 4: FLOATING ARRIVING HUD CARD (OPTION B)
+  // -------------------------------------------------------------------------
+  floatingArrivingCard: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    zIndex: 25,
+  },
+  arrivingCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  arrivingTitleText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+    letterSpacing: -0.4,
+  },
+  arrivingSubSubtitle: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  arrivingEtaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  arrivingEtaText: {
+    color: '#F97316',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  searchingFleetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  searchingFleetText: {
+    color: '#C2410C',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  driverProfileMinimalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  driverAvatarCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFEDD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F97316',
+  },
+  driverAvatarLetter: {
+    color: '#F97316',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  driverMetaCol: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  driverNameTitle: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  partnerPill: {
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  partnerPillText: {
+    color: '#F97316',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  vehicleModelSub: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  driverPillsRow: {
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  ratingPillYellow: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  ratingPillText: {
+    color: '#D97706',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  platePillMono: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  platePillText: {
+    color: '#18181B',
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  circularActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  circularActionCancel: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circularActionChat: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+    position: 'relative',
+  },
+  chatBadgeAbsolute: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#18181B',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  chatBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  circularActionCall: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  inProgressPillBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  inProgressPillText: {
+    color: '#065F46',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  otpPillBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  otpPillLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  otpPillCode: {
+    color: '#F97316',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 3,
+  },
+  otpPillSub: {
+    color: '#9CA3AF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  safetyStripRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  safetyStripBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  safetyStripText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  bookingRefMicro: {
+    color: '#9CA3AF',
+    fontSize: 10,
+    fontWeight: '600',
   },
 
   // -------------------------------------------------------------------------
@@ -1925,9 +2355,9 @@ const styles = StyleSheet.create({
   // -------------------------------------------------------------------------
   sheetScroll: {
     flex: 1,
-    backgroundColor: '#101319',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     marginTop: -16,
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -1935,10 +2365,10 @@ const styles = StyleSheet.create({
   sheetRouteBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#171B24',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#E5E7EB',
     padding: 12,
     marginBottom: 10,
   },
@@ -1956,21 +2386,21 @@ const styles = StyleSheet.create({
   sheetLine: {
     width: 2,
     height: 20,
-    backgroundColor: '#374151',
+    backgroundColor: '#E2E8F0',
     marginVertical: 2,
   },
   sheetOrangeDot: {
     width: 8,
     height: 8,
     borderRadius: 2,
-    backgroundColor: '#F56B00',
+    backgroundColor: '#F97316',
   },
   sheetRoutePickup: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 12,
   },
   sheetRouteDrop: {
-    color: '#FFFFFF',
+    color: '#111827',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1978,31 +2408,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#232A38',
+    backgroundColor: '#F1F5F9',
   },
   sheetEditText: {
-    color: '#F56B00',
+    color: '#F97316',
     fontSize: 11,
     fontWeight: '700',
   },
   gateNoteBox: {
-    backgroundColor: '#151821',
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#202633',
+    borderColor: '#E5E7EB',
     marginBottom: 14,
   },
   gateNoteInput: {
-    color: '#D1D5DB',
+    color: '#111827',
     fontSize: 12,
     paddingVertical: 2,
   },
   sheetSectionTitle: {
     color: '#6B7280',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.8,
     marginBottom: 8,
   },
@@ -2013,70 +2443,70 @@ const styles = StyleSheet.create({
   sheetFleetCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#171B24',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#232936',
+    borderColor: '#E5E7EB',
     padding: 12,
   },
   sheetFleetCardActive: {
-    borderColor: '#F56B00',
-    backgroundColor: 'rgba(245, 107, 0, 0.08)',
+    borderColor: '#F97316',
+    backgroundColor: '#FFF7ED',
   },
   sheetFleetIconBox: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#1E232F',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sheetFleetName: {
-    color: '#FFFFFF',
+    color: '#111827',
     fontSize: 14,
     fontWeight: '700',
   },
   sheetSeatsPill: {
-    backgroundColor: '#252B3B',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   sheetSeatsText: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '600',
   },
   sheetFleetTagline: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 11,
     marginTop: 2,
   },
   sheetFleetEta: {
-    color: '#22C55E',
+    color: '#F97316',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 2,
   },
   sheetFleetFare: {
-    color: '#F56B00',
+    color: '#F97316',
     fontSize: 16,
     fontWeight: '800',
   },
   sheetFleetPerKm: {
-    color: '#6B7280',
+    color: '#9CA3AF',
     fontSize: 10,
   },
   sheetHospitalityCard: {
-    backgroundColor: '#171B24',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#E5E7EB',
     padding: 12,
     marginBottom: 14,
   },
   sheetHospitalityTitle: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -2093,42 +2523,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    backgroundColor: '#1D222E',
+    backgroundColor: '#F8FAFC',
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2A3344',
+    borderColor: '#E5E7EB',
   },
   climateChipActive: {
-    borderColor: '#F56B00',
-    backgroundColor: 'rgba(245, 107, 0, 0.1)',
+    borderColor: '#F97316',
+    backgroundColor: '#FFF7ED',
   },
   climateChipText: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '600',
   },
   climateChipTextActive: {
-    color: '#F56B00',
+    color: '#F97316',
     fontWeight: '700',
   },
   quietToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1E29',
+    backgroundColor: '#F8FAFC',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   quietToggleActive: {
-    backgroundColor: 'rgba(245, 107, 0, 0.08)',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#F97316',
   },
   quietToggleTitle: {
-    color: '#D1D5DB',
+    color: '#111827',
     fontSize: 12,
     fontWeight: '600',
   },
   quietToggleTitleActive: {
-    color: '#F56B00',
+    color: '#F97316',
   },
   quietToggleSub: {
     color: '#6B7280',
@@ -2139,13 +2572,13 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: '#4B5563',
+    borderColor: '#9CA3AF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   quietCheckboxActive: {
-    backgroundColor: '#F56B00',
-    borderColor: '#F56B00',
+    backgroundColor: '#F97316',
+    borderColor: '#F97316',
   },
   paymentMethodRow: {
     flexDirection: 'row',
@@ -2158,23 +2591,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#171B24',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#E5E7EB',
   },
   paymentChipActive: {
-    borderColor: '#F56B00',
-    backgroundColor: 'rgba(245, 107, 0, 0.08)',
+    borderColor: '#F97316',
+    backgroundColor: '#FFF7ED',
   },
   paymentChipText: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
   },
   paymentChipTextActive: {
-    color: '#FFFFFF',
+    color: '#111827',
     fontWeight: '700',
   },
   bookCtaRow: {
@@ -2185,11 +2618,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#1E232F',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#2D3748',
+    borderColor: '#E5E7EB',
   },
   bookPrimaryBtn: {
     flex: 1,
@@ -2197,7 +2630,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#F56B00',
+    backgroundColor: '#F97316',
     borderRadius: 14,
     height: 48,
   },
@@ -2207,572 +2640,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // -------------------------------------------------------------------------
-  // PIN PICKER MODE
-  // -------------------------------------------------------------------------
-  pinPickerContainer: {
-    flex: 1,
-    backgroundColor: '#0B0D11',
-  },
-  pinPickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#0B0D11',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A202C',
-  },
-  pinPickerBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#1E232F',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinPickerTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  pinPickerBottomCard: {
-    backgroundColor: '#12151C',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderColor: '#1E232F',
-  },
-  pinAddressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  pinAddressMicro: {
-    color: '#6B7280',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  pinAddressText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  pinConfirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#F56B00',
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  pinConfirmText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  // -------------------------------------------------------------------------
-  // STEP 4: ACTIVE RIDE CARD STYLES
-  // -------------------------------------------------------------------------
-  activeRideScroll: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingBottom: 40,
-  },
-  activeCard: {
-    backgroundColor: '#13161F',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#232936',
-    padding: 16,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pulsingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22C55E',
-  },
-  pulsingDotAmber: {
-    backgroundColor: '#F59E0B',
-  },
-  statusTitle: {
-    color: '#22C55E',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  statusTitleAmber: {
-    color: '#F59E0B',
-  },
-  otpHero: {
-    backgroundColor: '#1B202C',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: '#2A3345',
-  },
-  tripInProgressHero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
-  },
-  tripInProgressIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tripInProgressTitle: {
-    color: '#10B981',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  tripInProgressSub: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  greenPulsingDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#10B981',
-  },
-  otpLabel: {
-    color: '#F56B00',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-  otpValue: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: 8,
-    marginVertical: 4,
-  },
-  otpSub: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  tripMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#171B24',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  metaLabel: {
-    color: '#6B7280',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  metaValue: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  metaFare: {
-    color: '#F56B00',
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  routeBox: {
-    backgroundColor: '#171B24',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
-  },
-  routeStop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  greenDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#22C55E',
-  },
-  orangeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#F56B00',
-  },
-  routeConnector: {
-    width: 2,
-    height: 14,
-    backgroundColor: '#374151',
-    marginLeft: 3,
-    marginVertical: 3,
-  },
-  stopLabel: {
-    color: '#6B7280',
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  stopName: {
-    color: '#E5E7EB',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  prominentVehicleCard: {
-    backgroundColor: '#161B26',
-    borderRadius: 18,
-    padding: 16,
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 107, 0, 0.3)',
-  },
-  cardTopHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#232A38',
-  },
-  cardTopTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardTopTitle: {
-    color: '#E5E7EB',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  liveStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  liveStatusText: {
-    color: '#10B981',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  vehicleHighlightBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245, 107, 0, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 107, 0, 0.3)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  vehicleModelSection: {
-    flex: 1,
-    minWidth: 150,
-  },
-  vehicleMicroLabel: {
-    color: '#F56B00',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  vehicleModelTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  evGreenBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    marginTop: 4,
-  },
-  evGreenBadgeText: {
-    color: '#10B981',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  plateSection: {
-    alignItems: 'flex-end',
-  },
-  plateMicroLabel: {
-    color: '#9CA3AF',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 3,
-  },
-  largePlatePill: {
-    backgroundColor: '#090B0E',
-    borderWidth: 1.5,
-    borderColor: '#F56B00',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  largePlateText: {
-    color: '#F56B00',
-    fontSize: 14,
-    fontWeight: '900',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 1,
-  },
-  chauffeurRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#232A38',
-  },
-  driverAvatarBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(245, 107, 0, 0.15)',
-    borderWidth: 1.5,
-    borderColor: '#F56B00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  driverAvatarInitial: {
-    color: '#F56B00',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  driverInfoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  driverNameTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  verifiedChauffeurBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  verifiedChauffeurText: {
-    color: '#10B981',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  partnerBadge: {
-    backgroundColor: 'rgba(245, 107, 0, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 107, 0, 0.3)',
-  },
-  partnerBadgeText: {
-    color: '#F56B00',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  driverSubText: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    marginTop: 4,
-  },
-  carSearchingCard: {
-    backgroundColor: '#161B26',
-    borderRadius: 18,
-    padding: 16,
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  searchingHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchingIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchingTitle: {
-    color: '#F59E0B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  searchingSub: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  searchingVehiclePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-  },
-  searchingVehicleText: {
-    color: '#FCD34D',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dualCommRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  chatChauffeurBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#1E232F',
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2D3748',
-  },
-  chatChauffeurText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  chatBadge: {
-    backgroundColor: '#F56B00',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  chatBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  callChauffeurBtnDual: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#10B981',
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  callChauffeurText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  guardianCallActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(245, 107, 0, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 107, 0, 0.4)',
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  guardianCallActionText: {
-    color: '#F56B00',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  guardianShieldCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-    borderRadius: 12,
-    padding: 10,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  guardianTitle: {
-    color: '#22C55E',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  guardianSub: {
-    color: '#9CA3AF',
-    fontSize: 10,
-  },
-  cancelBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    marginTop: 10,
-  },
-  cancelBtnText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: '600',
-  },
 
   // -------------------------------------------------------------------------
   // AUTH MODAL STYLES
@@ -2783,14 +2650,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   authModalContent: {
-    backgroundColor: '#141822',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 36,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 38,
     borderTopWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 10,
   },
   authModalHeader: {
     flexDirection: 'row',
@@ -2799,53 +2671,138 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   authModalTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
+    color: '#0F172A',
+    fontSize: 18,
     fontWeight: '700',
   },
   authModalSub: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 16,
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 18,
   },
   authField: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   authLabel: {
-    color: '#9CA3AF',
-    fontSize: 11,
+    color: '#475569',
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   authInput: {
-    backgroundColor: '#1C212D',
-    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#2D3546',
-    color: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    borderColor: '#E2E8F0',
+    color: '#0F172A',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
   },
   authSubmitBtn: {
-    backgroundColor: '#F56B00',
-    borderRadius: 12,
-    paddingVertical: 12,
+    backgroundColor: '#F97316',
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 10,
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   authSubmitText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
   authSwitchBtn: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   authSwitchText: {
-    color: '#9CA3AF',
-    fontSize: 12,
+    color: '#64748B',
+    fontSize: 13,
+  },
+
+  // -------------------------------------------------------------------------
+  // PIN PICKER MODE STYLES
+  // -------------------------------------------------------------------------
+  pinPickerContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  pinPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  pinPickerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinPickerTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pinPickerBottomCard: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  pinAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pinAddressMicro: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  pinAddressText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  pinConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F97316',
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  pinConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
