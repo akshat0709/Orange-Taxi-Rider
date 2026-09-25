@@ -60,6 +60,7 @@ export function LocationSearchModal({
   const [dropInput, setDropInput] = useState('');
   const [results, setResults] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [gpsLocating, setGpsLocating] = useState(false);
 
   const searchTimeoutRef = useRef<any>(null);
   const dropInputRef = useRef<TextInput>(null);
@@ -80,6 +81,13 @@ export function LocationSearchModal({
       return () => clearTimeout(timer);
     }
   }, [visible]);
+
+  // Keep pickupInput updated whenever parent pickupText updates
+  useEffect(() => {
+    if (pickupText) {
+      setPickupInput(pickupText);
+    }
+  }, [pickupText]);
 
   // If active city changes while modal is open, reload recommendations
   useEffect(() => {
@@ -254,16 +262,27 @@ export function LocationSearchModal({
         <View style={styles.actionShortcutsRow}>
           <TouchableOpacity
             style={styles.actionShortcutBtn}
-            onPress={() => {
+            disabled={gpsLocating}
+            onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onUseCurrentGPS();
-              setPickupInput(pickupText);
+              setGpsLocating(true);
+              try {
+                await onUseCurrentGPS();
+              } finally {
+                setGpsLocating(false);
+              }
               setActiveField('drop');
               dropInputRef.current?.focus();
             }}
           >
-            <Crosshair size={14} color="#22C55E" />
-            <Text style={styles.actionShortcutText}>Current GPS</Text>
+            {gpsLocating ? (
+              <ActivityIndicator size="small" color="#22C55E" />
+            ) : (
+              <Crosshair size={14} color="#22C55E" />
+            )}
+            <Text style={styles.actionShortcutText}>
+              {gpsLocating ? 'Detecting GPS...' : 'Current GPS'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity

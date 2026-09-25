@@ -67,6 +67,7 @@ import {
   getDefaultCityCenter,
   searchPlaces,
   isCoordinateInIndia,
+  reverseGeocodeCoordSafe,
 } from './src/lib/locationService';
 
 const { width, height } = Dimensions.get('window');
@@ -199,9 +200,19 @@ export default function App() {
               timeInterval: 4000,
               distanceInterval: 10,
             },
-            (loc) => {
+            async (loc) => {
               if (isCoordinateInIndia(loc.coords.latitude, loc.coords.longitude)) {
                 setPickupCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+                // If on Step 1 and not currently in an active booking, live-resolve their real street address
+                if (step === 1 && !activeBooking) {
+                  try {
+                    const resolved = await reverseGeocodeCoordSafe(loc.coords.latitude, loc.coords.longitude);
+                    if (resolved?.displayText) {
+                      setPickupText(resolved.displayText);
+                      setActiveCity(resolved.cityName);
+                    }
+                  } catch {}
+                }
               }
             }
           );
@@ -214,7 +225,7 @@ export default function App() {
     return () => {
       if (watcherSub) watcherSub.remove();
     };
-  }, []);
+  }, [step, !!activeBooking]);
 
   // Fetch driver details whenever driver_id is assigned
   useEffect(() => {
@@ -373,18 +384,12 @@ export default function App() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickupCoords(coords);
     try {
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: coords.lat,
-        longitude: coords.lng,
-      });
-      if (geo) {
-        const parts: string[] = [];
-        if (geo.name && geo.name !== geo.street) parts.push(geo.name);
-        if (geo.street) parts.push(geo.street);
-        if (geo.district && !parts.includes(geo.district)) parts.push(geo.district);
-        const locality = parts.length > 0 ? parts.join(', ') : 'Selected Point';
-        const city = geo.city || geo.subregion || activeCity;
-        setPickupText(`${locality}, ${city}`);
+      const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+      if (resolved?.displayText) {
+        setPickupText(resolved.displayText);
+        setActiveCity(resolved.cityName);
+      } else {
+        setPickupText(`Pin (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
       }
     } catch (e) {
       setPickupText(`Pin (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
@@ -475,14 +480,11 @@ export default function App() {
   async function handlePinRegionChange(coords: { lat: number; lng: number }) {
     setPinCurrentCoords(coords);
     try {
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: coords.lat,
-        longitude: coords.lng,
-      });
-      if (geo) {
-        const street = geo.street || geo.name || 'Selected Location';
-        const city = geo.city || geo.district || 'India';
-        setPinAddressText(`${street}, ${city}`);
+      const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+      if (resolved?.displayText) {
+        setPinAddressText(resolved.displayText);
+      } else {
+        setPinAddressText(`Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
       }
     } catch (e) {
       setPinAddressText(`Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);

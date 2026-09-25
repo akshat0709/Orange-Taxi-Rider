@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Platform } from 'react-native';
 
 export interface LocationItem {
   id: string;
@@ -144,7 +145,162 @@ export function isCoordinateInIndia(lat: number, lng: number): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// SMART LOCATION SANITIZER (fixes Cupertino iOS Simulator & gives valid India hub)
+// GEODESIC DISTANCE (HAVERSINE)
+// ---------------------------------------------------------------------------
+export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// ---------------------------------------------------------------------------
+// CITY BOUNDARY & NAME DETECTION
+// ---------------------------------------------------------------------------
+export function detectCityFromCoords(lat: number, lng: number): 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' {
+  if (lat >= 28.0 && lat <= 29.2 && lng >= 76.6 && lng <= 77.8) return 'Delhi NCR';
+  if (lat >= 12.6 && lat <= 13.4 && lng >= 77.3 && lng <= 77.9) return 'Bengaluru';
+  if (lat >= 18.7 && lat <= 19.5 && lng >= 72.6 && lng <= 73.3) return 'Mumbai';
+  if (lat >= 17.1 && lat <= 17.7 && lng >= 78.1 && lng <= 78.8) return 'Hyderabad';
+  return 'Bengaluru';
+}
+
+export function detectCityFromCoordsAndName(
+  lat: number,
+  lng: number,
+  cityNameStr?: string
+): 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' {
+  if (cityNameStr) {
+    const s = cityNameStr.toLowerCase();
+    if (s.includes('delhi') || s.includes('gurgaon') || s.includes('gurugram') || s.includes('noida') || s.includes('faridabad') || s.includes('ghaziabad')) return 'Delhi NCR';
+    if (s.includes('bengaluru') || s.includes('bangalore') || s.includes('karnataka')) return 'Bengaluru';
+    if (s.includes('mumbai') || s.includes('bombay') || s.includes('navi mumbai') || s.includes('thane') || s.includes('pune') || s.includes('maharashtra')) return 'Mumbai';
+    if (s.includes('hyderabad') || s.includes('secunderabad') || s.includes('telangana')) return 'Hyderabad';
+  }
+  return detectCityFromCoords(lat, lng);
+}
+
+export function detectCityFromName(cityNameStr?: string): 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' {
+  return detectCityFromCoordsAndName(12.9784, 77.6408, cityNameStr);
+}
+
+// ---------------------------------------------------------------------------
+// ROBUST CROSS-PLATFORM REVERSE GEOCODING (Native + BigDataCloud + OSM)
+// ---------------------------------------------------------------------------
+export async function reverseGeocodeCoordSafe(
+  lat: number,
+  lng: number
+): Promise<{ displayText: string; cityName: 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' }> {
+  // 1. Check nearby curated presets (within 600m of an airport or major transit hub)
+  if (EXPANDED_PRESETS && EXPANDED_PRESETS.length > 0) {
+    for (const p of EXPANDED_PRESETS) {
+      const d = haversineDistance(lat, lng, p.lat, p.lng);
+      if (d < 0.6) {
+        return {
+          displayText: `${p.name}, ${p.city}`,
+          cityName: (p.city === 'Other' ? detectCityFromCoords(lat, lng) : p.city) as any,
+        };
+      }
+    }
+  }
+
+  // 2. High-speed client reverse geocoding via BigDataCloud (<180ms, free, works on web + native without key)
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2200);
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      const locality = data.locality || data.principalSubdivision || '';
+      const city = data.city || data.localityInfo?.administrative?.[2]?.name || data.localityInfo?.administrative?.[1]?.name || '';
+      const detectedCity = detectCityFromCoordsAndName(lat, lng, city || locality);
+      if (locality && city && locality.toLowerCase() !== city.toLowerCase()) {
+        return {
+          displayText: `${locality}, ${city}`,
+          cityName: detectedCity,
+        };
+      } else if (locality || city) {
+        return {
+          displayText: locality || city,
+          cityName: detectedCity,
+        };
+      }
+    }
+  } catch (e) {}
+
+  // 3. Try native Expo reverse geocode (only on native iOS/Android)
+  if (Platform.OS !== 'web') {
+    try {
+      const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (geo) {
+        const parts: string[] = [];
+        if (geo.name && geo.name !== geo.street) parts.push(geo.name);
+        if (geo.street) parts.push(geo.street);
+        if (geo.district && !parts.includes(geo.district)) parts.push(geo.district);
+
+        const locality = parts.length > 0 ? parts.join(', ') : '';
+        const city = geo.city || geo.subregion || 'India';
+        const detectedCity = detectCityFromCoordsAndName(lat, lng, city);
+
+        if (locality) {
+          return {
+            displayText: `${locality}, ${city}`,
+            cityName: detectedCity,
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 4. Fallback to OpenStreetMap Nominatim
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      { headers: { 'Accept-Language': 'en' }, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
+      const place = data.name || addr.road || addr.suburb || addr.neighbourhood || addr.residential || '';
+      const city = addr.city || addr.town || addr.municipality || addr.state_district || '';
+      const detectedCity = detectCityFromCoordsAndName(lat, lng, city);
+      if (place && city) {
+        return {
+          displayText: `${place}, ${city}`,
+          cityName: detectedCity,
+        };
+      } else if (data.display_name) {
+        const short = data.display_name.split(',').slice(0, 3).map((s: string) => s.trim()).join(', ');
+        return {
+          displayText: short,
+          cityName: detectedCity,
+        };
+      }
+    }
+  } catch (e) {}
+
+  // 5. Clean coordinate fallback
+  const detectedCity = detectCityFromCoords(lat, lng);
+  return {
+    displayText: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+    cityName: detectedCity,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// SMART LOCATION SANITIZER (Instant cache -> Balanced GPS -> IP Fallback)
 // ---------------------------------------------------------------------------
 export interface SanitizedLocationResult {
   lat: number;
@@ -158,100 +314,96 @@ export async function getSanitizedLocation(
   fallbackCity: 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' = 'Bengaluru'
 ): Promise<SanitizedLocationResult> {
   let coords: { latitude: number; longitude: number } | null = null;
-  let permissionGranted = false;
 
+  // 1. Check last known position first (instant 0ms response!)
+  try {
+    const last = await Location.getLastKnownPositionAsync();
+    if (last && isCoordinateInIndia(last.coords.latitude, last.coords.longitude)) {
+      coords = { latitude: last.coords.latitude, longitude: last.coords.longitude };
+    }
+  } catch (e) {}
+
+  // 2. Request permission and acquire current position
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    permissionGranted = status === 'granted';
-
-    if (permissionGranted) {
-      // 1. High-accuracy GPS position first (accurate down to 5-15 meters)
+    if (status === 'granted') {
       try {
-        const current = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Highest,
-        });
-        if (isCoordinateInIndia(current.coords.latitude, current.coords.longitude)) {
+        const current = await Promise.race([
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          }),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4500)),
+        ]);
+        if (current && isCoordinateInIndia(current.coords.latitude, current.coords.longitude)) {
           coords = { latitude: current.coords.latitude, longitude: current.coords.longitude };
         }
       } catch (e) {
-        // Fallback to last known position if current times out indoors
-        try {
-          const last = await Location.getLastKnownPositionAsync();
-          if (last && isCoordinateInIndia(last.coords.latitude, last.coords.longitude)) {
-            coords = { latitude: last.coords.latitude, longitude: last.coords.longitude };
-          }
-        } catch (e2) {}
+        if (!coords) {
+          try {
+            const last = await Location.getLastKnownPositionAsync();
+            if (last && isCoordinateInIndia(last.coords.latitude, last.coords.longitude)) {
+              coords = { latitude: last.coords.latitude, longitude: last.coords.longitude };
+            }
+          } catch (e2) {}
+        }
       }
     }
   } catch (err) {}
 
-  // 3. If no Indian GPS coordinate obtained (e.g. Xcode Simulator defaulting to Cupertino, CA, or permission pending):
-  // Automatically detect user's actual location via IP Geolocation!
-  if (!coords) {
+  // 3. On web or if navigator.geolocation exists, try browser native geolocation directly
+  if (!coords && typeof navigator !== 'undefined' && navigator.geolocation) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2500);
-      const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
-      clearTimeout(timer);
-
-      if (ipRes.ok) {
-        const ipData = await ipRes.json();
-        if (ipData?.success && ipData.latitude && ipData.longitude) {
-          coords = { latitude: ipData.latitude, longitude: ipData.longitude };
-          const detectedCity = detectCityFromName(ipData.city || ipData.region);
-          const areaName = ipData.city || 'Current Area';
-          const regionName = ipData.region || 'India';
-
-          return {
-            lat: ipData.latitude,
-            lng: ipData.longitude,
-            displayText: `${areaName}, ${regionName}`,
-            cityName: detectedCity,
-            isSimulated: false,
-          };
-        }
-      }
-    } catch (ipErr) {}
-  }
-
-  // 4. If we have coordinates, perform reverse geocoding to get human-friendly street/area
-  if (coords) {
-    try {
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+      const navCoords: any = await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+          () => resolve(null),
+          { timeout: 4000, enableHighAccuracy: false }
+        );
       });
-
-      if (geo) {
-        const parts: string[] = [];
-        if (geo.name && geo.name !== geo.street) parts.push(geo.name);
-        if (geo.street) parts.push(geo.street);
-        if (geo.district && !parts.includes(geo.district)) parts.push(geo.district);
-
-        const locality = parts.length > 0 ? parts.join(', ') : 'Current Location';
-        const city = geo.city || geo.subregion || 'Metro Area';
-        const detectedCity = detectCityFromName(city);
-
-        return {
-          lat: coords.latitude,
-          lng: coords.longitude,
-          displayText: `${locality}, ${city}`,
-          cityName: detectedCity,
-          isSimulated: false,
-        };
+      if (navCoords && isCoordinateInIndia(navCoords.latitude, navCoords.longitude)) {
+        coords = navCoords;
       }
     } catch (e) {}
+  }
 
+  // 4. If we have coordinates, perform safe, multi-provider reverse geocoding
+  if (coords) {
+    const { displayText, cityName } = await reverseGeocodeCoordSafe(coords.latitude, coords.longitude);
     return {
       lat: coords.latitude,
       lng: coords.longitude,
-      displayText: 'Current GPS Location',
-      cityName: fallbackCity,
+      displayText,
+      cityName,
       isSimulated: false,
     };
   }
 
-  // 5. Ultimate fallback if offline
+  // 5. IP Geolocation fallback if GPS is blocked
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
+    clearTimeout(timer);
+
+    if (ipRes.ok) {
+      const ipData = await ipRes.json();
+      if (ipData?.success && ipData.latitude && ipData.longitude) {
+        const detectedCity = detectCityFromCoordsAndName(ipData.latitude, ipData.longitude, ipData.city || ipData.region);
+        const areaName = ipData.city || 'Current Area';
+        const regionName = ipData.region || 'India';
+
+        return {
+          lat: ipData.latitude,
+          lng: ipData.longitude,
+          displayText: `${areaName}, ${regionName}`,
+          cityName: detectedCity,
+          isSimulated: false,
+        };
+      }
+    }
+  } catch (ipErr) {}
+
+  // 6. Ultimate fallback if offline
   return getDefaultCityCenter(fallbackCity, true);
 }
 
@@ -294,15 +446,6 @@ export function getDefaultCityCenter(
         isSimulated,
       };
   }
-}
-
-export function detectCityFromName(cityNameStr?: string): 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' {
-  if (!cityNameStr) return 'Delhi NCR';
-  const s = cityNameStr.toLowerCase();
-  if (s.includes('bengaluru') || s.includes('bangalore') || s.includes('karnataka')) return 'Bengaluru';
-  if (s.includes('mumbai') || s.includes('bombay') || s.includes('navi mumbai') || s.includes('thane') || s.includes('maharashtra')) return 'Mumbai';
-  if (s.includes('hyderabad') || s.includes('secunderabad') || s.includes('telangana')) return 'Hyderabad';
-  return 'Delhi NCR';
 }
 
 // ---------------------------------------------------------------------------
