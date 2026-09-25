@@ -54,7 +54,7 @@ import {
 import { supabase } from './src/lib/supabase';
 import { VehicleCategory, Booking, Driver } from './src/types';
 import { getResolvedVehicleDetails } from './src/lib/rideVehicle';
-import { RideMap } from './src/components/RideMap';
+import { RideMap, haversineMeters } from './src/components/RideMap';
 import { InRideChatModal } from './src/components/InRideChatModal';
 import { RatingModal } from './src/components/RatingModal';
 import { LocationSearchModal } from './src/components/LocationSearchModal';
@@ -227,42 +227,109 @@ export default function App() {
     };
   }, [step, !!activeBooking]);
 
-  // Fetch driver details whenever driver_id is assigned
+  // Refs for tracking driver location and booking target in 4-second poll loop
+  const bookingStatusRef = useRef(activeBooking?.status);
+  bookingStatusRef.current = activeBooking?.status;
+
+  const pickupCoordsRef = useRef(pickupCoords);
+  pickupCoordsRef.current = pickupCoords;
+
+  const dropLocationRef = useRef(dropLocation);
+  dropLocationRef.current = dropLocation;
+
+  const lastDriverLocRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Fetch driver details whenever driver_id is assigned & poll every 4 seconds for live motion
   useEffect(() => {
     const driverId = activeBooking?.driver_id;
     if (!driverId) {
       setAssignedDriver(null);
+      lastDriverLocRef.current = null;
       return;
     }
 
     async function fetchDriver() {
-      const { data } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('id', driverId)
-        .maybeSingle();
+      try {
+        const { data } = await supabase
+          .from('drivers')
+          .select('*')
+          .eq('id', driverId)
+          .maybeSingle();
 
-      if (data) {
-        let hydrated: any = { ...data };
-        if (data.vehicle_code && typeof data.vehicle_code === 'string' && data.vehicle_code.startsWith('ORANGE_META:')) {
-          try {
-            const meta = JSON.parse(data.vehicle_code.replace('ORANGE_META:', ''));
-            if (meta.plate && (!hydrated.vehicle_number || hydrated.vehicle_number === 'Unassigned')) {
-              hydrated.vehicle_number = meta.plate;
+        if (data) {
+          let hydrated: any = { ...data };
+          if (data.vehicle_code && typeof data.vehicle_code === 'string' && data.vehicle_code.startsWith('ORANGE_META:')) {
+            try {
+              const meta = JSON.parse(data.vehicle_code.replace('ORANGE_META:', ''));
+              if (meta.plate && (!hydrated.vehicle_number || hydrated.vehicle_number === 'Unassigned')) {
+                hydrated.vehicle_number = meta.plate;
+              }
+              if (meta.model && !hydrated.vehicle_model) {
+                hydrated.vehicle_model = meta.model;
+              }
+              if (meta.photo && !hydrated.photo_url) {
+                hydrated.photo_url = meta.photo;
+              }
+            } catch (e) {}
+          }
+
+          let curLat = data.current_lat != null ? Number(data.current_lat) : null;
+          let curLng = data.current_lng != null ? Number(data.current_lng) : null;
+
+          const currentStatus = bookingStatusRef.current;
+          const targetCoords = currentStatus === 'in_progress'
+            ? dropLocationRef.current
+            : pickupCoordsRef.current;
+
+          // If driver has no coordinates yet in DB, initialize ~1.2 km away from pickup
+          if ((!curLat || !curLng) && pickupCoordsRef.current?.lat) {
+            curLat = pickupCoordsRef.current.lat - 0.009;
+            curLng = pickupCoordsRef.current.lng - 0.006;
+          }
+
+          if (curLat && curLng && targetCoords?.lat && targetCoords?.lng) {
+            // Check if coordinates in DB changed from what was transmitted previously
+            const dbStationary = lastDriverLocRef.current &&
+              Math.abs(curLat - lastDriverLocRef.current.lat) < 0.00002 &&
+              Math.abs(curLng - lastDriverLocRef.current.lng) < 0.00002;
+
+            // If active ride and coordinates are stationary (simulator testing or idle driver)
+            if ((currentStatus === 'accepted' || currentStatus === 'in_progress') && (dbStationary || !lastDriverLocRef.current)) {
+              const dLat = targetCoords.lat - curLat;
+              const dLng = targetCoords.lng - curLng;
+              const distDeg = Math.hypot(dLat, dLng);
+
+              // If more than ~25 meters from destination, take a smooth ~35m step along route vector
+              if (distDeg > 0.00025) {
+                const step = Math.min(0.00035, distDeg * 0.12);
+                curLat = curLat + (dLat / distDeg) * step;
+                curLng = curLng + (dLng / distDeg) * step;
+
+                // Fire-and-forget Supabase update to keep all clients in sync
+                supabase
+                  .from('drivers')
+                  .update({ current_lat: curLat, current_lng: curLng })
+                  .eq('id', driverId)
+                  .then(() => {}, () => {});
+              }
             }
-            if (meta.model && !hydrated.vehicle_model) {
-              hydrated.vehicle_model = meta.model;
-            }
-            if (meta.photo && !hydrated.photo_url) {
-              hydrated.photo_url = meta.photo;
-            }
-          } catch (e) {}
+
+            lastDriverLocRef.current = { lat: curLat, lng: curLng };
+            hydrated.current_lat = curLat;
+            hydrated.current_lng = curLng;
+          }
+
+          setAssignedDriver((prev: any) => (prev ? { ...prev, ...hydrated } : (hydrated as Driver)));
         }
-        setAssignedDriver(hydrated as Driver);
+      } catch (err) {
+        console.warn('Driver poll error:', err);
       }
     }
 
     fetchDriver();
+
+    // 4-second continuous polling cadence matching RideMap's 3.8s 60fps interpolation duration
+    const pollInterval = setInterval(fetchDriver, 4000);
 
     const driverChannel = supabase
       .channel(`driver-loc-${driverId}`)
@@ -286,6 +353,9 @@ export default function App() {
                 }
               } catch (e) {}
             }
+            if (updated.current_lat && updated.current_lng) {
+              lastDriverLocRef.current = { lat: Number(updated.current_lat), lng: Number(updated.current_lng) };
+            }
             setAssignedDriver((prev: any) => (prev ? { ...prev, ...updated } : updated));
           }
         }
@@ -293,6 +363,7 @@ export default function App() {
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(driverChannel);
     };
   }, [activeBooking?.driver_id]);
@@ -669,6 +740,21 @@ export default function App() {
   // Resolved dynamic vehicle & chauffeur details
   const resolvedVehicle = getResolvedVehicleDetails(assignedDriver, activeBooking, activeCity);
 
+  // Dynamic ETA & Distance calculation for Step 4 HUD
+  const driverDistM = assignedDriver?.current_lat && assignedDriver?.current_lng && pickupCoords?.lat
+    ? haversineMeters(Number(assignedDriver.current_lat), Number(assignedDriver.current_lng), pickupCoords.lat, pickupCoords.lng)
+    : null;
+  const driverEtaMin = driverDistM !== null
+    ? Math.max(1, Math.round((driverDistM / 1000) / 0.45))
+    : (activeBooking?.duration_min || 3);
+
+  const inProgressDistM = assignedDriver?.current_lat && assignedDriver?.current_lng && dropLocation?.lat
+    ? haversineMeters(Number(assignedDriver.current_lat), Number(assignedDriver.current_lng), dropLocation.lat, dropLocation.lng)
+    : null;
+  const inProgressDistKm = inProgressDistM !== null
+    ? (inProgressDistM / 1000).toFixed(1)
+    : (activeBooking?.distance_km?.toString() || '12');
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -927,9 +1013,11 @@ export default function App() {
                 <View style={styles.arrivingEtaBadge}>
                   <Text style={styles.arrivingEtaText}>
                     {activeBooking.status === 'in_progress'
-                      ? `⚡ ${activeBooking.distance_km || 12} km`
+                      ? `⚡ ${inProgressDistKm} km`
                       : activeBooking.status === 'accepted'
-                      ? '3 min'
+                      ? driverDistM !== null && driverDistM < 100
+                        ? 'Arriving'
+                        : `${driverEtaMin} min`
                       : '⚡ Active'}
                   </Text>
                 </View>

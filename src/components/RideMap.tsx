@@ -42,6 +42,37 @@ const MINIMAL_LIGHT_MAP_STYLE = [
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9CA3AF' }] },
 ];
 
+// ---------------------------------------------------------------------------
+// GEODESIC & BEARING HELPERS FOR SMOOTH CAR MOTION
+// ---------------------------------------------------------------------------
+export function calculateBearing(startLat: number, startLng: number, endLat: number, endLng: number): number {
+  const startLatRad = (startLat * Math.PI) / 180;
+  const startLngRad = (startLng * Math.PI) / 180;
+  const endLatRad = (endLat * Math.PI) / 180;
+  const endLngRad = (endLng * Math.PI) / 180;
+
+  const dLng = endLngRad - startLngRad;
+  const y = Math.sin(dLng) * Math.cos(endLatRad);
+  const x =
+    Math.cos(startLatRad) * Math.sin(endLatRad) -
+    Math.sin(startLatRad) * Math.cos(endLatRad) * Math.cos(dLng);
+
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+}
+
+export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export function RideMap({
   pickup,
   drop,
@@ -61,10 +92,92 @@ export function RideMap({
   const isInProgress = status === 'in_progress';
   const hasValidDrop = drop && drop.lat && drop.lng && (drop.lat !== pickup.lat || drop.lng !== pickup.lng);
 
+  // -------------------------------------------------------------------------
+  // ULTRA-SMOOTH 60 FPS GLIDING CAR INTERPOLATION
+  // -------------------------------------------------------------------------
+  const [smoothCarCoord, setSmoothCarCoord] = React.useState<{ lat: number; lng: number } | null>(
+    driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null
+  );
+  const [carBearing, setCarBearing] = React.useState<number>(0);
+  const currentPosRef = useRef<{ lat: number; lng: number } | null>(
+    driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null
+  );
+  const animFrameRef = useRef<number | null>(null);
+  const lastFitStatusRef = useRef<string>('');
+
+  useEffect(() => {
+    if (!driverLocation || !driverLocation.lat || !driverLocation.lng) return;
+
+    // First time receiving location: initialize immediately
+    if (!currentPosRef.current) {
+      currentPosRef.current = { lat: driverLocation.lat, lng: driverLocation.lng };
+      setSmoothCarCoord({ lat: driverLocation.lat, lng: driverLocation.lng });
+      return;
+    }
+
+    const startLat = currentPosRef.current.lat;
+    const startLng = currentPosRef.current.lng;
+    const endLat = driverLocation.lat;
+    const endLng = driverLocation.lng;
+
+    // Only animate if movement is meaningful (>= 0.5 meters)
+    const distM = haversineMeters(startLat, startLng, endLat, endLng);
+    if (distM < 0.5) return;
+
+    // Calculate heading / bearing angle for vehicle rotation
+    const bearing = calculateBearing(startLat, startLng, endLat, endLng);
+    setCarBearing(bearing);
+
+    // Cancel running animation frame to prevent jitter
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
+
+    const startTime = Date.now();
+    const duration = 3800; // Smooth 3.8-second glide matching 4s server polling cadence
+
+    function animateStep() {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+
+      // Smooth linear glide
+      const currentLat = startLat + (endLat - startLat) * progress;
+      const currentLng = startLng + (endLng - startLng) * progress;
+
+      currentPosRef.current = { lat: currentLat, lng: currentLng };
+      setSmoothCarCoord({ lat: currentLat, lng: currentLng });
+
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(animateStep);
+      } else {
+        currentPosRef.current = { lat: endLat, lng: endLng };
+        setSmoothCarCoord({ lat: endLat, lng: endLng });
+        animFrameRef.current = null;
+      }
+    }
+
+    animFrameRef.current = requestAnimationFrame(animateStep);
+
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, [driverLocation?.lat, driverLocation?.lng]);
+
+  // Fit camera when status changes or on initial mount (never jitter during 4s ticks)
   useEffect(() => {
     if (isPinPickerMode) return;
 
     if (mapRef.current && pickup.lat) {
+      const statusChanged = lastFitStatusRef.current !== status;
+      lastFitStatusRef.current = status;
+
+      if (!statusChanged && lastFitStatusRef.current !== '') {
+        return; // Skip refitting to prevent viewport jerk while car is moving
+      }
+
       if (hasValidDrop && drop) {
         let coords = [];
         if (isInProgress) {
@@ -86,11 +199,11 @@ export function RideMap({
         }
 
         mapRef.current.fitToCoordinates(coords, {
-          edgePadding: { top: 70, right: 60, bottom: 70, left: 60 },
+          edgePadding: { top: 90, right: 60, bottom: 90, left: 60 },
           animated: true,
         });
       } else {
-        // Idle / Explore mode: tightly zoom in to street-level on user GPS
+        // Idle / Explore mode
         mapRef.current.animateToRegion(
           {
             latitude: pickup.lat,
@@ -102,22 +215,35 @@ export function RideMap({
         );
       }
     }
-  }, [pickup.lat, pickup.lng, drop?.lat, drop?.lng, driverLocation?.lat, driverLocation?.lng, status, isPinPickerMode]);
+  }, [pickup.lat, pickup.lng, drop?.lat, drop?.lng, status, isPinPickerMode]);
 
-  const currentCarCoord = driverLocation?.lat && driverLocation?.lng
-    ? { latitude: driverLocation.lat, longitude: driverLocation.lng }
+  // Target point for car (pickup if en route to customer; drop if ride in progress)
+  const targetPoint = isInProgress && hasValidDrop && drop ? drop : pickup;
+  const currentCarPos = smoothCarCoord || driverLocation;
+
+  // Real-time dynamic ETA calculation from live moving vehicle to target
+  const distToTargetM = currentCarPos && targetPoint?.lat && targetPoint?.lng
+    ? haversineMeters(currentCarPos.lat, currentCarPos.lng, targetPoint.lat, targetPoint.lng)
+    : null;
+  const dynamicCarEtaMins = distToTargetM !== null
+    ? Math.max(1, Math.round((distToTargetM / 1000) / 0.45))
+    : routeDurationMin || 3;
+
+  const currentCarCoord = currentCarPos?.lat && currentCarPos?.lng
+    ? { latitude: currentCarPos.lat, longitude: currentCarPos.lng }
     : { latitude: pickup.lat, longitude: pickup.lng };
 
-  const polylineCoords = hasValidDrop && drop
-    ? isInProgress
-      ? [currentCarCoord, { latitude: drop.lat, longitude: drop.lng }]
-      : status === 'accepted' && driverLocation?.lat
-      ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }, { latitude: pickup.lat, longitude: pickup.lng }]
-      : [
-          { latitude: pickup.lat, longitude: pickup.lng },
-          ...(driverLocation?.lat ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
-          { latitude: drop.lat, longitude: drop.lng },
-        ]
+  // Polyline dynamically tracks moving car to target
+  const polylineCoords = isInProgress && hasValidDrop && drop
+    ? [currentCarCoord, { latitude: drop.lat, longitude: drop.lng }]
+    : (status === 'accepted' || status === 'arrived') && (currentCarPos?.lat)
+    ? [currentCarCoord, { latitude: pickup.lat, longitude: pickup.lng }]
+    : hasValidDrop && drop
+    ? [
+        { latitude: pickup.lat, longitude: pickup.lng },
+        ...(driverLocation?.lat ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
+        { latitude: drop.lat, longitude: drop.lng },
+      ]
     : [];
 
   function handleRegionChangeComplete(region: Region) {
@@ -186,22 +312,28 @@ export function RideMap({
           </Marker>
         )}
 
-        {/* Real Assigned Chauffeur Marker with Floating ETA Badge */}
-        {driverLocation && driverLocation.lat && driverLocation.lng && (
+        {/* Real Assigned Chauffeur Marker with Floating ETA Badge & Heading Rotation */}
+        {currentCarPos && currentCarPos.lat && currentCarPos.lng && (
           <Marker
-            coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
+            coordinate={{ latitude: currentCarPos.lat, longitude: currentCarPos.lng }}
             title="Orange Chauffeur"
             description={isInProgress ? 'En route to destination' : 'En route to pickup'}
-            anchor={{ x: 0.5, y: 0.8 }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            flat={true}
           >
             <View style={styles.driverCarMarkerWrapper}>
               <View style={styles.carEtaBadge}>
                 <Text style={styles.carEtaText}>
-                  {routeDurationMin ? `${routeDurationMin} min` : '3 min'}
+                  {dynamicCarEtaMins} min
                 </Text>
               </View>
-              <View style={styles.driverCarMarker}>
-                <Car size={15} color="#FFFFFF" />
+              <View
+                style={[
+                  styles.driverCarMarker,
+                  { transform: [{ rotate: `${carBearing}deg` }] },
+                ]}
+              >
+                <Car size={16} color="#FFFFFF" />
               </View>
             </View>
           </Marker>
