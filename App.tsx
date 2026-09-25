@@ -596,7 +596,7 @@ export default function App() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setBookingLoading(true);
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const ref = 'OT' + Math.random().toString(36).substring(2, 8).toUpperCase();
     const effectivePickup = pickupPillar ? `${pickupText} (${pickupPillar})` : pickupText;
 
