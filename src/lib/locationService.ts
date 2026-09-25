@@ -196,60 +196,43 @@ export async function reverseGeocodeCoordSafe(
   lat: number,
   lng: number
 ): Promise<{ displayText: string; cityName: 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad' }> {
-  // 1. Check nearby curated presets (within 600m of an airport or major transit hub)
+  // 1. Check if precisely inside an airport terminal (only within 80m of terminal doors)
   if (EXPANDED_PRESETS && EXPANDED_PRESETS.length > 0) {
     for (const p of EXPANDED_PRESETS) {
-      const d = haversineDistance(lat, lng, p.lat, p.lng);
-      if (d < 0.6) {
-        return {
-          displayText: `${p.name}, ${p.city}`,
-          cityName: (p.city === 'Other' ? detectCityFromCoords(lat, lng) : p.city) as any,
-        };
+      if (p.isAirport) {
+        const d = haversineDistance(lat, lng, p.lat, p.lng);
+        if (d < 0.08) {
+          return {
+            displayText: `${p.name}, ${p.city}`,
+            cityName: (p.city === 'Other' ? detectCityFromCoords(lat, lng) : p.city) as any,
+          };
+        }
       }
     }
   }
 
-  // 2. High-speed client reverse geocoding via BigDataCloud (<180ms, free, works on web + native without key)
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2200);
-    const res = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeout);
-    if (res.ok) {
-      const data = await res.json();
-      const locality = data.locality || data.principalSubdivision || '';
-      const city = data.city || data.localityInfo?.administrative?.[2]?.name || data.localityInfo?.administrative?.[1]?.name || '';
-      const detectedCity = detectCityFromCoordsAndName(lat, lng, city || locality);
-      if (locality && city && locality.toLowerCase() !== city.toLowerCase()) {
-        return {
-          displayText: `${locality}, ${city}`,
-          cityName: detectedCity,
-        };
-      } else if (locality || city) {
-        return {
-          displayText: locality || city,
-          cityName: detectedCity,
-        };
-      }
-    }
-  } catch (e) {}
-
-  // 3. Try native Expo reverse geocode (only on native iOS/Android)
+  // 2. High-precision native Expo reverse geocoding (iOS CoreLocation / Android Geocoder gives exact road, building, and lane)
   if (Platform.OS !== 'web') {
     try {
       const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
       if (geo) {
         const parts: string[] = [];
-        if (geo.name && geo.name !== geo.street) parts.push(geo.name);
-        if (geo.street) parts.push(geo.street);
-        if (geo.district && !parts.includes(geo.district)) parts.push(geo.district);
+        // Include landmark or building name if available and not numeric
+        if (geo.name && geo.name !== geo.street && isNaN(Number(geo.name))) {
+          parts.push(geo.name);
+        }
+        if (geo.street) {
+          parts.push(geo.street);
+        }
+        // Subregion or district (locality/neighborhood)
+        const sub = geo.subregion || geo.district;
+        if (sub && !parts.some((p) => p.toLowerCase().includes(sub.toLowerCase()))) {
+          parts.push(sub);
+        }
 
-        const locality = parts.length > 0 ? parts.join(', ') : '';
         const city = geo.city || geo.subregion || 'India';
         const detectedCity = detectCityFromCoordsAndName(lat, lng, city);
+        const locality = parts.length > 0 ? parts.join(', ') : '';
 
         if (locality) {
           return {
@@ -261,7 +244,7 @@ export async function reverseGeocodeCoordSafe(
     } catch (e) {}
   }
 
-  // 4. Fallback to OpenStreetMap Nominatim
+  // 3. Fallback to OpenStreetMap Nominatim (High detail zoom 18)
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
@@ -330,7 +313,7 @@ export async function getSanitizedLocation(
       try {
         const current = await Promise.race([
           Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+            accuracy: Location.Accuracy.High,
           }),
           new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4500)),
         ]);

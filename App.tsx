@@ -125,6 +125,7 @@ export default function App() {
   const [pinPickerTarget, setPinPickerTarget] = useState<'pickup' | 'drop'>('drop');
   const [pinCurrentCoords, setPinCurrentCoords] = useState<{ lat: number; lng: number }>({ lat: 28.6315, lng: 77.2167 });
   const [pinAddressText, setPinAddressText] = useState('Detected Pin Location');
+  const [isBookingPinConfirm, setIsBookingPinConfirm] = useState(false);
 
   // Hospitality Comforts
   const [cabinClimate, setCabinClimate] = useState<'chilled' | 'pleasant' | 'eco'>('chilled');
@@ -557,6 +558,14 @@ export default function App() {
 
   function handleConfirmPinPicker() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (isBookingPinConfirm) {
+      setPickupCoords(pinCurrentCoords);
+      setPickupText(pinAddressText);
+      executeBookingSubmission(pinCurrentCoords, pinAddressText);
+      return;
+    }
+
     if (pinPickerTarget === 'pickup') {
       setPickupCoords(pinCurrentCoords);
       setPickupText(pinAddressText);
@@ -576,7 +585,7 @@ export default function App() {
   }
 
   // -------------------------------------------------------------------------
-  // BOOKING SUBMISSION TO SUPABASE
+  // BOOKING CONFIRMATION & EXACT PICKUP PIN DROP FLOW
   // -------------------------------------------------------------------------
   async function handleConfirmBooking() {
     if (!user) {
@@ -592,12 +601,27 @@ export default function App() {
       return;
     }
 
+    // Direct the user to drop the pin at their exact pickup location!
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPinPickerTarget('pickup');
+    setPinCurrentCoords(pickupCoords);
+    setPinAddressText(pickupText);
+    setIsBookingPinConfirm(true);
+    setPinPickerActive(true);
+  }
+
+  async function executeBookingSubmission(finalCoords?: { lat: number; lng: number }, finalAddress?: string) {
+    if (!user || !dropLocation) return;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setBookingLoading(true);
 
+    const effectiveCoords = finalCoords || pickupCoords;
+    const effectiveAddress = finalAddress || pickupText;
+    const effectivePickup = pickupPillar ? `${effectiveAddress} (${pickupPillar})` : effectiveAddress;
+
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const ref = 'OT' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const effectivePickup = pickupPillar ? `${pickupText} (${pickupPillar})` : pickupText;
 
     try {
       const { data, error } = await supabase
@@ -606,7 +630,7 @@ export default function App() {
           customer_id: user.id,
           reference: ref,
           pickup_area: effectivePickup,
-          pickup_address: `${pickupCoords.lat},${pickupCoords.lng}`,
+          pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng}`,
           drop_area: dropLocation.name,
           drop_address: `${dropLocation.lat},${dropLocation.lng}`,
           distance_km: distKm,
@@ -643,6 +667,8 @@ export default function App() {
           console.warn('Could not cache booking id in AsyncStorage:', e);
         }
       }
+      setPinPickerActive(false);
+      setIsBookingPinConfirm(false);
       setStep(4);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
@@ -949,15 +975,34 @@ export default function App() {
             <View style={styles.pinPickerHeader}>
               <TouchableOpacity
                 style={styles.pinPickerBackBtn}
-                onPress={() => setPinPickerActive(false)}
+                onPress={() => {
+                  setPinPickerActive(false);
+                  if (isBookingPinConfirm) {
+                    setIsBookingPinConfirm(false);
+                  }
+                }}
               >
                 <ArrowLeft size={20} color="#0F172A" />
               </TouchableOpacity>
               <Text style={styles.pinPickerTitle}>
-                Set {pinPickerTarget === 'pickup' ? 'Pickup Location' : 'Destination'} on Map
+                {isBookingPinConfirm
+                  ? 'Confirm Exact Pickup Spot'
+                  : pinPickerTarget === 'pickup'
+                  ? 'Set Pickup Location'
+                  : 'Set Destination'}
               </Text>
               <View style={{ width: 36 }} />
             </View>
+
+            {/* Instruction Banner if booking pin confirm */}
+            {isBookingPinConfirm && (
+              <View style={styles.pinDropHintBanner}>
+                <Sparkles size={14} color="#F97316" />
+                <Text style={styles.pinDropHintText}>
+                  Move map to drop pin at your exact gate or curb
+                </Text>
+              </View>
+            )}
 
             {/* Full Screen Map with fixed Center Pin */}
             <View style={{ flex: 1 }}>
@@ -974,18 +1019,34 @@ export default function App() {
             {/* Bottom Confirmation Card */}
             <View style={styles.pinPickerBottomCard}>
               <View style={styles.pinAddressRow}>
-                <MapPin size={18} color="#F56B00" />
+                <MapPin size={18} color="#F97316" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.pinAddressMicro}>PINPOINTED LOCATION</Text>
+                  <Text style={styles.pinAddressMicro}>
+                    {isBookingPinConfirm ? 'EXACT PICKUP SPOT' : 'PINPOINTED LOCATION'}
+                  </Text>
                   <Text style={styles.pinAddressText} numberOfLines={2}>
                     {pinAddressText}
                   </Text>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.pinConfirmBtn} onPress={handleConfirmPinPicker}>
-                <Text style={styles.pinConfirmText}>Confirm Location</Text>
-                <ArrowRight size={16} color="#FFFFFF" />
+              <TouchableOpacity
+                style={styles.pinConfirmBtn}
+                disabled={bookingLoading}
+                onPress={handleConfirmPinPicker}
+              >
+                {bookingLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.pinConfirmText}>
+                      {isBookingPinConfirm
+                        ? `Confirm Pickup & Book · ₹${totalEstimatedFare}`
+                        : 'Confirm Location'}
+                    </Text>
+                    <ArrowRight size={16} color="#FFFFFF" />
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -1158,17 +1219,24 @@ export default function App() {
                 </TouchableOpacity>
               </View>
 
-              {/* Ride Start OTP Pill (or Verified Status) */}
+              {/* Ride Start OTP Pill (Revealed only after driver accepts) */}
               {activeBooking.status === 'in_progress' ? (
                 <View style={styles.inProgressPillBar}>
                   <CheckCircle size={15} color="#10B981" />
                   <Text style={styles.inProgressPillText}>OTP Verified · Fare ₹{activeBooking.estimated_fare}</Text>
                 </View>
-              ) : activeBooking.ride_otp ? (
+              ) : (activeBooking.status === 'accepted' || activeBooking.status === 'arrived') && activeBooking.ride_otp ? (
                 <View style={styles.otpPillBar}>
                   <Text style={styles.otpPillLabel}>START OTP</Text>
                   <Text style={styles.otpPillCode}>{activeBooking.ride_otp}</Text>
-                  <Text style={styles.otpPillSub}>Share with chauffeur</Text>
+                  <Text style={styles.otpPillSub}>Share with chauffeur to start trip</Text>
+                </View>
+              ) : activeBooking.status === 'searching' ? (
+                <View style={styles.searchingOtpBar}>
+                  <ActivityIndicator size="small" color="#F97316" />
+                  <Text style={styles.searchingOtpText}>
+                    Searching nearby chauffeurs · OTP will reveal once ride is accepted
+                  </Text>
                 </View>
               ) : null}
 
@@ -2642,6 +2710,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  searchingOtpBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchingOtpText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+    flex: 1,
+  },
   onboardAmenitiesBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3167,6 +3255,23 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '700',
+  },
+  pinDropHintBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(249, 115, 22, 0.2)',
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+  },
+  pinDropHintText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C2410C',
+    textAlign: 'center',
   },
   pinPickerBottomCard: {
     backgroundColor: '#FFFFFF',
