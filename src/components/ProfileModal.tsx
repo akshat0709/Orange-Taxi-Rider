@@ -367,7 +367,7 @@ export function ProfileModal({
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.historyTitle}>My Trips & Ride History</Text>
                   <Text style={styles.historySub}>
-                    Live Supabase rides, route tracking & GST invoices
+                    Live Supabase rides, route tracking & Tax Invoices
                   </Text>
                 </View>
               </View>

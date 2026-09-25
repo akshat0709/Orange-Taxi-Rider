@@ -24,9 +24,11 @@ import {
   Receipt,
   RotateCcw,
   Sparkles,
+  FileText,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { Booking } from '../types';
+import { TaxInvoiceModal } from './TaxInvoiceModal';
 
 interface RideHistoryModalProps {
   visible: boolean;
@@ -46,6 +48,8 @@ export function RideHistoryModal({
   const [trips, setTrips] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedInvoiceTrip, setSelectedInvoiceTrip] = useState<Booking | null>(null);
+  const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -128,28 +132,14 @@ export function RideHistoryModal({
     }
   }
 
-  function handleViewReceipt(trip: Booking) {
+  function handleViewInvoice(trip: Booking) {
     Haptics.selectionAsync();
-    const fare = trip.estimated_fare || 149;
-    const base = Math.round(fare * 0.7);
-    const distFare = Math.round(fare * 0.25);
-    const tax = fare - base - distFare;
+    setSelectedInvoiceTrip(trip);
+    setInvoiceModalVisible(true);
+  }
 
-    Alert.alert(
-      `Trip Receipt · ${trip.reference || trip.id.substring(0, 8).toUpperCase()}`,
-      `Date: ${formatTripDate(trip.created_at)}\n` +
-      `Vehicle: ${trip.vehicle_name || 'Orange Sedan EV'}\n` +
-      `Distance: ${trip.distance_km || 12} km\n\n` +
-      `───────────────────────\n` +
-      `Base Fare: ₹${base}\n` +
-      `Distance Fare: ₹${distFare}\n` +
-      `5% GST (SAC 996412): ₹${tax}\n` +
-      `───────────────────────\n` +
-      `Total Paid: ₹${fare}\n` +
-      `Payment: ${trip.payment_method?.toUpperCase() || 'CASH / UPI'}\n` +
-      `Zero Cancellation Guarantee applied.`,
-      [{ text: 'Close', style: 'cancel' }]
-    );
+  function handleViewReceipt(trip: Booking) {
+    handleViewInvoice(trip);
   }
 
   function handleRepeat(trip: Booking) {
@@ -161,20 +151,21 @@ export function RideHistoryModal({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.card}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={styles.headerIconWrap}>
-                <Clock size={20} color="#F97316" />
+    <>
+      <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.card}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={styles.headerIconWrap}>
+                  <Clock size={20} color="#F97316" />
+                </View>
+                <View>
+                  <Text style={styles.title}>Your Trips</Text>
+                  <Text style={styles.subTitle}>Live Supabase Ride History & Tax Invoices</Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.title}>Your Trips</Text>
-                <Text style={styles.subTitle}>Live Supabase Ride History & Receipts</Text>
-              </View>
-            </View>
 
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
               <X size={20} color="#9CA3AF" />
@@ -294,11 +285,11 @@ export function RideHistoryModal({
                     {/* Action Buttons */}
                     <View style={styles.tripActionsRow}>
                       <TouchableOpacity
-                        style={styles.receiptActionBtn}
-                        onPress={() => handleViewReceipt(trip)}
+                        style={styles.invoiceActionBtn}
+                        onPress={() => handleViewInvoice(trip)}
                       >
-                        <Receipt size={14} color="#4B5563" />
-                        <Text style={styles.receiptActionText}>GST Receipt</Text>
+                        <FileText size={14} color="#EA580C" />
+                        <Text style={styles.invoiceActionText}>Tax Invoice</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -318,7 +309,18 @@ export function RideHistoryModal({
         </View>
       </View>
     </Modal>
-  );
+
+    <TaxInvoiceModal
+      visible={invoiceModalVisible}
+      onClose={() => {
+        setInvoiceModalVisible(false);
+        setSelectedInvoiceTrip(null);
+      }}
+      trip={selectedInvoiceTrip}
+      user={user}
+    />
+  </>
+);
 }
 
 const styles = StyleSheet.create({
@@ -586,6 +588,22 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 10,
   },
+  invoiceActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  invoiceActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C2410C',
+  },
   receiptActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -593,12 +611,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   receiptActionText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: '#C2410C',
   },
   repeatActionBtn: {
     flexDirection: 'row',
