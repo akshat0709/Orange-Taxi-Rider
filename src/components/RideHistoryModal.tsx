@@ -26,6 +26,8 @@ import {
   Sparkles,
   FileText,
   Calendar,
+  Trash2,
+  AlertCircle,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { Booking } from '../types';
@@ -56,6 +58,20 @@ export function RideHistoryModal({
   const [refreshing, setRefreshing] = useState(false);
   const [selectedInvoiceTrip, setSelectedInvoiceTrip] = useState<Booking | null>(null);
   const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+
+  const upcomingTrips = trips.filter(
+    (t) =>
+      t.status === 'scheduled' ||
+      (t.scheduled_at && !['completed', 'cancelled'].includes(t.status)) ||
+      (t.status === 'searching' && t.scheduled_at)
+  );
+
+  const pastTrips = trips.filter(
+    (t) =>
+      ['completed', 'cancelled'].includes(t.status) ||
+      (!t.scheduled_at && ['searching', 'accepted', 'arrived', 'in_progress'].includes(t.status))
+  );
 
   useEffect(() => {
     if (visible) {
@@ -122,6 +138,73 @@ export function RideHistoryModal({
     }
   }
 
+  function formatScheduleFull(isoString: string): string {
+    if (!isoString) return 'Upcoming Schedule';
+    try {
+      const d = new Date(isoString);
+      const now = new Date();
+      const diffMs = d.getTime() - now.getTime();
+      const diffHrs = Math.round(diffMs / (1000 * 60 * 60));
+      const diffMins = Math.round(diffMs / (1000 * 60));
+
+      let relative = '';
+      if (diffMins < 0) {
+        relative = 'Pickup time reached';
+      } else if (diffMins < 60) {
+        relative = `In ${diffMins} mins`;
+      } else if (diffHrs < 24) {
+        relative = `In ${diffHrs} hrs`;
+      } else {
+        const days = Math.floor(diffHrs / 24);
+        relative = `In ${days} day${days > 1 ? 's' : ''}`;
+      }
+
+      const dateStr = d.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+      const timeStr = d.toLocaleTimeString('en-IN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      return `${dateStr} at ${timeStr} • ${relative}`;
+    } catch {
+      return isoString;
+    }
+  }
+
+  async function handleCancelScheduledTrip(trip: Booking) {
+    Alert.alert(
+      'Cancel Scheduled Ride',
+      `Are you sure you want to cancel your scheduled ride for ${formatTripDate(trip.scheduled_at || trip.created_at)}? There is zero cancellation fee.`,
+      [
+        { text: 'Keep Ride', style: 'cancel' },
+        {
+          text: 'Cancel Ride',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            const { error } = await supabase
+              .from('bookings')
+              .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+              .eq('id', trip.id);
+            if (!error) {
+              setTrips((prev) =>
+                prev.map((t) => (t.id === trip.id ? { ...t, status: 'cancelled' } : t))
+              );
+              Alert.alert('Ride Cancelled', 'Your advance scheduled booking has been cancelled.');
+            } else {
+              Alert.alert('Notice', 'Unable to cancel ride right now. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }
+
   function getStatusBadge(status: string) {
     switch (status) {
       case 'completed':
@@ -182,19 +265,78 @@ export function RideHistoryModal({
           {/* Subheader summary badge */}
           <View style={[styles.statsBanner, isDark && styles.statsBannerDark]}>
             <View style={styles.statsCol}>
-              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>{trips.length}</Text>
-              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Total Bookings</Text>
+              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>{upcomingTrips.length}</Text>
+              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Upcoming</Text>
+            </View>
+            <View style={[styles.statsDivider, isDark && styles.statsDividerDark]} />
+            <View style={styles.statsCol}>
+              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>{pastTrips.length}</Text>
+              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Past Trips</Text>
             </View>
             <View style={[styles.statsDivider, isDark && styles.statsDividerDark]} />
             <View style={styles.statsCol}>
               <Text style={[styles.statsNumber, isDark && styles.textWhite]}>100%</Text>
-              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Electric Travel</Text>
+              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Electric</Text>
             </View>
-            <View style={[styles.statsDivider, isDark && styles.statsDividerDark]} />
-            <View style={styles.statsCol}>
-              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>0%</Text>
-              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Cancellation Fee</Text>
-            </View>
+          </View>
+
+          {/* TAB BAR: UPCOMING & SCHEDULED vs. COMPLETED & PAST */}
+          <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                activeTab === 'upcoming' && styles.tabBtnActiveUpcoming,
+                isDark && activeTab === 'upcoming' && styles.tabBtnActiveUpcomingDark,
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab('upcoming');
+              }}
+            >
+              <Calendar size={14} color={activeTab === 'upcoming' ? '#7C3AED' : (isDark ? '#94A3B8' : '#64748B')} />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'upcoming' && styles.tabBtnTextActivePurple,
+                  isDark && activeTab !== 'upcoming' && styles.textMutedDark,
+                ]}
+              >
+                Upcoming & Scheduled
+              </Text>
+              {upcomingTrips.length > 0 && (
+                <View style={styles.tabBadgePurple}>
+                  <Text style={styles.tabBadgeTextPurple}>{upcomingTrips.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                activeTab === 'past' && styles.tabBtnActivePast,
+                isDark && activeTab === 'past' && styles.tabBtnActivePastDark,
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab('past');
+              }}
+            >
+              <Clock size={14} color={activeTab === 'past' ? '#F97316' : (isDark ? '#94A3B8' : '#64748B')} />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'past' && styles.tabBtnTextActiveOrange,
+                  isDark && activeTab !== 'past' && styles.textMutedDark,
+                ]}
+              >
+                Past Trips
+              </Text>
+              {pastTrips.length > 0 && (
+                <View style={styles.tabBadgeOrange}>
+                  <Text style={styles.tabBadgeTextOrange}>{pastTrips.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Body Content */}
@@ -203,20 +345,39 @@ export function RideHistoryModal({
               <ActivityIndicator size="large" color="#F97316" />
               <Text style={[styles.loadingText, isDark && styles.textMutedDark]}>Fetching your rides...</Text>
             </View>
-          ) : trips.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Car size={36} color="#F97316" />
+          ) : (activeTab === 'upcoming' ? upcomingTrips : pastTrips).length === 0 ? (
+            activeTab === 'upcoming' ? (
+              <View style={styles.emptyContainer}>
+                <View style={[styles.emptyIconCircle, { backgroundColor: 'rgba(124, 58, 237, 0.1)' }]}>
+                  <Calendar size={36} color="#7C3AED" />
+                </View>
+                <Text style={[styles.emptyTitle, isDark && styles.textWhite]}>No Scheduled Rides</Text>
+                <Text style={[styles.emptySubtitle, isDark && styles.textMutedDark]}>
+                  You have no advance scheduled bookings. Use the Schedule button on the home screen to reserve your rides up to 7 days ahead with zero surge pricing!
+                </Text>
+                <TouchableOpacity
+                  style={[styles.emptyActionBtn, { backgroundColor: '#7C3AED' }]}
+                  onPress={onClose}
+                >
+                  <Text style={styles.emptyActionText}>Schedule a Ride</Text>
+                  <ArrowRight size={16} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
-              <Text style={[styles.emptyTitle, isDark && styles.textWhite]}>No Trips Yet</Text>
-              <Text style={[styles.emptySubtitle, isDark && styles.textMutedDark]}>
-                When you book 100% electric rides with Orange Taxi, your trip receipts and route history will appear here in real-time.
-              </Text>
-              <TouchableOpacity style={styles.emptyActionBtn} onPress={onClose}>
-                <Text style={styles.emptyActionText}>Book Your First Ride</Text>
-                <ArrowRight size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Car size={36} color="#F97316" />
+                </View>
+                <Text style={[styles.emptyTitle, isDark && styles.textWhite]}>No Past Trips Yet</Text>
+                <Text style={[styles.emptySubtitle, isDark && styles.textMutedDark]}>
+                  When you complete rides with Orange Taxi, your trip receipts and downloadable tax invoices will appear here.
+                </Text>
+                <TouchableOpacity style={styles.emptyActionBtn} onPress={onClose}>
+                  <Text style={styles.emptyActionText}>Book Your First Ride</Text>
+                  <ArrowRight size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )
           ) : (
             <ScrollView
               style={styles.tripList}
@@ -225,16 +386,18 @@ export function RideHistoryModal({
                 <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#F97316" />
               }
             >
-              {trips.map((trip) => {
+              {(activeTab === 'upcoming' ? upcomingTrips : pastTrips).map((trip) => {
                 const status = getStatusBadge(trip.status);
                 const isResumable = ['searching', 'scheduled', 'accepted', 'arrived', 'in_progress'].includes(trip.status);
+                const isScheduled = trip.status === 'scheduled';
                 return (
                   <TouchableOpacity
                     key={trip.id}
                     style={[
                       styles.tripCard,
                       isDark && styles.tripCardDark,
-                      isResumable && (isDark ? styles.tripCardResumableDark : styles.tripCardResumable),
+                      isScheduled && (isDark ? styles.tripCardScheduledDark : styles.tripCardScheduled),
+                      !isScheduled && isResumable && (isDark ? styles.tripCardResumableDark : styles.tripCardResumable),
                     ]}
                     activeOpacity={isResumable || trip.status === 'completed' ? 0.88 : 1}
                     onPress={() => {
@@ -249,9 +412,15 @@ export function RideHistoryModal({
                   >
                     {/* Top Row: Date + Status Badge */}
                     <View style={styles.tripHeaderRow}>
-                      <View>
-                        <Text style={[styles.tripDateText, isDark && styles.textWhite]}>{formatTripDate(trip.created_at)}</Text>
-                        <Text style={[styles.tripRefText, isDark && styles.textMutedDark]}>Ref: {trip.reference || trip.id.substring(0, 8).toUpperCase()}</Text>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={[styles.tripDateText, isDark && styles.textWhite]}>
+                          {isScheduled && trip.scheduled_at
+                            ? `📅 ${formatScheduleFull(trip.scheduled_at)}`
+                            : formatTripDate(trip.created_at)}
+                        </Text>
+                        <Text style={[styles.tripRefText, isDark && styles.textMutedDark]}>
+                          Ref: {trip.reference || trip.id.substring(0, 8).toUpperCase()}
+                        </Text>
                       </View>
                       <View
                         style={[
@@ -287,6 +456,21 @@ export function RideHistoryModal({
                       </View>
                     </View>
 
+                    {/* SCHEDULED RIDE DISPATCH WINDOW BANNER */}
+                    {isScheduled && (
+                      <View style={[styles.scheduledCardInfoBox, isDark && styles.scheduledCardInfoBoxDark]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <AlertCircle size={13} color="#7C3AED" />
+                          <Text style={[styles.scheduledCardInfoTitle, isDark && styles.textWhite]}>
+                            Chauffeur Dispatch Window
+                          </Text>
+                        </View>
+                        <Text style={[styles.scheduledCardInfoText, isDark && styles.textMutedDark]}>
+                          Zero surge fare locked. Fleet Chauffeur assignment begins 15–30 mins before pickup with pre-cooled AC at 22°C.
+                        </Text>
+                      </View>
+                    )}
+
                     {/* Meta Strip: Vehicle, Fare, OTP */}
                     <View style={[styles.tripFooterRow, isDark && styles.tripFooterRowDark]}>
                       <View style={styles.vehicleInfoCol}>
@@ -309,7 +493,6 @@ export function RideHistoryModal({
 
                     {/* Action Buttons */}
                     <View style={styles.tripActionsRow}>
-                      {/* Tax Invoice — ONLY for completed trips */}
                       {trip.status === 'completed' ? (
                         <TouchableOpacity
                           style={[styles.invoiceActionBtn, isDark && styles.invoiceActionBtnDark]}
@@ -318,8 +501,28 @@ export function RideHistoryModal({
                           <FileText size={14} color={isDark ? '#FB923C' : '#EA580C'} />
                           <Text style={[styles.invoiceActionText, isDark && styles.invoiceActionTextDark]}>Tax Invoice</Text>
                         </TouchableOpacity>
+                      ) : isScheduled ? (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.cancelActionBtn, isDark && styles.cancelActionBtnDark]}
+                            onPress={() => handleCancelScheduledTrip(trip)}
+                          >
+                            <Trash2 size={13} color="#EF4444" />
+                            <Text style={styles.cancelActionText}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark, { borderColor: '#DDD6FE', backgroundColor: isDark ? 'rgba(124, 58, 237, 0.15)' : '#F5F3FF' }]}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                              onClose();
+                              onResumeBooking?.(trip);
+                            }}
+                          >
+                            <Calendar size={14} color="#7C3AED" />
+                            <Text style={[styles.resumeActionText, { color: '#7C3AED' }]}>View Scheduled Ride</Text>
+                          </TouchableOpacity>
+                        </>
                       ) : trip.status === 'searching' ? (
-                        /* Searching — show Resume Booking button */
                         <TouchableOpacity
                           style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark]}
                           onPress={() => {
@@ -331,21 +534,7 @@ export function RideHistoryModal({
                           <Navigation size={14} color="#F97316" />
                           <Text style={[styles.resumeActionText, isDark && styles.resumeActionTextDark]}>Resume Booking</Text>
                         </TouchableOpacity>
-                      ) : trip.status === 'scheduled' ? (
-                        /* Scheduled — show View Scheduled Ride button */
-                        <TouchableOpacity
-                          style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark, { borderColor: '#DDD6FE', backgroundColor: isDark ? 'rgba(124, 58, 237, 0.15)' : '#F5F3FF' }]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            onClose();
-                            onResumeBooking?.(trip);
-                          }}
-                        >
-                          <Calendar size={14} color="#7C3AED" />
-                          <Text style={[styles.resumeActionText, { color: '#7C3AED' }]}>View Scheduled Ride</Text>
-                        </TouchableOpacity>
                       ) : ['accepted', 'arrived', 'in_progress'].includes(trip.status) ? (
-                        /* In-progress / accepted / arrived — track ride */
                         <TouchableOpacity
                           style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark]}
                           onPress={() => {
@@ -357,15 +546,17 @@ export function RideHistoryModal({
                           <Navigation size={14} color="#F97316" />
                           <Text style={[styles.resumeActionText, isDark && styles.resumeActionTextDark]}>Track Ride</Text>
                         </TouchableOpacity>
-                      ) : null /* CANCELLED RIDES: NO INVOICE / RECEIPT BUTTON */}
+                      ) : null}
 
-                      <TouchableOpacity
-                        style={[styles.repeatActionBtn, isDark && styles.repeatActionBtnDark]}
-                        onPress={() => handleRepeat(trip)}
-                      >
-                        <RotateCcw size={14} color="#F97316" />
-                        <Text style={[styles.repeatActionText, isDark && styles.repeatActionTextDark]}>Book Again</Text>
-                      </TouchableOpacity>
+                      {!isScheduled && (
+                        <TouchableOpacity
+                          style={[styles.repeatActionBtn, isDark && styles.repeatActionBtnDark]}
+                          onPress={() => handleRepeat(trip)}
+                        >
+                          <RotateCcw size={14} color="#F97316" />
+                          <Text style={[styles.repeatActionText, isDark && styles.repeatActionTextDark]}>Book Again</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -784,5 +975,140 @@ const styles = StyleSheet.create({
   },
   resumeActionTextDark: {
     color: '#FB923C',
+  },
+
+  // Tab Bar Styles
+  tabBar: {
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: '#F1F5F9',
+    padding: 4,
+    borderRadius: 14,
+  },
+  tabBarDark: {
+    backgroundColor: '#0F172A',
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  tabBtnActiveUpcoming: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tabBtnActiveUpcomingDark: {
+    backgroundColor: '#1E293B',
+  },
+  tabBtnActivePast: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tabBtnActivePastDark: {
+    backgroundColor: '#1E293B',
+  },
+  tabBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tabBtnTextActivePurple: {
+    color: '#7C3AED',
+  },
+  tabBtnTextActiveOrange: {
+    color: '#EA580C',
+  },
+  tabBadgePurple: {
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  tabBadgeTextPurple: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#7C3AED',
+  },
+  tabBadgeOrange: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  tabBadgeTextOrange: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F97316',
+  },
+
+  // Scheduled Trip Specific Card Styles
+  tripCardScheduled: {
+    borderWidth: 1.5,
+    borderColor: '#C4B5FD',
+    backgroundColor: '#FDFCFE',
+  },
+  tripCardScheduledDark: {
+    borderWidth: 1.5,
+    borderColor: '#7C3AED',
+    backgroundColor: '#1E1E2E',
+  },
+  scheduledCardInfoBox: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  scheduledCardInfoBoxDark: {
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    borderColor: 'rgba(124, 58, 237, 0.3)',
+  },
+  scheduledCardInfoTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#7C3AED',
+    textTransform: 'uppercase',
+  },
+  scheduledCardInfoText: {
+    fontSize: 11,
+    color: '#6D28D9',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  cancelActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelActionBtnDark: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  cancelActionText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

@@ -453,7 +453,7 @@ function AppContent() {
       let query = supabase
         .from('bookings')
         .select('*')
-        .in('status', ['searching', 'accepted', 'arrived', 'in_progress'])
+        .in('status', ['searching', 'scheduled', 'accepted', 'arrived', 'in_progress'])
         .order('created_at', { ascending: false });
 
       if (userId) {
@@ -474,6 +474,9 @@ function AppContent() {
         if (data.status === 'searching') {
           // Show a "Resume Booking" banner on the home screen — don't auto-jump
           setPendingSearchBooking(data as Booking);
+        } else if (data.status === 'scheduled') {
+          // Store scheduled booking to show banner on home screen, stay on step 1
+          setActiveBooking(data as Booking);
         } else {
           // Actively assigned/in-progress — jump straight to the ride screen
           setActiveBooking(data as Booking);
@@ -574,6 +577,11 @@ function AppContent() {
     (step === 1 && activeBooking && ['searching', 'accepted', 'arrived', 'in_progress'].includes(activeBooking.status)
       ? activeBooking
       : null);
+
+  const activeScheduledBooking =
+    step === 1 && activeBooking && activeBooking.status === 'scheduled'
+      ? activeBooking
+      : null;
 
   // -------------------------------------------------------------------------
   // AUTO-REFRESH SYNC (WebSocket + 2.5s Polling)
@@ -724,6 +732,10 @@ function AppContent() {
     const ref = 'OT' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
     try {
+      const isAdvanceBooking = Boolean(scheduledDate);
+      const scheduledIso = scheduledDate ? scheduledDate.toISOString() : null;
+      const scheduledFormatted = scheduledDate ? formatScheduleDate(scheduledDate) : '';
+
       const { data, error } = await supabase
         .from('bookings')
         .insert({
@@ -743,8 +755,8 @@ function AppContent() {
           estimated_fare: totalEstimatedFare,
           payment_method: paymentMethod,
           ride_otp: otp,
-          status: scheduledDate ? 'scheduled' : 'searching',
-          scheduled_at: scheduledDate ? scheduledDate.toISOString() : null,
+          status: isAdvanceBooking ? 'scheduled' : 'searching',
+          scheduled_at: scheduledIso,
         })
         .select('*')
         .single();
@@ -755,8 +767,6 @@ function AppContent() {
         return;
       }
 
-      setActiveBooking(data as Booking);
-      setScheduledDate(null);
       if (data?.id) {
         try {
           const stored = await AsyncStorage.getItem('@orange_booking_history_ids');
@@ -769,8 +779,35 @@ function AppContent() {
           console.warn('Could not cache booking id in AsyncStorage:', e);
         }
       }
+
       setPinPickerActive(false);
       setIsBookingPinConfirm(false);
+
+      if (isAdvanceBooking) {
+        setActiveBooking(data as Booking);
+        setScheduledDate(null);
+        setDropLocation(null);
+        setStep(1);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        Alert.alert(
+          'Ride Scheduled Successfully! 🍊',
+          `Your advance ride is confirmed for ${scheduledFormatted}.\n\n• Zero-Surge Fare Locked: ₹${totalEstimatedFare}\n• Chauffeur broadcast starts 15–30 mins before departure\n• Pre-cooled AC at 22°C & sealed mineral water\n\nYou can view your scheduled ride on the Home screen or in Ride History.`,
+          [
+            {
+              text: 'View in Ride History',
+              onPress: () => {
+                setHistoryModalVisible(true);
+              },
+            },
+            { text: 'Done', style: 'default' },
+          ]
+        );
+        return;
+      }
+
+      setActiveBooking(data as Booking);
+      setScheduledDate(null);
       setStep(4);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
@@ -1880,6 +1917,56 @@ function AppContent() {
                 { bottom: Math.max(insets.bottom, 12) + 72 },
               ]}
             >
+              {/* ── UPCOMING SCHEDULED RIDE BANNER ── */}
+              {activeScheduledBooking && (
+                <TouchableOpacity
+                  style={[styles.scheduledHomeCard, theme === 'dark' && styles.scheduledHomeCardDark]}
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setHistoryModalVisible(true);
+                  }}
+                >
+                  <View style={styles.scheduledHomeLeft}>
+                    <View style={styles.scheduledCalendarIconBadge}>
+                      <Calendar size={18} color="#9333EA" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.scheduledHomeTitle, theme === 'dark' && styles.textWhite]}>
+                          Upcoming Chauffeur
+                        </Text>
+                        <View style={styles.scheduledBadgePill}>
+                          <Text style={styles.scheduledBadgeText}>Guaranteed</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.scheduledHomeTimeText} numberOfLines={1}>
+                        {activeScheduledBooking.scheduled_at
+                          ? new Date(activeScheduledBooking.scheduled_at).toLocaleDateString('en-IN', {
+                              weekday: 'short',
+                              day: 'numeric',
+                              month: 'short',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true,
+                            })
+                          : 'Advance Booking'}
+                      </Text>
+                      <Text
+                        style={[styles.scheduledHomeRouteText, theme === 'dark' && styles.textMutedDark]}
+                        numberOfLines={1}
+                      >
+                        {activeScheduledBooking.pickup_area || 'Pickup'} → {activeScheduledBooking.drop_area || 'Destination'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.scheduledHomeActionBtn}>
+                    <Text style={styles.scheduledHomeActionText}>Manage →</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {/* ── ACTIVE / SEARCHING RIDE RESUME BANNER ── */}
               {currentResumableBooking && (
                 <TouchableOpacity
@@ -2158,6 +2245,9 @@ function AppContent() {
               >
                 <Clock size={22} color={activeTab === 'history' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
                 {activeTab === 'history' && <View style={styles.activeTabIndicator} />}
+                {activeScheduledBooking && activeTab !== 'history' && (
+                  <View style={styles.navDockScheduledDot} />
+                )}
               </TouchableOpacity>
 
               {/* Elevated Center Taxi FAB */}
@@ -3364,6 +3454,99 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  // ── SCHEDULED RIDE HOME BANNER ──
+  scheduledHomeCard: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  scheduledHomeCardDark: {
+    backgroundColor: '#1E1B2E',
+    borderColor: '#A855F7',
+    shadowColor: '#000',
+  },
+  scheduledHomeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  scheduledCalendarIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduledHomeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E1B2E',
+  },
+  scheduledBadgePill: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  scheduledBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#7C3AED',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  scheduledHomeTimeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9333EA',
+    marginTop: 2,
+  },
+  scheduledHomeRouteText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 1,
+  },
+  scheduledHomeActionBtn: {
+    backgroundColor: '#9333EA',
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+    borderRadius: 11,
+    shadowColor: '#9333EA',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  scheduledHomeActionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  navDockScheduledDot: {
+    position: 'absolute',
+    top: 6,
+    right: 18,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#9333EA',
   },
   navDockActiveDot: {
     position: 'absolute',
