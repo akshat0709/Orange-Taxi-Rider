@@ -34,9 +34,16 @@ interface AmenitiesModalProps {
   visible: boolean;
   onClose: () => void;
   onBookNow?: () => void;
+  theme?: 'light' | 'dark';
 }
 
-export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalProps) {
+export function AmenitiesModal({
+  visible,
+  onClose,
+  onBookNow,
+  theme = 'light',
+}: AmenitiesModalProps) {
+  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<'amenities' | 'comparison'>('amenities');
 
   const signaturePerks = [
@@ -177,50 +184,70 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+        <View style={[styles.modalCard, isDark && styles.modalCardDark]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, isDark && styles.headerDark]}>
             <View style={{ flex: 1 }}>
               <View style={styles.eyebrowRow}>
                 <Sparkles size={12} color="#F97316" />
                 <Text style={styles.eyebrowText}>EXCLUSIVE MAHINDRA BE.6 FLEET</Text>
               </View>
-              <Text style={styles.title}>The Orange In-Cab Experience</Text>
-              <Text style={styles.subtitle}>
+              <Text style={[styles.title, isDark && styles.textWhite]}>The Orange In-Cab Experience</Text>
+              <Text style={[styles.subtitle, isDark && styles.textMutedDark]}>
                 Everything inside our cars is designed for extraordinary everyday travel.
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <X size={20} color="#9CA3AF" />
+            <TouchableOpacity style={[styles.closeBtn, isDark && styles.closeBtnDark]} onPress={onClose}>
+              <X size={20} color={isDark ? '#94A3B8' : '#64748B'} />
             </TouchableOpacity>
           </View>
 
           {/* Tab Switcher */}
-          <View style={styles.tabBar}>
+          <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'amenities' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                activeTab === 'amenities' && (isDark ? styles.tabBtnActiveDark : styles.tabBtnActive),
+              ]}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActiveTab('amenities');
               }}
             >
               <Sparkles size={14} color={activeTab === 'amenities' ? '#F97316' : '#9CA3AF'} />
-              <Text style={[styles.tabText, activeTab === 'amenities' && styles.tabTextActive]}>
-                Onboard Amenities
+              <Text
+                style={[
+                  styles.tabText,
+                  isDark && styles.textMutedDark,
+                  activeTab === 'amenities' && (isDark ? styles.tabTextActiveDark : styles.tabTextActive),
+                ]}
+                numberOfLines={1}
+              >
+                Onboard Perks
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'comparison' && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                activeTab === 'comparison' && (isDark ? styles.tabBtnActiveDark : styles.tabBtnActive),
+              ]}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActiveTab('comparison');
               }}
             >
               <Car size={14} color={activeTab === 'comparison' ? '#F97316' : '#9CA3AF'} />
-              <Text style={[styles.tabText, activeTab === 'comparison' && styles.tabTextActive]}>
-                Why Orange vs Regular Cabs
+              <Text
+                style={[
+                  styles.tabText,
+                  isDark && styles.textMutedDark,
+                  activeTab === 'comparison' && (isDark ? styles.tabTextActiveDark : styles.tabTextActive),
+                ]}
+                numberOfLines={1}
+              >
+                Fleet Comparison
               </Text>
             </TouchableOpacity>
           </View>
@@ -229,7 +256,9 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
             {activeTab === 'amenities' ? (
               <>
                 {/* 3 SIGNATURE CORNERSTONES */}
-                <Text style={styles.sectionHeading}>WHAT'S INSIDE EVERY ORANGE</Text>
+                <Text style={[styles.sectionHeading, isDark && styles.textMutedDark]}>
+                  WHAT'S INSIDE EVERY ORANGE
+                </Text>
 
                 {signaturePerks.map((item) => {
                   const Icon = item.icon;
@@ -251,18 +280,18 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
                               {item.badge}
                             </Text>
                           </View>
-                          <Text style={styles.signatureTitle}>{item.title}</Text>
-                          <Text style={styles.signatureTagline}>{item.tagline}</Text>
+                          <Text style={[styles.signatureTitle, isDark && styles.textWhite]}>{item.title}</Text>
+                          <Text style={[styles.signatureTagline, isDark && styles.textMutedDark]}>{item.tagline}</Text>
                         </View>
                       </View>
 
-                      <Text style={styles.signatureDesc}>{item.description}</Text>
+                      <Text style={[styles.signatureDesc, isDark && styles.textMutedDark]}>{item.description}</Text>
                     </View>
                   );
                 })}
 
                 {/* HOSPITALITY & IN-CAB COMFORTS GRID */}
-                <Text style={[styles.sectionHeading, { marginTop: 22 }]}>
+                <Text style={[styles.sectionHeading, isDark && styles.textMutedDark, { marginTop: 22 }]}>
                   HOSPITALITY & PASSENGER CARE
                 </Text>
 
@@ -270,7 +299,7 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
                   {hospitalityPerks.map((item, idx) => {
                     const Icon = item.icon;
                     return (
-                      <View key={idx} style={styles.hospitalityCard}>
+                      <View key={idx} style={[styles.hospitalityCard, isDark && styles.hospitalityCardDark]}>
                         <View style={styles.hospitalityHeaderRow}>
                           <View
                             style={[
@@ -287,8 +316,8 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
                           </View>
                         </View>
 
-                        <Text style={styles.hospitalityTitle}>{item.title}</Text>
-                        <Text style={styles.hospitalityDetail}>{item.detail}</Text>
+                        <Text style={[styles.hospitalityTitle, isDark && styles.textWhite]}>{item.title}</Text>
+                        <Text style={[styles.hospitalityDetail, isDark && styles.textMutedDark]}>{item.detail}</Text>
                       </View>
                     );
                   })}
@@ -299,7 +328,7 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
                   <View style={styles.promiseDot} />
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.promiseTitle}>Zero Extra Charges for Luxury Perks</Text>
-                    <Text style={styles.promiseSub}>
+                    <Text style={[styles.promiseSub, isDark && styles.textMutedDark]}>
                       All amenities — screens, newspapers, water bottles, and pre-cooling — are
                       100% complimentary and included in your standard ride fare.
                     </Text>
@@ -309,8 +338,8 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
             ) : (
               /* COMPARISON TAB */
               <>
-                <Text style={styles.sectionHeading}>THE VALUE PROPOSITION</Text>
-                <Text style={styles.comparisonIntro}>
+                <Text style={[styles.sectionHeading, isDark && styles.textMutedDark]}>THE VALUE PROPOSITION</Text>
+                <Text style={[styles.comparisonIntro, isDark && styles.textMutedDark]}>
                   Orange brings the care, comfort, and hospitality of luxury chauffeur travel into
                   the everyday rhythm of urban commuting — without the inflated price tag.
                 </Text>
@@ -321,23 +350,25 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
                       key={idx}
                       style={[
                         styles.comparisonCard,
-                        idx % 2 === 0 ? styles.comparisonCardEven : styles.comparisonCardOdd,
+                        isDark
+                          ? styles.comparisonCardDark
+                          : (idx % 2 === 0 ? styles.comparisonCardEven : styles.comparisonCardOdd),
                       ]}
                     >
-                      <Text style={styles.comparisonFeatureTitle}>{row.feature}</Text>
+                      <Text style={[styles.comparisonFeatureTitle, isDark && styles.textWhite]}>{row.feature}</Text>
 
                       {/* Orange Taxi Featured Row */}
                       <View style={styles.comparisonOrangeBox}>
                         <View style={styles.comparisonOrangeTag}>
                           <Text style={styles.comparisonOrangeTagText}>ORANGE TAXI</Text>
                         </View>
-                        <Text style={styles.comparisonOrangeText}>{row.orange}</Text>
+                        <Text style={[styles.comparisonOrangeText, isDark && styles.textWhite]}>{row.orange}</Text>
                       </View>
 
                       {/* Everyday Cab Row */}
                       <View style={styles.comparisonOtherRow}>
                         <Text style={styles.comparisonOtherLabel}>Everyday App Cabs:</Text>
-                        <Text style={styles.comparisonOtherText}>{row.everyday}</Text>
+                        <Text style={[styles.comparisonOtherText, isDark && styles.textMutedDark]}>{row.everyday}</Text>
                       </View>
                     </View>
                   ))}
@@ -349,7 +380,7 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
           </ScrollView>
 
           {/* Bottom Action Footer */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, isDark && styles.footerDark]}>
             <TouchableOpacity
               style={styles.bookCtaBtn}
               activeOpacity={0.88}
@@ -372,17 +403,26 @@ export function AmenitiesModal({ visible, onClose, onBookNow }: AmenitiesModalPr
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#0E1117',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2E8F0',
     maxHeight: '92%',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 20,
+  },
+  modalCardDark: {
+    backgroundColor: '#0E1117',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     flexDirection: 'row',
@@ -392,6 +432,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerDark: {
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   eyebrowRow: {
@@ -409,42 +452,57 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: 0.2,
   },
   subtitle: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 2,
     lineHeight: 16,
   },
   closeBtn: {
     padding: 6,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#F8FAFC',
     marginLeft: 10,
+  },
+  closeBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#14171F',
+    alignItems: 'center',
+    height: 48,
+    backgroundColor: '#F8FAFC',
     marginHorizontal: 20,
     marginTop: 14,
     marginBottom: 10,
     borderRadius: 12,
     padding: 4,
     borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  tabBarDark: {
+    backgroundColor: '#14171F',
     borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   tabBtn: {
     flex: 1,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
+    paddingHorizontal: 6,
     borderRadius: 9,
   },
   tabBtnActive: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#F97316',
+  },
+  tabBtnActiveDark: {
     backgroundColor: 'rgba(249, 115, 22, 0.18)',
     borderWidth: 1,
     borderColor: '#F97316',
@@ -452,9 +510,13 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: '#64748B',
   },
   tabTextActive: {
+    color: '#EA580C',
+    fontWeight: '800',
+  },
+  tabTextActiveDark: {
     color: '#F97316',
     fontWeight: '800',
   },
@@ -466,7 +528,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.9,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginBottom: 12,
   },
   signatureCard: {
@@ -505,17 +567,17 @@ const styles = StyleSheet.create({
   signatureTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   signatureTagline: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#D1D5DB',
+    color: '#475569',
     marginTop: 1,
   },
   signatureDesc: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 10,
     lineHeight: 18,
   },
@@ -523,11 +585,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   hospitalityCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
     padding: 14,
+  },
+  hospitalityCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   hospitalityHeaderRow: {
     flexDirection: 'row',
@@ -555,11 +621,11 @@ const styles = StyleSheet.create({
   hospitalityTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   hospitalityDetail: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 3,
     lineHeight: 16,
   },
@@ -588,13 +654,13 @@ const styles = StyleSheet.create({
   },
   promiseSub: {
     fontSize: 11,
-    color: '#D1D5DB',
+    color: '#475569',
     marginTop: 2,
     lineHeight: 16,
   },
   comparisonIntro: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginBottom: 14,
     lineHeight: 17,
   },
@@ -602,22 +668,26 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   comparisonCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
     padding: 14,
   },
-  comparisonCardEven: {
+  comparisonCardDark: {
     backgroundColor: '#14171F',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  comparisonCardEven: {
+    backgroundColor: '#FFFFFF',
   },
   comparisonCardOdd: {
-    backgroundColor: '#0F131C',
+    backgroundColor: '#F8FAFC',
   },
   comparisonFeatureTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     marginBottom: 8,
   },
   comparisonOrangeBox: {
@@ -645,7 +715,7 @@ const styles = StyleSheet.create({
   comparisonOrangeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#C2410C',
   },
   comparisonOtherRow: {
     flexDirection: 'row',
@@ -661,13 +731,16 @@ const styles = StyleSheet.create({
   },
   comparisonOtherText: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: '#64748B',
     flex: 1,
   },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12,
     borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  footerDark: {
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   bookCtaBtn: {
@@ -684,5 +757,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.2,
+  },
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });

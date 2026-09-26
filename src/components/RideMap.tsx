@@ -17,12 +17,13 @@ interface RideMapProps {
   onRecenterPress?: () => void;
   routeDistanceKm?: number;
   routeDurationMin?: number;
+  theme?: 'light' | 'dark';
 }
 
 const { width } = Dimensions.get('window');
 
-// Minimalist, modern light grayscale cartography for clean Uber-style look (Option B)
-const MINIMAL_LIGHT_MAP_STYLE = [
+// Minimalist, modern light grayscale cartography for clean Uber-style look (Option B - Default)
+export const MINIMAL_LIGHT_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#F4F5F7' }] },
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#6B7280' }] },
@@ -40,6 +41,27 @@ const MINIMAL_LIGHT_MAP_STYLE = [
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#E0E7FF' }] },
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9CA3AF' }] },
+];
+
+// Executive, high-contrast dark cartography for dark theme mode
+export const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#0F172A' }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#94A3B8' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0F172A' }, { weight: 2 }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#F8FAFC' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1E293B' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1E293B' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }, { weight: 1 }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#64748B' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#334155' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#475569' }, { weight: 1.5 }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#CBD5E1' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0284C7' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#38BDF8' }] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -87,6 +109,7 @@ export function RideMap({
   onRecenterPress,
   routeDistanceKm,
   routeDurationMin,
+  theme = 'light',
 }: RideMapProps) {
   const mapRef = useRef<MapView>(null);
   const isInProgress = status === 'in_progress';
@@ -258,8 +281,8 @@ export function RideMap({
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
-        customMapStyle={MINIMAL_LIGHT_MAP_STYLE}
-        userInterfaceStyle="light"
+        customMapStyle={theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE}
+        userInterfaceStyle={theme === 'dark' ? 'dark' : 'light'}
         scrollEnabled={interactive}
         zoomEnabled={interactive}
         pitchEnabled={interactive}
@@ -339,11 +362,11 @@ export function RideMap({
           </Marker>
         )}
 
-        {/* Route Line - Crisp Charcoal Black Contrast (as in reference mockup) */}
+        {/* Route Line - Crisp Charcoal Black in Light Mode, Electric Orange in Dark Mode */}
         {polylineCoords.length > 1 && (
           <Polyline
             coordinates={polylineCoords}
-            strokeColor="#18181B"
+            strokeColor={theme === 'dark' ? '#F97316' : '#18181B'}
             strokeWidth={4.5}
             lineDashPattern={[0]}
           />
@@ -371,9 +394,9 @@ export function RideMap({
 
       {/* Floating Status / Route Info Pill */}
       {hasValidDrop && (
-        <View style={styles.floatingRoutePill}>
+        <View style={[styles.floatingRoutePill, theme === 'dark' && styles.floatingRoutePillDark]}>
           <View style={[styles.liveIndicator, isInProgress && { backgroundColor: '#22C55E' }]} />
-          <Text style={styles.floatingRouteText}>
+          <Text style={[styles.floatingRouteText, theme === 'dark' && styles.floatingRouteTextDark]}>
             {isInProgress
               ? '🟢 Live Chauffeur GPS to Destination'
               : status === 'accepted' || status === 'arrived'
@@ -388,7 +411,7 @@ export function RideMap({
       {/* Recenter GPS Floating Button - Crisp White Pill */}
       {onRecenterPress && (
         <TouchableOpacity
-          style={styles.recenterBtn}
+          style={[styles.recenterBtn, theme === 'dark' && styles.recenterBtnDark]}
           activeOpacity={0.85}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -540,6 +563,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.2,
   },
+  floatingRoutePillDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  floatingRouteTextDark: {
+    color: '#F8FAFC',
+  },
   recenterBtn: {
     position: 'absolute',
     bottom: 14,
@@ -557,6 +587,10 @@ const styles = StyleSheet.create({
     elevation: 5,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+  },
+  recenterBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   centerPinContainer: {
     position: 'absolute',

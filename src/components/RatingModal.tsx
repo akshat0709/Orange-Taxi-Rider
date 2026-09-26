@@ -20,6 +20,7 @@ interface RatingModalProps {
   vehicleName: string;
   onDismiss: () => void;
   onRatingSubmitted?: (newRating: number, totalRides: number) => void;
+  theme?: 'light' | 'dark';
 }
 
 const COMPLIMENT_OPTIONS = [
@@ -46,7 +47,9 @@ export function RatingModal({
   vehicleName,
   onDismiss,
   onRatingSubmitted,
+  theme = 'light',
 }: RatingModalProps) {
+  const isDark = theme === 'dark';
   const [rating, setRating] = useState<number>(5);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [reviewText, setReviewText] = useState('');
@@ -150,25 +153,25 @@ export function RatingModal({
   return (
     <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onDismiss}>
       <View style={styles.modalOverlay}>
-        <View style={styles.card}>
+        <View style={[styles.card, isDark && styles.cardDark]}>
           {submitted ? (
             <View style={styles.successBox}>
               <CheckCircle size={48} color="#22C55E" />
-              <Text style={styles.successTitle}>Thank You!</Text>
-              <Text style={styles.successSub}>Your feedback helps Orange maintain India's finest fleet.</Text>
+              <Text style={[styles.successTitle, isDark && styles.textWhite]}>Thank You!</Text>
+              <Text style={[styles.successSub, isDark && styles.textMutedDark]}>Your feedback helps Orange maintain India's finest fleet.</Text>
             </View>
           ) : (
             <>
               {/* Header */}
               <View style={styles.header}>
                 <View>
-                  <Text style={styles.title}>Rate Your Journey</Text>
-                  <Text style={styles.subTitle}>
+                  <Text style={[styles.title, isDark && styles.textWhite]}>Rate Your Journey</Text>
+                  <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
                     {driverName} · {vehicleName}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={onDismiss} style={styles.closeBtn}>
-                  <X size={18} color="#9CA3AF" />
+                <TouchableOpacity onPress={onDismiss} style={[styles.closeBtn, isDark && styles.closeBtnDark]}>
+                  <X size={18} color={isDark ? '#94A3B8' : '#64748B'} />
                 </TouchableOpacity>
               </View>
 
@@ -194,17 +197,27 @@ export function RatingModal({
               <Text style={styles.starFeedback}>{STAR_LABELS[rating]}</Text>
 
               {/* Compliments Chips */}
-              <Text style={styles.chipHeader}>WHAT MADE YOUR TRIP GREAT?</Text>
+              <Text style={[styles.chipHeader, isDark && styles.textMutedDark]}>WHAT MADE YOUR TRIP GREAT?</Text>
               <View style={styles.chipsRow}>
                 {COMPLIMENT_OPTIONS.map((chip) => {
                   const isSelected = selectedChips.includes(chip);
                   return (
                     <TouchableOpacity
                       key={chip}
-                      style={[styles.chip, isSelected && styles.chipActive]}
+                      style={[
+                        styles.chip,
+                        isDark && styles.chipDark,
+                        isSelected && (isDark ? styles.chipActiveDark : styles.chipActive),
+                      ]}
                       onPress={() => toggleChip(chip)}
                     >
-                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          isDark && styles.textMutedDark,
+                          isSelected && (isDark ? styles.chipTextActiveDark : styles.chipTextActive),
+                        ]}
+                      >
                         {chip}
                       </Text>
                     </TouchableOpacity>
@@ -214,9 +227,9 @@ export function RatingModal({
 
               {/* Optional Text Review */}
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isDark && styles.textInputDark]}
                 placeholder="Add private note for Orange Safety & Chauffeur team (optional)..."
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 multiline
                 numberOfLines={3}
                 value={reviewText}
@@ -246,18 +259,27 @@ export function RatingModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   card: {
     width: '100%',
-    backgroundColor: '#141820',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#E2E8F0',
     padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  cardDark: {
+    backgroundColor: '#141820',
+    borderColor: '#232936',
   },
   header: {
     flexDirection: 'row',
@@ -265,17 +287,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 18,
     fontWeight: '800',
   },
   subTitle: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 12,
     marginTop: 2,
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  closeBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   starsContainer: {
     flexDirection: 'row',
@@ -294,9 +321,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chipHeader: {
-    color: '#6B7280',
+    color: '#64748B',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.8,
     marginBottom: 8,
   },
@@ -307,40 +334,57 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   chip: {
-    backgroundColor: '#0F1218',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chipDark: {
+    backgroundColor: '#0F1218',
     borderColor: '#232936',
   },
   chipActive: {
-    backgroundColor: 'rgba(245, 107, 0, 0.15)',
-    borderColor: '#F56B00',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#F97316',
+  },
+  chipActiveDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    borderColor: '#F97316',
   },
   chipText: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   chipTextActive: {
-    color: '#F56B00',
-    fontWeight: '700',
+    color: '#C2410C',
+    fontWeight: '800',
+  },
+  chipTextActiveDark: {
+    color: '#F97316',
+    fontWeight: '800',
   },
   textInput: {
-    backgroundColor: '#0F1218',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 12,
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 13,
     borderWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#E2E8F0',
     textAlignVertical: 'top',
     height: 70,
     marginBottom: 16,
   },
+  textInputDark: {
+    backgroundColor: '#0F1218',
+    borderColor: '#232936',
+    color: '#F8FAFC',
+  },
   submitBtn: {
-    backgroundColor: '#F56B00',
+    backgroundColor: '#F97316',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
@@ -355,15 +399,21 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   successTitle: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 20,
     fontWeight: '800',
     marginTop: 12,
   },
   successSub: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 12,
     textAlign: 'center',
     marginTop: 6,
+  },
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });

@@ -15,7 +15,7 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -50,6 +50,9 @@ import {
   Map as MapIcon,
   ArrowLeft,
   ChevronDown,
+  Sun,
+  Moon,
+  Calendar,
 } from 'lucide-react-native';
 import { supabase } from './src/lib/supabase';
 import { VehicleCategory, Booking, Driver } from './src/types';
@@ -62,6 +65,8 @@ import { ProfileModal, GuardianContact } from './src/components/ProfileModal';
 import { RideHistoryModal } from './src/components/RideHistoryModal';
 import { GuardianSafetyModal } from './src/components/GuardianSafetyModal';
 import { AmenitiesModal } from './src/components/AmenitiesModal';
+import { ScheduleModal } from './src/components/ScheduleModal';
+import { TalkToOrangeModal } from './src/components/TalkToOrangeModal';
 import {
   LocationItem,
   getSanitizedLocation,
@@ -86,7 +91,42 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function App() {
+function formatScheduleShort(d: Date): string {
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow =
+    d.getDate() === tomorrow.getDate() &&
+    d.getMonth() === tomorrow.getMonth() &&
+    d.getFullYear() === tomorrow.getFullYear();
+
+  const dayStr = isToday
+    ? 'Today'
+    : isTomorrow
+    ? 'Tmrw'
+    : d.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${dayStr}, ${timeStr}`;
+}
+
+function formatScheduleDate(d: Date): string {
+  return (
+    d.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' }) +
+    ' at ' +
+    d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+  );
+}
+
+function AppContent() {
+  // Safe area insets — needed for absolute-positioned floating headers on Dynamic Island devices
+  const insets = useSafeAreaInsets();
+  // Reliable top clearance ensuring floating buttons sit comfortably below the Dynamic Island / notch
+  const topSafeOffset = Math.max(insets.top, Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24)) + 12;
+
   // Navigation Stepper:
   // 1: Home Map & "Where to?" Explore
   // 2: Vehicle Selection & Route Review (Uber-style sheet)
@@ -136,6 +176,8 @@ export default function App() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [assignedDriver, setAssignedDriver] = useState<Driver | null>(null);
+  // A booking in 'searching' state that we found on app resume — shown as a banner on step 1
+  const [pendingSearchBooking, setPendingSearchBooking] = useState<Booking | null>(null);
 
   // In-Ride Chat, Rating, Profile & Guardian Safety Modals
   const [chatModalVisible, setChatModalVisible] = useState(false);
@@ -149,7 +191,36 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'chat' | 'profile'>('home');
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [amenitiesModalVisible, setAmenitiesModalVisible] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<number>(250);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+
+  // Ride Scheduling
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+
+  // Talk to Orange 24x7 Concierge & AI Assistant Modal
+  const [talkToOrangeVisible, setTalkToOrangeVisible] = useState(false);
+
+  // Saved Places (Home & Work) for 1-Tap Quick Booking
+  const [savedHomeAddress, setSavedHomeAddress] = useState('');
+  const [savedWorkAddress, setSavedWorkAddress] = useState('');
+
+  // Complete Light Theme by default with persistent Dark Mode toggle
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    AsyncStorage.getItem('@orange_taxi_theme').then((saved) => {
+      if (saved === 'dark' || saved === 'light') {
+        setTheme(saved);
+      }
+    }).catch(() => {});
+  }, []);
+
+  function handleToggleTheme(newTheme?: 'light' | 'dark') {
+    Haptics.selectionAsync();
+    const nextTheme = newTheme || (theme === 'light' ? 'dark' : 'light');
+    setTheme(nextTheme);
+    AsyncStorage.setItem('@orange_taxi_theme', nextTheme).catch(() => {});
+  }
 
   // -------------------------------------------------------------------------
   // INITIALIZATION & AUTH LISTENER
@@ -157,9 +228,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        checkActiveRide(session.user.id);
-      }
+      checkActiveRide(session?.user?.id);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -180,6 +249,14 @@ export default function App() {
         } catch {}
       }
     });
+
+    // Load saved Home & Work addresses
+    AsyncStorage.getItem('@orange_user_home_address').then((stored) => {
+      if (stored) setSavedHomeAddress(stored);
+    }).catch(() => {});
+    AsyncStorage.getItem('@orange_user_work_address').then((stored) => {
+      if (stored) setSavedWorkAddress(stored);
+    }).catch(() => {});
 
     initApp();
 
@@ -371,20 +448,37 @@ export default function App() {
     };
   }, [activeBooking?.driver_id]);
 
-  async function checkActiveRide(userId: string) {
+  async function checkActiveRide(userId?: string) {
     try {
-      const { data } = await supabase
+      let query = supabase
         .from('bookings')
         .select('*')
-        .eq('customer_id', userId)
         .in('status', ['searching', 'accepted', 'arrived', 'in_progress'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
-      if (data) {
-        setActiveBooking(data as Booking);
-        setStep(4);
+      if (userId) {
+        query = query.eq('customer_id', userId);
+      } else {
+        const stored = await AsyncStorage.getItem('@orange_booking_history_ids');
+        const idList: string[] = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(idList) && idList.length > 0) {
+          query = query.in('id', idList);
+        } else {
+          return;
+        }
+      }
+
+      const { data, error } = await query.limit(1).maybeSingle();
+
+      if (!error && data) {
+        if (data.status === 'searching') {
+          // Show a "Resume Booking" banner on the home screen — don't auto-jump
+          setPendingSearchBooking(data as Booking);
+        } else {
+          // Actively assigned/in-progress — jump straight to the ride screen
+          setActiveBooking(data as Booking);
+          setStep(4);
+        }
       }
     } catch (e) {
       console.warn('Check active ride notice:', e);
@@ -474,6 +568,12 @@ export default function App() {
   const taxAmount = Math.round(preTax * 0.05); // 5% GST (SAC 996412)
   const platformFee = 0;
   const totalEstimatedFare = preTax + taxAmount + platformFee;
+
+  const currentResumableBooking =
+    pendingSearchBooking ||
+    (step === 1 && activeBooking && ['searching', 'accepted', 'arrived', 'in_progress'].includes(activeBooking.status)
+      ? activeBooking
+      : null);
 
   // -------------------------------------------------------------------------
   // AUTO-REFRESH SYNC (WebSocket + 2.5s Polling)
@@ -643,18 +743,20 @@ export default function App() {
           estimated_fare: totalEstimatedFare,
           payment_method: paymentMethod,
           ride_otp: otp,
-          status: 'searching',
+          status: scheduledDate ? 'scheduled' : 'searching',
+          scheduled_at: scheduledDate ? scheduledDate.toISOString() : null,
         })
         .select('*')
         .single();
 
       if (error) {
         console.error('DB insert error:', error);
-        Alert.alert('Booking Error', `Database error: ${error.message}`);
+        Alert.alert('Booking Notice', error.message || 'Unable to confirm booking. Please try again.');
         return;
       }
 
       setActiveBooking(data as Booking);
+      setScheduledDate(null);
       if (data?.id) {
         try {
           const stored = await AsyncStorage.getItem('@orange_booking_history_ids');
@@ -675,6 +777,75 @@ export default function App() {
       Alert.alert('Booking Notice', err.message || 'Connecting to fleet...');
     } finally {
       setBookingLoading(false);
+    }
+  }
+
+  async function handleQuickHome() {
+    Haptics.selectionAsync();
+    if (!savedHomeAddress || !savedHomeAddress.trim()) {
+      Alert.alert(
+        'Home Address Not Set',
+        'Add your home address in your profile to enable 1-tap quick rides to home.',
+        [
+          { text: 'Set in Profile', onPress: () => setProfileModalVisible(true) },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    const matches = await searchPlaces(savedHomeAddress, activeCity, pickupCoords);
+    if (matches.length > 0) {
+      setDropLocation(matches[0]);
+    } else {
+      setDropLocation({
+        id: 'home_' + Date.now(),
+        name: savedHomeAddress,
+        subtitle: 'Saved Home Address',
+        city: (activeCity as any) || 'Bengaluru',
+        lat: pickupCoords.lat + 0.04,
+        lng: pickupCoords.lng + 0.04,
+      });
+    }
+    setStep(2);
+  }
+
+  async function handleQuickWork() {
+    Haptics.selectionAsync();
+    if (!savedWorkAddress || !savedWorkAddress.trim()) {
+      Alert.alert(
+        'Work Address Not Set',
+        'Add your workplace or tech park in your profile to enable 1-tap quick rides to work.',
+        [
+          { text: 'Set in Profile', onPress: () => setProfileModalVisible(true) },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    const matches = await searchPlaces(savedWorkAddress, activeCity, pickupCoords);
+    if (matches.length > 0) {
+      setDropLocation(matches[0]);
+    } else {
+      setDropLocation({
+        id: 'work_' + Date.now(),
+        name: savedWorkAddress,
+        subtitle: 'Saved Work Address',
+        city: (activeCity as any) || 'Bengaluru',
+        lat: pickupCoords.lat + 0.05,
+        lng: pickupCoords.lng + 0.05,
+      });
+    }
+    setStep(2);
+  }
+
+  async function handleQuickAirport() {
+    Haptics.selectionAsync();
+    const matches = await searchPlaces('Airport', activeCity, pickupCoords);
+    if (matches.length > 0) {
+      setDropLocation(matches[0]);
+      setStep(2);
+    } else {
+      setSearchModalVisible(true);
     }
   }
 
@@ -813,19 +984,22 @@ export default function App() {
     : (activeBooking?.distance_km?.toString() || '12');
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <View style={[styles.container, theme === 'dark' && styles.containerDark]}>
+        <StatusBar
+          barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent={true}
+        />
 
         {/* ================================================================= */}
         {/* FLOATING TOP HEADERS (OPTION B MINIMAL DESIGN)                    */}
         {/* ================================================================= */}
         {pinPickerActive ? null : step === 1 ? (
           /* STEP 1: FLOATING ISLAND HEADER */
-          <View style={styles.floatingIslandHeader}>
+          <View style={[styles.floatingIslandHeader, { top: topSafeOffset }]}>
             {/* User Profile Avatar Circle */}
             <TouchableOpacity
-              style={styles.floatingAvatarBtn}
+              style={[styles.floatingAvatarBtn, theme === 'dark' && styles.floatingAvatarBtnDark]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
@@ -839,55 +1013,63 @@ export default function App() {
                   </Text>
                 </View>
               ) : (
-                <UserIcon size={19} color="#18181B" />
+                <UserIcon size={19} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
               )}
             </TouchableOpacity>
 
-            {/* Floating Wallet Pill [ 💳  ₹ 250   + ] */}
+            {/* Floating Wallet Pill */}
             <TouchableOpacity
-              style={styles.floatingWalletPill}
+              style={[styles.floatingWalletPill, theme === 'dark' && styles.floatingWalletPillDark]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
                 Alert.alert(
-                  'Orange Electric Wallet',
-                  `Current Available Balance: ₹${walletBalance}\n\n100% Zero-Emission Travel. Instant auto-pay enabled.`,
-                  [
-                    {
-                      text: 'Add ₹500',
-                      onPress: () => {
-                        setWalletBalance((b) => b + 500);
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      },
-                    },
-                    { text: 'Close', style: 'cancel' },
-                  ]
+                  'Orange Wallet',
+                  `Current Balance: ₹${walletBalance}\n\nOnline wallet recharge via Razorpay / UPI is coming soon! Payment gateway integration is currently in progress.\n\nCurrently, trips can be paid directly via Cash or UPI on arrival.`,
+                  [{ text: 'Got it', style: 'default' }]
                 );
               }}
             >
-              <CreditCard size={15} color="#18181B" />
-              <Text style={styles.floatingWalletText}>₹ {walletBalance}</Text>
-              <View style={styles.walletPlusCircle}>
-                <Text style={styles.walletPlusText}>+</Text>
+              <CreditCard size={15} color={theme === 'dark' ? '#F97316' : '#18181B'} />
+              <Text style={[styles.floatingWalletText, theme === 'dark' && styles.textWhite]}>₹ {walletBalance}</Text>
+              <View style={styles.walletSoonBadge}>
+                <Text style={styles.walletSoonBadgeText}>SOON</Text>
               </View>
             </TouchableOpacity>
 
-            {/* City Switcher Circular Button */}
-            <TouchableOpacity
-              style={styles.floatingCityBtn}
-              activeOpacity={0.85}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setCityPickerVisible(!cityPickerVisible);
-              }}
-            >
-              <MapPin size={18} color="#F97316" />
-            </TouchableOpacity>
+            {/* Right Action Cluster: Theme Switcher & City Selector */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {/* Quick Theme Switcher Button (☀️ Light Default / 🌙 Dark Mode) */}
+              <TouchableOpacity
+                style={[styles.floatingThemeBtn, theme === 'dark' && styles.floatingThemeBtnDark]}
+                activeOpacity={0.85}
+                onPress={() => handleToggleTheme()}
+                accessibilityLabel={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {theme === 'dark' ? (
+                  <Sun size={17} color="#F97316" />
+                ) : (
+                  <Moon size={17} color="#475569" />
+                )}
+              </TouchableOpacity>
+
+              {/* City Switcher Circular Button */}
+              <TouchableOpacity
+                style={[styles.floatingCityBtn, theme === 'dark' && styles.floatingCityBtnDark]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setCityPickerVisible(!cityPickerVisible);
+                }}
+              >
+                <MapPin size={18} color="#F97316" />
+              </TouchableOpacity>
+            </View>
 
             {/* Floating City Dropdown Menu */}
             {cityPickerVisible && (
-              <View style={styles.floatingCityMenu}>
-                <Text style={styles.cityMenuHeader}>SELECT CITY</Text>
+              <View style={[styles.floatingCityMenu, theme === 'dark' && styles.floatingCityMenuDark]}>
+                <Text style={[styles.cityMenuHeader, theme === 'dark' && styles.textMutedDark]}>SELECT CITY</Text>
                 {(['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad'] as const).map((city) => (
                   <TouchableOpacity
                     key={city}
@@ -908,19 +1090,22 @@ export default function App() {
           </View>
         ) : step === 4 ? (
           /* STEP 4: FLOATING ARRIVING / IN-PROGRESS HEADER */
-          <View style={styles.arrivingTopHeader}>
+          <View style={[styles.arrivingTopHeader, theme === 'dark' && styles.arrivingTopHeaderDark, { top: topSafeOffset }]}>
             <TouchableOpacity
-              style={styles.arrivingBackBtn}
+              style={[styles.arrivingBackBtn, theme === 'dark' && styles.arrivingBackBtnDark]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (activeBooking) {
+                  setPendingSearchBooking(activeBooking);
+                }
                 setStep(1);
               }}
             >
-              <ArrowLeft size={18} color="#18181B" />
+              <ArrowLeft size={18} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
             </TouchableOpacity>
 
-            <Text style={styles.arrivingHeaderTitle}>
+            <Text style={[styles.arrivingHeaderTitle, theme === 'dark' && styles.textWhite]}>
               {activeBooking?.status === 'in_progress'
                 ? 'Ride in Progress'
                 : activeBooking?.status === 'arrived'
@@ -931,7 +1116,7 @@ export default function App() {
             </Text>
 
             <TouchableOpacity
-              style={styles.arrivingShieldBtn}
+              style={[styles.arrivingShieldBtn, theme === 'dark' && styles.arrivingShieldBtnDark]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -943,16 +1128,16 @@ export default function App() {
           </View>
         ) : step === 2 ? (
           /* STEP 2: MINIMAL VEHICLE SELECTION HEADER */
-          <View style={styles.step2Header}>
+          <View style={[styles.step2Header, theme === 'dark' && styles.step2HeaderDark]}>
             <TouchableOpacity
-              style={styles.step2BackBtn}
+              style={[styles.step2BackBtn, theme === 'dark' && styles.step2BackBtnDark]}
               activeOpacity={0.85}
               onPress={() => setStep(1)}
             >
-              <ArrowLeft size={18} color="#18181B" />
+              <ArrowLeft size={18} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
-              <Text style={styles.step2HeaderTitle}>Select Ride</Text>
+              <Text style={[styles.step2HeaderTitle, theme === 'dark' && styles.textWhite]}>Select Ride</Text>
               <Text style={styles.step2HeaderSub}>100% Zero-Emission EV Fleet</Text>
             </View>
             <View style={{ width: 40 }} />
@@ -963,18 +1148,18 @@ export default function App() {
         {/* VIEW ROUTER                                                       */}
         {/* ================================================================= */}
         {loading ? (
-          <View style={styles.centerLoading}>
+          <View style={[styles.centerLoading, theme === 'dark' && styles.containerDark]}>
             <ActivityIndicator size="large" color="#F56B00" />
-            <Text style={styles.loadingText}>Initializing Orange Electric Fleet...</Text>
+            <Text style={[styles.loadingText, theme === 'dark' && styles.textMutedDark]}>Initializing Orange Electric Fleet...</Text>
           </View>
         ) : pinPickerActive ? (
           /* =============================================================== */
           /* PIN PICKER MODE ("SET ON MAP")                                  */
           /* =============================================================== */
-          <View style={styles.pinPickerContainer}>
-            <View style={styles.pinPickerHeader}>
+          <View style={[styles.pinPickerContainer, theme === 'dark' && styles.containerDark]}>
+            <View style={[styles.pinPickerHeader, theme === 'dark' && styles.pinPickerHeaderDark, { paddingTop: topSafeOffset, paddingBottom: 12 }]}>
               <TouchableOpacity
-                style={styles.pinPickerBackBtn}
+                style={[styles.pinPickerBackBtn, theme === 'dark' && styles.pinPickerBackBtnDark]}
                 onPress={() => {
                   setPinPickerActive(false);
                   if (isBookingPinConfirm) {
@@ -982,9 +1167,9 @@ export default function App() {
                   }
                 }}
               >
-                <ArrowLeft size={20} color="#0F172A" />
+                <ArrowLeft size={20} color={theme === 'dark' ? '#F8FAFC' : '#0F172A'} />
               </TouchableOpacity>
-              <Text style={styles.pinPickerTitle}>
+              <Text style={[styles.pinPickerTitle, theme === 'dark' && styles.textWhite]}>
                 {isBookingPinConfirm
                   ? 'Confirm Exact Pickup Spot'
                   : pinPickerTarget === 'pickup'
@@ -1013,18 +1198,19 @@ export default function App() {
                 isPinPickerMode={true}
                 pinPickerTarget={pinPickerTarget}
                 onPinLocationChange={handlePinRegionChange}
+                theme={theme}
               />
             </View>
 
             {/* Bottom Confirmation Card */}
-            <View style={styles.pinPickerBottomCard}>
+            <View style={[styles.pinPickerBottomCard, theme === 'dark' && styles.pinPickerBottomCardDark]}>
               <View style={styles.pinAddressRow}>
                 <MapPin size={18} color="#F97316" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.pinAddressMicro}>
+                  <Text style={[styles.pinAddressMicro, theme === 'dark' && styles.textMutedDark]}>
                     {isBookingPinConfirm ? 'EXACT PICKUP SPOT' : 'PINPOINTED LOCATION'}
                   </Text>
-                  <Text style={styles.pinAddressText} numberOfLines={2}>
+                  <Text style={[styles.pinAddressText, theme === 'dark' && styles.textWhite]} numberOfLines={2}>
                     {pinAddressText}
                   </Text>
                 </View>
@@ -1073,16 +1259,19 @@ export default function App() {
                 height="100%"
                 routeDistanceKm={activeBooking.distance_km}
                 routeDurationMin={activeBooking.duration_min}
+                theme={theme}
               />
             </View>
 
             {/* Floating Minimal Arriving HUD Card (Option B) */}
-            <View style={styles.floatingArrivingCard}>
+            <View style={[styles.floatingArrivingCard, theme === 'dark' && styles.floatingArrivingCardDark]}>
               {/* Header: Title + ETA badge */}
               <View style={styles.arrivingCardHeader}>
                 <View>
-                  <Text style={styles.arrivingTitleText}>
-                    {activeBooking.status === 'in_progress'
+                  <Text style={[styles.arrivingTitleText, theme === 'dark' && styles.textWhite]}>
+                    {activeBooking.status === 'scheduled'
+                      ? 'Ride Scheduled'
+                      : activeBooking.status === 'in_progress'
                       ? 'In Progress'
                       : activeBooking.status === 'arrived'
                       ? 'Arrived'
@@ -1090,8 +1279,12 @@ export default function App() {
                       ? 'Arriving'
                       : 'Connecting'}
                   </Text>
-                  <Text style={styles.arrivingSubSubtitle}>
-                    {activeBooking.status === 'in_progress'
+                  <Text style={[styles.arrivingSubSubtitle, theme === 'dark' && styles.textMutedDark]}>
+                    {activeBooking.status === 'scheduled'
+                      ? activeBooking.scheduled_at
+                        ? `Pickup on ${formatScheduleShort(new Date(activeBooking.scheduled_at))}`
+                        : 'Chauffeur reserved for scheduled departure'
+                      : activeBooking.status === 'in_progress'
                       ? 'Cruising safely to destination'
                       : activeBooking.status === 'arrived'
                       ? 'Chauffeur waiting at pickup'
@@ -1103,7 +1296,9 @@ export default function App() {
 
                 <View style={styles.arrivingEtaBadge}>
                   <Text style={styles.arrivingEtaText}>
-                    {activeBooking.status === 'in_progress'
+                    {activeBooking.status === 'scheduled'
+                      ? '📅 Confirmed'
+                      : activeBooking.status === 'in_progress'
                       ? `⚡ ${inProgressDistKm} km`
                       : activeBooking.status === 'accepted'
                       ? driverDistM !== null && driverDistM < 100
@@ -1115,7 +1310,21 @@ export default function App() {
               </View>
 
               {/* Chauffeur & Vehicle Profile Row */}
-              {activeBooking.status === 'searching' ? (
+              {activeBooking.status === 'scheduled' ? (
+                <View style={[styles.scheduledHudBox, theme === 'dark' && styles.scheduledHudBoxDark]}>
+                  <View style={styles.scheduledHudIconRow}>
+                    <Calendar size={16} color="#7C3AED" />
+                    <Text style={[styles.scheduledHudDateText, theme === 'dark' && styles.textWhite]}>
+                      {activeBooking.scheduled_at
+                        ? formatScheduleDate(new Date(activeBooking.scheduled_at))
+                        : 'Scheduled Ride'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.scheduledHudSubText, theme === 'dark' && styles.textMutedDark]}>
+                    Zero surge guarantee locked. Chauffeur assigned 30 mins before pickup with pre-cooled AC.
+                  </Text>
+                </View>
+              ) : activeBooking.status === 'searching' ? (
                 <View style={styles.searchingFleetRow}>
                   <ActivityIndicator size="small" color="#F97316" />
                   <Text style={styles.searchingFleetText}>
@@ -1125,7 +1334,7 @@ export default function App() {
               ) : (
                 <View style={styles.driverProfileMinimalRow}>
                   {/* Driver Avatar */}
-                  <View style={styles.driverAvatarCircle}>
+                  <View style={[styles.driverAvatarCircle, theme === 'dark' && styles.driverAvatarCircleDark]}>
                     <Text style={styles.driverAvatarLetter}>
                       {resolvedVehicle.chauffeurName.charAt(0) || 'D'}
                     </Text>
@@ -1134,7 +1343,7 @@ export default function App() {
                   {/* Driver & Car Meta */}
                   <View style={styles.driverMetaCol}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.driverNameTitle} numberOfLines={1}>
+                      <Text style={[styles.driverNameTitle, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
                         {resolvedVehicle.chauffeurName}
                       </Text>
                       {resolvedVehicle.isPartner && (
@@ -1143,7 +1352,7 @@ export default function App() {
                         </View>
                       )}
                     </View>
-                    <Text style={styles.vehicleModelSub} numberOfLines={1}>
+                    <Text style={[styles.vehicleModelSub, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
                       {resolvedVehicle.modelName} · 100% EV
                     </Text>
                   </View>
@@ -1165,7 +1374,7 @@ export default function App() {
                 {/* Circular Cancel Action */}
                 {activeBooking.status !== 'in_progress' && activeBooking.status !== 'completed' ? (
                   <TouchableOpacity
-                    style={styles.circularActionCancel}
+                    style={[styles.circularActionCancel, theme === 'dark' && styles.circularActionCancelDark]}
                     activeOpacity={0.8}
                     onPress={handleCancelRide}
                   >
@@ -1283,7 +1492,7 @@ export default function App() {
           /* =============================================================== */
           <View style={{ flex: 1 }}>
             {/* Top Route Map */}
-            <View style={{ height: height * 0.33 }}>
+            <View style={{ height: height * 0.35, position: 'relative' }}>
               <RideMap
                 pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: pickupText }}
                 drop={dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name } : undefined}
@@ -1291,14 +1500,30 @@ export default function App() {
                 height="100%"
                 routeDistanceKm={distKm}
                 routeDurationMin={durationMin}
+                theme={theme}
               />
+              {/* Floating Back Button on Map */}
+              <TouchableOpacity
+                style={[
+                  styles.floatingBackCircleBtn,
+                  theme === 'dark' && styles.floatingBackCircleBtnDark,
+                  { top: topSafeOffset, left: 16 },
+                ]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setStep(1);
+                }}
+              >
+                <ArrowLeft size={18} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
+              </TouchableOpacity>
             </View>
 
             {/* Bottom Swipeable Booking Sheet */}
-            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView style={[styles.sheetScroll, theme === 'dark' && styles.sheetScrollDark]} showsVerticalScrollIndicator={false}>
               {/* Pickup -> Destination Bar (Tap to re-edit anytime) */}
               <TouchableOpacity
-                style={styles.sheetRouteBar}
+                style={[styles.sheetRouteBar, theme === 'dark' && styles.sheetRouteBarDark]}
                 onPress={() => setSearchModalVisible(true)}
               >
                 <View style={styles.sheetRouteVisual}>
@@ -1310,28 +1535,28 @@ export default function App() {
                   <Text style={styles.sheetRoutePickup} numberOfLines={1}>
                     {pickupText}
                   </Text>
-                  <Text style={styles.sheetRouteDrop} numberOfLines={1}>
+                  <Text style={[styles.sheetRouteDrop, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
                     {dropLocation ? dropLocation.name : 'Select drop-off destination'}
                   </Text>
                 </View>
-                <View style={styles.sheetEditBtn}>
+                <View style={[styles.sheetEditBtn, theme === 'dark' && styles.sheetEditBtnDark]}>
                   <Text style={styles.sheetEditText}>Edit</Text>
                 </View>
               </TouchableOpacity>
 
               {/* Optional Airport / Metro Pickup Gate Note */}
-              <View style={styles.gateNoteBox}>
+              <View style={[styles.gateNoteBox, theme === 'dark' && styles.gateNoteBoxDark]}>
                 <TextInput
-                  style={styles.gateNoteInput}
+                  style={[styles.gateNoteInput, theme === 'dark' && styles.textWhite]}
                   placeholder="Pillar / Gate / Landmark (e.g. Pillar 3, Gate 4)"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={theme === 'dark' ? '#64748B' : '#94A3B8'}
                   value={pickupPillar}
                   onChangeText={setPickupPillar}
                 />
               </View>
 
               {/* VEHICLE FLEET SELECTION LIST */}
-              <Text style={styles.sheetSectionTitle}>CHOOSE YOUR ELECTRIC RIDE</Text>
+              <Text style={[styles.sheetSectionTitle, theme === 'dark' && styles.textMutedDark]}>CHOOSE YOUR ELECTRIC RIDE</Text>
               <View style={styles.sheetFleetList}>
                 {vehicles.map((v) => {
                   const isSel = selectedVehicle?.code === v.code;
@@ -1345,24 +1570,28 @@ export default function App() {
                   return (
                     <TouchableOpacity
                       key={v.id}
-                      style={[styles.sheetFleetCard, isSel && styles.sheetFleetCardActive]}
+                      style={[
+                        styles.sheetFleetCard,
+                        isSel && styles.sheetFleetCardActive,
+                        theme === 'dark' && (isSel ? styles.sheetFleetCardActiveDark : styles.sheetFleetCardDark),
+                      ]}
                       onPress={() => {
                         Haptics.selectionAsync();
                         setSelectedVehicle(v);
                       }}
                     >
-                      <View style={styles.sheetFleetIconBox}>
+                      <View style={[styles.sheetFleetIconBox, theme === 'dark' && styles.sheetFleetIconBoxDark]}>
                         <Car size={22} color={isSel ? '#F56B00' : '#CBD5E1'} />
                       </View>
 
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={styles.sheetFleetName}>{v.name}</Text>
+                          <Text style={[styles.sheetFleetName, theme === 'dark' && styles.textWhite]}>{v.name}</Text>
                           <View style={styles.sheetSeatsPill}>
                             <Text style={styles.sheetSeatsText}>{v.seats} Seats</Text>
                           </View>
                         </View>
-                        <Text style={styles.sheetFleetTagline} numberOfLines={1}>
+                        <Text style={[styles.sheetFleetTagline, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
                           {v.tagline || (v.code === 'ORANGE_SEDAN' ? 'Mahindra BE.6 Luxury EV' : v.code === 'ORANGE_XL' ? '6-Seater Electric SUV' : 'Tata Tiago Smart EV')}
                         </Text>
                         <Text style={styles.sheetFleetEta}>
@@ -1371,7 +1600,7 @@ export default function App() {
                       </View>
 
                       <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.sheetFleetFare}>₹{vTotal}</Text>
+                        <Text style={[styles.sheetFleetFare, theme === 'dark' && styles.textWhite]}>₹{vTotal}</Text>
                         <Text style={styles.sheetFleetPerKm}>₹{v.per_km}/km</Text>
                       </View>
                     </TouchableOpacity>
@@ -1381,7 +1610,7 @@ export default function App() {
 
               {/* INCLUDED IN-CAB AMENITIES CARD */}
               <TouchableOpacity
-                style={styles.step2AmenitiesCard}
+                style={[styles.step2AmenitiesCard, theme === 'dark' && styles.step2AmenitiesCardDark]}
                 activeOpacity={0.88}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1391,7 +1620,7 @@ export default function App() {
                 <View style={styles.step2AmenitiesHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Sparkles size={14} color="#F97316" />
-                    <Text style={styles.step2AmenitiesTitle}>Included With Your {selectedVehicle?.name || 'Ride'}</Text>
+                    <Text style={[styles.step2AmenitiesTitle, theme === 'dark' && styles.textWhite]}>Included With Your {selectedVehicle?.name || 'Ride'}</Text>
                   </View>
                   <View style={styles.freeTagBadge}>
                     <Text style={styles.freeTagBadgeText}>100% INCLUDED</Text>
@@ -1401,24 +1630,24 @@ export default function App() {
                 <View style={styles.step2AmenitiesGrid}>
                   <View style={styles.step2AmenityItem}>
                     <Text style={styles.step2AmenityEmoji}>📺</Text>
-                    <Text style={styles.step2AmenityText}>In-Seat Screen</Text>
+                    <Text style={[styles.step2AmenityText, theme === 'dark' && styles.textMutedDark]}>In-Seat Screen</Text>
                   </View>
                   <View style={styles.step2AmenityItem}>
                     <Text style={styles.step2AmenityEmoji}>🎵</Text>
-                    <Text style={styles.step2AmenityText}>Studio Audio</Text>
+                    <Text style={[styles.step2AmenityText, theme === 'dark' && styles.textMutedDark]}>Studio Audio</Text>
                   </View>
                   <View style={styles.step2AmenityItem}>
                     <Text style={styles.step2AmenityEmoji}>💧</Text>
-                    <Text style={styles.step2AmenityText}>Bottled Water</Text>
+                    <Text style={[styles.step2AmenityText, theme === 'dark' && styles.textMutedDark]}>Bottled Water</Text>
                   </View>
                   <View style={styles.step2AmenityItem}>
                     <Text style={styles.step2AmenityEmoji}>📰</Text>
-                    <Text style={styles.step2AmenityText}>Daily Papers</Text>
+                    <Text style={[styles.step2AmenityText, theme === 'dark' && styles.textMutedDark]}>Daily Papers</Text>
                   </View>
                 </View>
 
                 <View style={styles.step2AmenitiesFooter}>
-                  <Text style={styles.step2AmenitiesFooterText}>Pre-cooled AC · Clean EV · Zero surge guarantee</Text>
+                  <Text style={[styles.step2AmenitiesFooterText, theme === 'dark' && styles.textMutedDark]}>Pre-cooled AC · Clean EV · Zero surge guarantee</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                     <Text style={styles.step2AmenitiesDetailsLink}>Details</Text>
                     <ChevronRight size={12} color="#F97316" />
@@ -1426,9 +1655,90 @@ export default function App() {
                 </View>
               </TouchableOpacity>
 
+              {/* DEPARTURE TIME: RIDE NOW OR SCHEDULE */}
+              <View style={[styles.departureCard, theme === 'dark' && styles.departureCardDark]}>
+                <View style={styles.departureHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={14} color="#F97316" />
+                    <Text style={[styles.departureTitle, theme === 'dark' && styles.textWhite]}>
+                      DEPARTURE TIME
+                    </Text>
+                  </View>
+                  {scheduledDate && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setScheduledDate(null);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.departureResetText}>Switch to Now</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.departureToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.departureToggleBtn,
+                      !scheduledDate && styles.departureToggleBtnActive,
+                      theme === 'dark' && styles.departureToggleBtnDark,
+                      !scheduledDate && theme === 'dark' && styles.departureToggleBtnActiveDark,
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setScheduledDate(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.departureToggleText,
+                        !scheduledDate && styles.departureToggleTextActive,
+                        theme === 'dark' && !scheduledDate && styles.textWhite,
+                      ]}
+                    >
+                      ⚡ Ride Now
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.departureToggleBtn,
+                      scheduledDate && styles.departureToggleBtnActive,
+                      theme === 'dark' && styles.departureToggleBtnDark,
+                      scheduledDate && theme === 'dark' && styles.departureToggleBtnActiveDark,
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setScheduleModalVisible(true);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.departureToggleText,
+                        scheduledDate && styles.departureToggleTextActive,
+                        theme === 'dark' && scheduledDate && styles.textWhite,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      📅 {scheduledDate ? formatScheduleShort(scheduledDate) : 'Schedule for Later'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {scheduledDate && (
+                  <View style={styles.scheduledBannerInfo}>
+                    <Sparkles size={12} color="#F97316" />
+                    <Text style={[styles.scheduledBannerInfoText, theme === 'dark' && styles.textMutedDark]}>
+                      Zero surge locked · Chauffeur arrives 10 mins early with pre-cooled AC
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               {/* SIGNATURE HOSPITALITY PREFERENCES */}
-              <View style={styles.sheetHospitalityCard}>
-                <Text style={styles.sheetHospitalityTitle}>SIGNATURE COMFORT</Text>
+              <View style={[styles.sheetHospitalityCard, theme === 'dark' && styles.sheetHospitalityCardDark]}>
+                <Text style={[styles.sheetHospitalityTitle, theme === 'dark' && styles.textWhite]}>SIGNATURE COMFORT</Text>
 
                 <View style={styles.climateRow}>
                   {[
@@ -1438,7 +1748,11 @@ export default function App() {
                   ].map(({ id, label }) => (
                     <TouchableOpacity
                       key={id}
-                      style={[styles.climateChip, cabinClimate === id && styles.climateChipActive]}
+                      style={[
+                        styles.climateChip,
+                        cabinClimate === id && styles.climateChipActive,
+                        theme === 'dark' && styles.climateChipDark,
+                      ]}
                       onPress={() => {
                         Haptics.selectionAsync();
                         setCabinClimate(id as any);
@@ -1454,7 +1768,7 @@ export default function App() {
 
                 {/* Quiet Mode Toggle */}
                 <TouchableOpacity
-                  style={[styles.quietToggle, quietRide && styles.quietToggleActive]}
+                  style={[styles.quietToggle, quietRide && styles.quietToggleActive, theme === 'dark' && styles.quietToggleDark]}
                   onPress={() => {
                     Haptics.selectionAsync();
                     setQuietRide(!quietRide);
@@ -1462,10 +1776,10 @@ export default function App() {
                 >
                   <VolumeX size={16} color={quietRide ? '#F56B00' : '#9CA3AF'} />
                   <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.quietToggleTitle, quietRide && styles.quietToggleTitleActive]}>
+                    <Text style={[styles.quietToggleTitle, quietRide && styles.quietToggleTitleActive, theme === 'dark' && styles.textWhite]}>
                       Quiet Ride Mode
                     </Text>
-                    <Text style={styles.quietToggleSub}>Chauffeur will keep conversation minimal</Text>
+                    <Text style={[styles.quietToggleSub, theme === 'dark' && styles.textMutedDark]}>Chauffeur will keep conversation minimal</Text>
                   </View>
                   <View style={[styles.quietCheckbox, quietRide && styles.quietCheckboxActive]}>
                     {quietRide && <Check size={10} color="#FFFFFF" />}
@@ -1476,7 +1790,11 @@ export default function App() {
               {/* PAYMENT METHOD SELECTOR */}
               <View style={styles.paymentMethodRow}>
                 <TouchableOpacity
-                  style={[styles.paymentChip, paymentMethod === 'cash' && styles.paymentChipActive]}
+                  style={[
+                    styles.paymentChip,
+                    paymentMethod === 'cash' && styles.paymentChipActive,
+                    theme === 'dark' && styles.paymentChipDark,
+                  ]}
                   onPress={() => {
                     Haptics.selectionAsync();
                     setPaymentMethod('cash');
@@ -1489,7 +1807,11 @@ export default function App() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.paymentChip, paymentMethod === 'upi' && styles.paymentChipActive]}
+                  style={[
+                    styles.paymentChip,
+                    paymentMethod === 'upi' && styles.paymentChipActive,
+                    theme === 'dark' && styles.paymentChipDark,
+                  ]}
                   onPress={() => {
                     Haptics.selectionAsync();
                     setPaymentMethod('upi');
@@ -1505,7 +1827,7 @@ export default function App() {
               {/* CONFIRM & BOOK CTA BUTTON */}
               <View style={styles.bookCtaRow}>
                 <TouchableOpacity
-                  style={styles.secondaryBackBtn}
+                  style={[styles.secondaryBackBtn, theme === 'dark' && styles.secondaryBackBtnDark]}
                   onPress={() => setStep(1)}
                 >
                   <ArrowLeft size={18} color="#9CA3AF" />
@@ -1521,7 +1843,9 @@ export default function App() {
                   ) : (
                     <>
                       <Text style={styles.bookPrimaryText}>
-                        Book {selectedVehicle?.name || 'Ride'} · ₹{totalEstimatedFare}
+                        {scheduledDate
+                          ? `Schedule ${selectedVehicle?.name || 'Ride'} · ${formatScheduleShort(scheduledDate)}`
+                          : `Book ${selectedVehicle?.name || 'Ride'} · ₹${totalEstimatedFare}`}
                       </Text>
                       <ArrowRight size={18} color="#FFFFFF" />
                     </>
@@ -1544,11 +1868,58 @@ export default function App() {
                 height="100%"
                 onMapPress={handleHomeMapPress}
                 onRecenterPress={() => refreshLocation(activeCity)}
+                theme={theme}
               />
             </View>
 
             {/* Floating Minimal Two-Stop Destination Card (Option B) */}
-            <View style={styles.minimalDestCard}>
+            <View
+              style={[
+                styles.minimalDestCard,
+                theme === 'dark' && styles.minimalDestCardDark,
+                { bottom: Math.max(insets.bottom, 12) + 72 },
+              ]}
+            >
+              {/* ── ACTIVE / SEARCHING RIDE RESUME BANNER ── */}
+              {currentResumableBooking && (
+                <TouchableOpacity
+                  style={[styles.resumeRideHomeCard, theme === 'dark' && styles.resumeRideHomeCardDark]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setActiveBooking(currentResumableBooking);
+                    setPendingSearchBooking(null);
+                    setStep(4);
+                  }}
+                >
+                  <View style={styles.resumeRideLeft}>
+                    <View style={styles.resumeRidePulseContainer}>
+                      <View style={styles.resumeRidePulseRing} />
+                      <View style={styles.resumeRidePulseDot} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.resumeRideTitle, theme === 'dark' && styles.textWhite]}>
+                        {currentResumableBooking.status === 'searching'
+                          ? 'Searching for EV Chauffeur…'
+                          : 'Ride in Progress'}
+                      </Text>
+                      <Text
+                        style={[styles.resumeRideSubtitle, theme === 'dark' && styles.textMutedDark]}
+                        numberOfLines={1}
+                      >
+                        {currentResumableBooking.pickup_area || 'Pickup'} → {currentResumableBooking.drop_area || 'Destination'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.resumeRideActionBtn}>
+                    <Text style={styles.resumeRideActionText}>
+                      {currentResumableBooking.status === 'searching' ? 'Resume Booking →' : 'Track Ride →'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {/* Pickup Row: "Where are you?" */}
               <TouchableOpacity
                 style={styles.destStopRow}
@@ -1558,15 +1929,15 @@ export default function App() {
                   setSearchModalVisible(true);
                 }}
               >
-                <View style={styles.destOrangeHollowRing} />
+                <View style={[styles.destOrangeHollowRing, theme === 'dark' && styles.destOrangeHollowRingDark]} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.destMicroLabel}>Where are you?</Text>
-                  <Text style={styles.destPrimaryAddress} numberOfLines={1}>
+                  <Text style={[styles.destMicroLabel, theme === 'dark' && styles.textMutedDark]}>Where are you?</Text>
+                  <Text style={[styles.destPrimaryAddress, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
                     {pickupText}
                   </Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.destPinIconBtn}
+                  style={[styles.destPinIconBtn, theme === 'dark' && styles.destPinIconBtnDark]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setPinPickerTarget('pickup');
@@ -1575,12 +1946,12 @@ export default function App() {
                     setPinPickerActive(true);
                   }}
                 >
-                  <MapIcon size={16} color="#9CA3AF" />
+                  <MapIcon size={16} color={theme === 'dark' ? '#94A3B8' : '#9CA3AF'} />
                 </TouchableOpacity>
               </TouchableOpacity>
 
               {/* Vertical connector line */}
-              <View style={styles.destConnectorLine} />
+              <View style={[styles.destConnectorLine, theme === 'dark' && styles.destConnectorLineDark]} />
 
               {/* Destination Row: "Where you want to go?" */}
               <TouchableOpacity
@@ -1591,98 +1962,179 @@ export default function App() {
                   setSearchModalVisible(true);
                 }}
               >
-                <View style={styles.destCarIconBox}>
-                  <Car size={16} color="#18181B" />
+                <View style={[styles.destCarIconBox, theme === 'dark' && styles.destCarIconBoxDark]}>
+                  <Car size={16} color={theme === 'dark' ? '#F97316' : '#18181B'} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.destMicroLabel}>Pick Off</Text>
+                  <Text style={[styles.destMicroLabel, theme === 'dark' && styles.textMutedDark]}>Drop Off</Text>
                   <Text
-                    style={dropLocation ? styles.destPrimaryAddress : styles.destPlaceholderText}
+                    style={[
+                      dropLocation ? styles.destPrimaryAddress : styles.destPlaceholderText,
+                      theme === 'dark' && (dropLocation ? styles.textWhite : styles.destPlaceholderTextDark),
+                    ]}
                     numberOfLines={1}
                   >
                     {dropLocation ? dropLocation.name : 'Where you want to go?'}
                   </Text>
                 </View>
-                <View style={styles.destSearchCircle}>
+
+                {/* Schedule Ride Quick Action Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.destScheduleBtn,
+                    scheduledDate && styles.destScheduleBtnActive,
+                    theme === 'dark' && styles.destScheduleBtnDark,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setScheduleModalVisible(true);
+                  }}
+                >
+                  <Calendar size={13} color={scheduledDate ? '#FFFFFF' : '#F97316'} />
+                  <Text
+                    style={[
+                      styles.destScheduleBtnText,
+                      scheduledDate && styles.destScheduleBtnTextActive,
+                      theme === 'dark' && !scheduledDate && styles.textWhite,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {scheduledDate ? formatScheduleShort(scheduledDate) : 'Schedule'}
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.destSearchCircle, theme === 'dark' && styles.destSearchCircleDark]}>
                   <Search size={15} color="#F97316" />
                 </View>
               </TouchableOpacity>
 
-              {/* Quick Filter Chips */}
-              <View style={styles.minimalChipsRow}>
-                {[
-                  { label: '✈️ Airport', query: 'Airport' },
-                  { label: '💼 Work / Tech Park', query: 'Tech Park' },
-                  { label: '🛍️ Mall', query: 'Mall' },
-                ].map(({ label, query }) => (
-                  <TouchableOpacity
-                    key={label}
-                    style={styles.minimalChip}
-                    onPress={async () => {
-                      Haptics.selectionAsync();
-                      const matches = await searchPlaces(query, activeCity, pickupCoords);
-                      if (matches.length > 0) {
-                        setDropLocation(matches[0]);
-                        setStep(2);
-                      } else {
-                        setSearchModalVisible(true);
-                      }
-                    }}
-                  >
-                    <Text style={styles.minimalChipText}>{label}</Text>
-                  </TouchableOpacity>
-                ))}
+              {/* Quick Filter Chips: Home, Work, Airport */}
+              <View style={[styles.minimalChipsRow, theme === 'dark' && styles.minimalChipsRowDark]}>
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={handleQuickHome}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    🏠 Home
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={handleQuickWork}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    💼 Work
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={handleQuickAirport}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    ✈️ Airport
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* INSIDE EVERY ORANGE - AMENITIES SHOWCASE BANNER */}
+              {/* TALK TO ORANGE CONCIERGE QUICK BAR */}
               <TouchableOpacity
-                style={styles.homeAmenitiesBanner}
+                style={[styles.homeTalkBanner, theme === 'dark' && styles.homeTalkBannerDark]}
                 activeOpacity={0.88}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setAmenitiesModalVisible(true);
+                  setTalkToOrangeVisible(true);
                 }}
               >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
+                  <View style={styles.homeTalkIconWrap}>
+                    <Sparkles size={14} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.homeTalkTitle, theme === 'dark' && styles.textWhite]}>Talk to Orange</Text>
+                      <View style={styles.homeTalkBadge}>
+                        <Text style={styles.homeTalkBadgeText}>24x7 AI</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.homeTalkSub, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
+                      Ask fares, airport rules, EV features or chat live
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={15} color="#F97316" />
+              </TouchableOpacity>
+
+              {/* INSIDE EVERY ORANGE - AMENITIES SHOWCASE BANNER */}
+              <View style={[styles.homeAmenitiesBanner, theme === 'dark' && styles.homeAmenitiesBannerDark]}>
                 <View style={styles.homeAmenitiesHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Sparkles size={13} color="#F97316" />
-                    <Text style={styles.homeAmenitiesTitle}>Inside Every Orange Ride</Text>
+                    <Text style={[styles.homeAmenitiesTitle, theme === 'dark' && styles.textWhite]}>Inside Every Orange Ride</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 2, paddingHorizontal: 4 }}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setAmenitiesModalVisible(true);
+                    }}
+                  >
                     <Text style={styles.homeAmenitiesViewAll}>Perks</Text>
                     <ChevronRight size={13} color="#F97316" />
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  nestedScrollEnabled={true}
                   contentContainerStyle={styles.homeAmenitiesScroll}
                 >
-                  <View style={styles.homeAmenityPill}>
-                    <Text style={styles.homeAmenityPillText}>📺 In-Seat HD Screen</Text>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>📺 In-Seat HD Screen</Text>
                   </View>
-                  <View style={styles.homeAmenityPill}>
-                    <Text style={styles.homeAmenityPillText}>🎵 Studio Acoustics</Text>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🎵 Studio Acoustics</Text>
                   </View>
-                  <View style={styles.homeAmenityPill}>
-                    <Text style={styles.homeAmenityPillText}>💧 Bottled Water</Text>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>💧 Bottled Water</Text>
                   </View>
-                  <View style={styles.homeAmenityPill}>
-                    <Text style={styles.homeAmenityPillText}>📰 Daily Papers</Text>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>📰 Daily Papers</Text>
                   </View>
-                  <View style={styles.homeAmenityPill}>
-                    <Text style={styles.homeAmenityPillText}>❄️ Pre-Cooled AC</Text>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>❄️ Pre-Cooled AC</Text>
                   </View>
-                  <View style={styles.homeAmenityPill}>
-                    <Text style={styles.homeAmenityPillText}>⚡ BE.6 Luxury EV</Text>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>⚡ BE.6 Luxury EV</Text>
+                  </View>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🔌 Type-C Chargers</Text>
+                  </View>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🛡️ Zero Surge Pricing</Text>
+                  </View>
+                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
+                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🌿 100% Electric</Text>
                   </View>
                 </ScrollView>
-              </TouchableOpacity>
+              </View>
             </View>
 
             {/* Floating Bottom Navigation Dock with Elevated Taxi FAB (Option B) */}
-            <View style={styles.floatingNavDock}>
+            <View
+              style={[
+                styles.floatingNavDock,
+                theme === 'dark' && styles.floatingNavDockDark,
+                { bottom: Math.max(insets.bottom, 12) },
+              ]}
+            >
               {/* Home Tab */}
               <TouchableOpacity
                 style={styles.navDockItem}
@@ -1691,7 +2143,7 @@ export default function App() {
                   setActiveTab('home');
                 }}
               >
-                <Navigation size={22} color={activeTab === 'home' ? '#F97316' : '#9CA3AF'} />
+                <Navigation size={22} color={activeTab === 'home' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
                 {activeTab === 'home' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
 
@@ -1704,17 +2156,21 @@ export default function App() {
                   setHistoryModalVisible(true);
                 }}
               >
-                <Clock size={22} color={activeTab === 'history' ? '#F97316' : '#9CA3AF'} />
+                <Clock size={22} color={activeTab === 'history' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
                 {activeTab === 'history' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
 
               {/* Elevated Center Taxi FAB */}
               <TouchableOpacity
-                style={styles.navDockCenterFab}
+                style={[styles.navDockCenterFab, theme === 'dark' && styles.navDockCenterFabDark]}
                 activeOpacity={0.88}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                  if (dropLocation && dropLocation.name) {
+                  if (currentResumableBooking) {
+                    setActiveBooking(currentResumableBooking);
+                    setPendingSearchBooking(null);
+                    setStep(4);
+                  } else if (dropLocation && dropLocation.name) {
                     setStep(2);
                   } else {
                     setSearchModalVisible(true);
@@ -1722,29 +2178,19 @@ export default function App() {
                 }}
               >
                 <Car size={26} color="#FFFFFF" />
+                {currentResumableBooking && <View style={styles.navDockActiveDot} />}
               </TouchableOpacity>
 
-              {/* Chat Tab */}
+              {/* Talk to Orange / Concierge Tab */}
               <TouchableOpacity
                 style={styles.navDockItem}
                 onPress={() => {
                   Haptics.selectionAsync();
                   setActiveTab('chat');
-                  if (activeBooking) {
-                    setChatModalVisible(true);
-                  } else {
-                    Alert.alert(
-                      '24x7 Orange Support',
-                      'Our 24x7 customer support & concierge line is always available for assistance.',
-                      [
-                        { text: 'Call Concierge', onPress: () => Linking.openURL('tel:1800123456') },
-                        { text: 'Close', style: 'cancel' }
-                      ]
-                    );
-                  }
+                  setTalkToOrangeVisible(true);
                 }}
               >
-                <MessageSquare size={22} color={activeTab === 'chat' ? '#F97316' : '#9CA3AF'} />
+                <MessageSquare size={22} color={activeTab === 'chat' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
                 {activeTab === 'chat' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
 
@@ -1757,7 +2203,7 @@ export default function App() {
                   setProfileModalVisible(true);
                 }}
               >
-                <UserIcon size={22} color={activeTab === 'profile' ? '#F97316' : '#9CA3AF'} />
+                <UserIcon size={22} color={activeTab === 'profile' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
                 {activeTab === 'profile' && <View style={styles.activeTabIndicator} />}
               </TouchableOpacity>
             </View>
@@ -1769,6 +2215,7 @@ export default function App() {
         {/* ================================================================= */}
         <LocationSearchModal
           visible={searchModalVisible}
+          topInset={insets.top}
           onClose={() => setSearchModalVisible(false)}
           pickupText={pickupText}
           pickupCoords={pickupCoords}
@@ -1796,6 +2243,7 @@ export default function App() {
               setActiveCity(c);
             }
           }}
+          theme={theme}
         />
 
         {/* ================================================================= */}
@@ -1845,6 +2293,7 @@ export default function App() {
               setAssignedDriver(null);
               setStep(1);
             }}
+            theme={theme}
           />
         )}
 
@@ -1860,6 +2309,10 @@ export default function App() {
           user={user}
           onSignOut={handleSignOut}
           onGuardianUpdated={(g) => setGuardianContact(g)}
+          onSavedPlacesUpdated={(places) => {
+            setSavedHomeAddress(places.home);
+            setSavedWorkAddress(places.work);
+          }}
           onOpenRideHistory={() => {
             setProfileModalVisible(false);
             setActiveTab('history');
@@ -1874,7 +2327,13 @@ export default function App() {
             setProfileModalVisible(false);
             setAmenitiesModalVisible(true);
           }}
+          onOpenTalkToOrange={() => {
+            setProfileModalVisible(false);
+            setTalkToOrangeVisible(true);
+          }}
           walletBalance={walletBalance}
+          theme={theme}
+          onToggleTheme={(t) => handleToggleTheme()}
         />
 
         {/* ================================================================= */}
@@ -1888,6 +2347,14 @@ export default function App() {
           }}
           user={user}
           onRepeatTrip={handleRepeatTrip}
+          onResumeBooking={(booking) => {
+            setHistoryModalVisible(false);
+            setActiveTab('home');
+            setActiveBooking(booking);
+            setPendingSearchBooking(null);
+            setStep(4);
+          }}
+          theme={theme}
         />
 
         {/* ================================================================= */}
@@ -1903,6 +2370,25 @@ export default function App() {
               setSearchModalVisible(true);
             }
           }}
+          theme={theme}
+        />
+
+        {/* ================================================================= */}
+        {/* RIDE SCHEDULE MODAL                                               */}
+        {/* ================================================================= */}
+        <ScheduleModal
+          visible={scheduleModalVisible}
+          onClose={() => setScheduleModalVisible(false)}
+          currentSchedule={scheduledDate}
+          onConfirmSchedule={(date) => {
+            setScheduledDate(date);
+            setScheduleModalVisible(false);
+          }}
+          onClearSchedule={() => {
+            setScheduledDate(null);
+            setScheduleModalVisible(false);
+          }}
+          theme={theme}
         />
 
         {/* ================================================================= */}
@@ -1915,6 +2401,44 @@ export default function App() {
           driver={assignedDriver}
           guardian={guardianContact}
           onOpenGuardianSetup={() => setProfileModalVisible(true)}
+          theme={theme}
+        />
+
+        {/* ================================================================= */}
+        {/* TALK TO ORANGE - 24x7 CONCIERGE & INTELLIGENT AI ASSISTANT MODAL  */}
+        {/* ================================================================= */}
+        <TalkToOrangeModal
+          visible={talkToOrangeVisible}
+          onClose={() => {
+            setTalkToOrangeVisible(false);
+            setActiveTab('home');
+          }}
+          topInset={insets.top}
+          theme={theme}
+          activeBooking={activeBooking}
+          onOpenChauffeurChat={() => {
+            setTalkToOrangeVisible(false);
+            setChatModalVisible(true);
+          }}
+          onBookRide={(destinationName, coords) => {
+            setTalkToOrangeVisible(false);
+            if (destinationName && coords) {
+              setDropLocation({
+                id: `dest-${Date.now()}`,
+                name: destinationName,
+                subtitle: destinationName,
+                lat: coords.lat,
+                lng: coords.lng,
+                city: activeCity,
+                tag: '📍 Selected Place',
+              });
+              setStep(2);
+            } else if (dropLocation && dropLocation.name) {
+              setStep(2);
+            } else {
+              setSearchModalVisible(true);
+            }
+          }}
         />
 
         {/* ================================================================= */}
@@ -1937,7 +2461,7 @@ export default function App() {
 
               <Text style={styles.authModalSub}>
                 {authMode === 'signin'
-                  ? 'Access your ride telemetry, saved trips and instant booking.'
+                  ? 'Access your ride history, saved trips and instant booking.'
                   : 'Join Orange Taxi for luxury electric travel across India.'}
               </Text>
 
@@ -2019,7 +2543,14 @@ export default function App() {
             </View>
           </KeyboardAvoidingView>
         </Modal>
-      </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }
@@ -2047,7 +2578,6 @@ const styles = StyleSheet.create({
   // -------------------------------------------------------------------------
   floatingIslandHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 12 : 14,
     left: 16,
     right: 16,
     flexDirection: 'row',
@@ -2104,6 +2634,20 @@ const styles = StyleSheet.create({
   floatingWalletText: {
     color: '#111827',
     fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  walletSoonBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  walletSoonBadgeText: {
+    color: '#F97316',
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
@@ -2182,17 +2726,275 @@ const styles = StyleSheet.create({
   },
 
   // -------------------------------------------------------------------------
+  // DARK VARIANT OVERRIDES — FLOATING ISLAND HEADER
+  // -------------------------------------------------------------------------
+  floatingAvatarBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  floatingWalletPillDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  floatingThemeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  floatingThemeBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  floatingCityBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  floatingCityMenuDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+
+  // -------------------------------------------------------------------------
+  // SHARED DARK / LIGHT TEXT UTILITIES
+  // -------------------------------------------------------------------------
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
+  },
+  containerDark: {
+    backgroundColor: '#0B0F19',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 4 ARRIVING & IN-PROGRESS TOP BAR — DARK VARIANTS
+  // -------------------------------------------------------------------------
+  arrivingTopHeaderDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 16,
+  },
+  arrivingBackBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  arrivingShieldBtnDark: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 2 VEHICLE SELECTION HEADER — DARK VARIANTS
+  // -------------------------------------------------------------------------
+  step2HeaderDark: {
+    backgroundColor: '#0B0F19',
+    borderBottomColor: '#1E293B',
+  },
+  step2BackBtnDark: {
+    backgroundColor: '#1E293B',
+  },
+
+  // -------------------------------------------------------------------------
+  // PIN PICKER MODE — DARK VARIANTS
+  // -------------------------------------------------------------------------
+  pinPickerHeaderDark: {
+    backgroundColor: '#0B0F19',
+    borderBottomColor: '#1E293B',
+  },
+  pinPickerBackBtnDark: {
+    backgroundColor: '#1E293B',
+  },
+  pinPickerBottomCardDark: {
+    backgroundColor: '#0F172A',
+    shadowColor: '#000',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 1 DESTINATION CARD & NAV DOCK — DARK VARIANTS
+  // -------------------------------------------------------------------------
+  minimalDestCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+    shadowColor: '#000',
+  },
+  destOrangeHollowRingDark: {
+    backgroundColor: '#0F172A',
+  },
+  destPinIconBtnDark: {
+    backgroundColor: '#1E293B',
+  },
+  destConnectorLineDark: {
+    backgroundColor: '#334155',
+  },
+  destCarIconBoxDark: {
+    backgroundColor: 'transparent',
+  },
+  destPlaceholderTextDark: {
+    color: '#64748B',
+  },
+  destSearchCircleDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.22)',
+  },
+  destScheduleBtnDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+  },
+  minimalChipsRowDark: {
+    borderTopColor: '#1E293B',
+  },
+  minimalChipDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  minimalChipTextDark: {
+    color: '#CBD5E1',
+  },
+  homeAmenitiesBannerDark: {
+    borderTopColor: '#1E293B',
+  },
+  homeAmenityPillDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  homeAmenityPillTextDark: {
+    color: '#FB923C',
+  },
+  floatingNavDockDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+    shadowColor: '#000',
+  },
+  navDockCenterFabDark: {
+    borderColor: '#0F172A',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 2 RIDE SELECTION SHEET — DARK VARIANTS
+  // -------------------------------------------------------------------------
+  sheetScrollDark: {
+    backgroundColor: '#0B0F19',
+  },
+  sheetRouteBarDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  sheetEditBtnDark: {
+    backgroundColor: '#1E293B',
+  },
+  gateNoteBoxDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  sheetFleetCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  sheetFleetCardActiveDark: {
+    borderColor: '#F97316',
+    backgroundColor: 'rgba(249, 115, 22, 0.14)',
+  },
+  sheetFleetIconBoxDark: {
+    backgroundColor: '#1E293B',
+  },
+  step2AmenitiesCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  sheetHospitalityCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  climateChipDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  quietToggleDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  paymentChipDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  secondaryBackBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  departureCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  departureToggleBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  departureToggleBtnActiveDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: '#F97316',
+  },
+
+  // -------------------------------------------------------------------------
+  // STEP 4 ARRIVING HUD — DARK VARIANTS
+  // -------------------------------------------------------------------------
+  floatingArrivingCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+    shadowColor: '#000',
+  },
+  scheduledHudBoxDark: {
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    borderColor: 'rgba(124, 58, 237, 0.3)',
+  },
+  driverAvatarCircleDark: {
+    backgroundColor: '#1E293B',
+  },
+  circularActionCancelDark: {
+    backgroundColor: '#1E293B',
+  },
+
+  // -------------------------------------------------------------------------
   // STEP 4 ARRIVING & IN-PROGRESS TOP BAR
   // -------------------------------------------------------------------------
   arrivingTopHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 12 : 14,
     left: 16,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     zIndex: 40,
+  },
+  floatingBackCircleBtn: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 30,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  floatingBackCircleBtnDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+    shadowColor: '#000',
   },
   arrivingBackBtn: {
     width: 44,
@@ -2342,6 +3144,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  destScheduleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 9,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+    gap: 4,
+    marginRight: 6,
+  },
+  destScheduleBtnActive: {
+    backgroundColor: '#F97316',
+    borderColor: '#F97316',
+  },
+  destScheduleBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F97316',
+  },
+  destScheduleBtnTextActive: {
+    color: '#FFFFFF',
+  },
   minimalChipsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -2352,17 +3178,69 @@ const styles = StyleSheet.create({
   },
   minimalChip: {
     flex: 1,
+    height: 38,
     backgroundColor: '#F8FAFC',
-    paddingVertical: 7,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    paddingHorizontal: 4,
   },
   minimalChipText: {
     color: '#475569',
     fontSize: 11,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  // Home Talk to Orange Concierge Quick Bar
+  homeTalkBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(249, 115, 22, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.22)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 10,
+  },
+  homeTalkBannerDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+  },
+  homeTalkIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeTalkTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  homeTalkBadge: {
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 5,
+  },
+  homeTalkBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#F97316',
+    textTransform: 'uppercase',
+  },
+  homeTalkSub: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 1,
   },
 
   // Home Amenities Showcase Banner
@@ -2406,6 +3284,97 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#F97316',
+  },
+
+  // ── RESUME RIDE HOME CARD ──
+  resumeRideHomeCard: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1.5,
+    borderColor: '#FB923C',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  resumeRideHomeCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#F97316',
+    shadowColor: '#000',
+  },
+  resumeRideLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  resumeRidePulseContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resumeRidePulseRing: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F97316',
+  },
+  resumeRidePulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F97316',
+  },
+  resumeRideTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  resumeRideSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  resumeRideActionBtn: {
+    backgroundColor: '#F97316',
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+    borderRadius: 11,
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  resumeRideActionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  navDockActiveDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
 
   // Floating Navigation Dock
@@ -2997,6 +3966,75 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F97316',
   },
+  departureCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 14,
+  },
+  departureHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  departureTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.5,
+  },
+  departureResetText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F97316',
+  },
+  departureToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  departureToggleBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  departureToggleBtnActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#F97316',
+  },
+  departureToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  departureToggleTextActive: {
+    color: '#EA580C',
+    fontWeight: '800',
+  },
+  scheduledBannerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    backgroundColor: '#FFF7ED',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  scheduledBannerInfoText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#C2410C',
+    flex: 1,
+  },
   sheetHospitalityCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -3138,6 +4176,30 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  scheduledHudBox: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    padding: 12,
+    marginVertical: 10,
+  },
+  scheduledHudIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  scheduledHudDateText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#6D28D9',
+  },
+  scheduledHudSubText: {
+    fontSize: 11,
+    color: '#6B7280',
+    lineHeight: 16,
   },
 
 

@@ -37,6 +37,7 @@ interface TaxInvoiceModalProps {
   onClose: () => void;
   trip: Booking | null;
   user: any;
+  theme?: 'light' | 'dark';
 }
 
 const { width } = Dimensions.get('window');
@@ -46,6 +47,7 @@ export function TaxInvoiceModal({
   onClose,
   trip,
   user,
+  theme = 'light',
 }: TaxInvoiceModalProps) {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -221,13 +223,10 @@ export function TaxInvoiceModal({
     }
   }
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
+    <View style={styles.fullscreenContainer}>
       <View style={styles.modalOverlay}>
         <View style={styles.sheetCard}>
           {/* Header */}
@@ -466,11 +465,15 @@ export function TaxInvoiceModal({
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fullscreenContainer: {
+    ...(StyleSheet.absoluteFill as any),
+    zIndex: 99999,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.75)',

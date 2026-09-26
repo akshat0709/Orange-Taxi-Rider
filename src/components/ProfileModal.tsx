@@ -36,6 +36,12 @@ import {
   VolumeX,
   PlusCircle,
   Sparkles,
+  Sun,
+  Moon,
+  Home,
+  Briefcase,
+  MapPin,
+  Check,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 
@@ -55,6 +61,10 @@ interface ProfileModalProps {
   onOpenAuth?: () => void;
   onOpenAmenities?: () => void;
   walletBalance?: number;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: (theme: 'light' | 'dark') => void;
+  onSavedPlacesUpdated?: (places: { home: string; work: string }) => void;
+  onOpenTalkToOrange?: () => void;
 }
 
 const RELATIONSHIP_OPTIONS = ['Parent', 'Spouse', 'Sibling', 'Friend', 'Colleague'];
@@ -73,8 +83,14 @@ export function ProfileModal({
   onOpenRideHistory,
   onOpenAuth,
   onOpenAmenities,
-  walletBalance = 250,
+  walletBalance = 0,
+  theme = 'light',
+  onToggleTheme,
+  onSavedPlacesUpdated,
+  onOpenTalkToOrange,
 }: ProfileModalProps) {
+  const isDark = theme === 'dark';
+
   // Guardian state
   const [guardian, setGuardian] = useState<GuardianContact | null>(null);
   const [isEditingGuardian, setIsEditingGuardian] = useState(false);
@@ -88,19 +104,81 @@ export function ProfileModal({
   const [selectedClimate, setSelectedClimate] = useState('cool');
   const [quietRide, setQuietRide] = useState(false);
 
+  // Saved Places (Home & Work) states
+  const [homeAddress, setHomeAddress] = useState('');
+  const [workAddress, setWorkAddress] = useState('');
+  const [isEditingHome, setIsEditingHome] = useState(false);
+  const [isEditingWork, setIsEditingWork] = useState(false);
+  const [homeInput, setHomeInput] = useState('');
+  const [workInput, setWorkInput] = useState('');
+
   // Dynamic user trip count from Supabase
   const [rideCount, setRideCount] = useState<number | null>(null);
 
-  // Load saved guardian & preferences on mount / when opened
+  // Load saved guardian, preferences & saved places on mount / when opened
   useEffect(() => {
     if (visible) {
       loadGuardianContact();
       loadPreferences();
+      loadSavedPlaces();
       if (user?.id) {
         fetchUserStats();
       }
     }
   }, [visible, user?.id]);
+
+  async function loadSavedPlaces() {
+    try {
+      const home = await AsyncStorage.getItem('@orange_user_home_address');
+      if (home) {
+        setHomeAddress(home);
+        setHomeInput(home);
+      }
+      const work = await AsyncStorage.getItem('@orange_user_work_address');
+      if (work) {
+        setWorkAddress(work);
+        setWorkInput(work);
+      }
+    } catch (e) {
+      console.warn('Could not load saved places:', e);
+    }
+  }
+
+  async function handleSaveHome() {
+    if (!homeInput.trim()) {
+      Alert.alert('Address Required', 'Please enter your home address.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const cleaned = homeInput.trim();
+    try {
+      await AsyncStorage.setItem('@orange_user_home_address', cleaned);
+      setHomeAddress(cleaned);
+      setIsEditingHome(false);
+      onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not save home address.');
+    }
+  }
+
+  async function handleSaveWork() {
+    if (!workInput.trim()) {
+      Alert.alert('Address Required', 'Please enter your work or office address.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const cleaned = workInput.trim();
+    try {
+      await AsyncStorage.setItem('@orange_user_work_address', cleaned);
+      setWorkAddress(cleaned);
+      setIsEditingWork(false);
+      onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not save work address.');
+    }
+  }
 
   async function fetchUserStats() {
     try {
@@ -324,10 +402,15 @@ export function ProfileModal({
                 <View style={styles.walletIconWrap}>
                   <Wallet size={20} color="#F97316" />
                 </View>
-                <View style={{ marginLeft: 12 }}>
-                  <Text style={styles.walletLabel}>Orange Wallet</Text>
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.walletLabel}>Orange Wallet</Text>
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonBadgeText}>SOON</Text>
+                    </View>
+                  </View>
                   <Text style={styles.walletAmount}>₹{walletBalance}</Text>
-                  <Text style={styles.walletSub}>Auto-pay on drop · Zero surge fee</Text>
+                  <Text style={styles.walletSub}>Razorpay gateway integration in progress</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -335,19 +418,154 @@ export function ProfileModal({
                 onPress={() => {
                   Haptics.selectionAsync();
                   Alert.alert(
-                    'Orange Wallet Recharge',
-                    `Current Balance: ₹${walletBalance}\n\nFast recharge amounts:\n• ₹250 (Basic City Commute)\n• ₹500 (Airport Express)\n• ₹1000 (Weekly Pass)`,
-                    [
-                      { text: 'Add ₹250', onPress: () => Alert.alert('Success', '₹250 added to Orange Wallet!') },
-                      { text: 'Add ₹500', onPress: () => Alert.alert('Success', '₹500 added to Orange Wallet!') },
-                      { text: 'Close', style: 'cancel' },
-                    ]
+                    'Feature Coming Soon',
+                    `Current Balance: ₹${walletBalance}\n\nOnline wallet recharge via Razorpay / UPI is coming soon! Currently, rides can be paid via Cash or direct UPI upon trip completion.`,
+                    [{ text: 'Got it', style: 'default' }]
                   );
                 }}
               >
-                <PlusCircle size={14} color="#F97316" />
-                <Text style={styles.addMoneyText}>Top Up</Text>
+                <Clock size={13} color="#F97316" />
+                <Text style={styles.addMoneyText}>Coming Soon</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* SAVED PLACES: HOME & WORK */}
+            <View style={[styles.savedPlacesCard, isDark && styles.savedPlacesCardDark]}>
+              <View style={styles.savedPlacesHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MapPin size={18} color="#F97316" />
+                  <Text style={[styles.savedPlacesTitle, isDark && styles.textWhite]}>Saved Places</Text>
+                </View>
+                <Text style={[styles.savedPlacesSub, isDark && styles.textMutedDark]}>1-Tap Quick Ride Destinations</Text>
+              </View>
+
+              {/* HOME ROW */}
+              <View style={[styles.savedPlaceRow, isDark && styles.savedPlaceRowDark]}>
+                <View style={styles.savedPlaceLeft}>
+                  <View style={styles.savedPlaceIconWrap}>
+                    <Home size={18} color="#EA580C" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Home</Text>
+                    {isEditingHome ? (
+                      <View style={{ marginTop: 6 }}>
+                        <TextInput
+                          style={[styles.savedPlaceInput, isDark && styles.savedPlaceInputDark]}
+                          placeholder="Enter your home address (e.g. Whitefield, Bengaluru)"
+                          placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                          value={homeInput}
+                          onChangeText={setHomeInput}
+                          autoFocus
+                        />
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                          <TouchableOpacity
+                            style={styles.savePlaceBtn}
+                            onPress={handleSaveHome}
+                          >
+                            <Check size={14} color="#FFFFFF" />
+                            <Text style={styles.savePlaceBtnText}>Save Home</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.cancelPlaceBtn, isDark && styles.cancelPlaceBtnDark]}
+                            onPress={() => {
+                              setIsEditingHome(false);
+                              setHomeInput(homeAddress);
+                            }}
+                          >
+                            <Text style={[styles.cancelPlaceBtnText, isDark && styles.textMutedDark]}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          homeAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
+                          isDark && (homeAddress ? styles.textMutedDark : styles.placeholderDark),
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {homeAddress || 'Set your home address for instant booking'}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {!isEditingHome && (
+                  <TouchableOpacity
+                    style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setHomeInput(homeAddress);
+                      setIsEditingHome(true);
+                    }}
+                  >
+                    <Edit3 size={15} color="#F97316" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* WORK ROW */}
+              <View style={[styles.savedPlaceRow, isDark && styles.savedPlaceRowDark, { marginTop: 10 }]}>
+                <View style={styles.savedPlaceLeft}>
+                  <View style={[styles.savedPlaceIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                    <Briefcase size={18} color="#2563EB" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Work / Office</Text>
+                    {isEditingWork ? (
+                      <View style={{ marginTop: 6 }}>
+                        <TextInput
+                          style={[styles.savedPlaceInput, isDark && styles.savedPlaceInputDark]}
+                          placeholder="Enter your office address (e.g. Cyber City, Gurugram)"
+                          placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                          value={workInput}
+                          onChangeText={setWorkInput}
+                          autoFocus
+                        />
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                          <TouchableOpacity
+                            style={[styles.savePlaceBtn, { backgroundColor: '#2563EB' }]}
+                            onPress={handleSaveWork}
+                          >
+                            <Check size={14} color="#FFFFFF" />
+                            <Text style={styles.savePlaceBtnText}>Save Work</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.cancelPlaceBtn, isDark && styles.cancelPlaceBtnDark]}
+                            onPress={() => {
+                              setIsEditingWork(false);
+                              setWorkInput(workAddress);
+                            }}
+                          >
+                            <Text style={[styles.cancelPlaceBtnText, isDark && styles.textMutedDark]}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          workAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
+                          isDark && (workAddress ? styles.textMutedDark : styles.placeholderDark),
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {workAddress || 'Set your workplace or office address'}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {!isEditingWork && (
+                  <TouchableOpacity
+                    style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setWorkInput(workAddress);
+                      setIsEditingWork(true);
+                    }}
+                  >
+                    <Edit3 size={15} color="#2563EB" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {/* RIDE HISTORY SHORTCUT CARD */}
@@ -367,7 +585,7 @@ export function ProfileModal({
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.historyTitle}>My Trips & Ride History</Text>
                   <Text style={styles.historySub}>
-                    Live Supabase rides, route tracking & Tax Invoices
+                    Live rides, route tracking & Tax Invoices
                   </Text>
                 </View>
               </View>
@@ -452,6 +670,78 @@ export function ProfileModal({
                   trackColor={{ false: '#262626', true: '#F97316' }}
                   thumbColor="#FFFFFF"
                 />
+              </View>
+            </View>
+
+            {/* APP APPEARANCE & THEME */}
+            <View style={styles.sectionHeader}>
+              {theme === 'dark' ? <Moon size={15} color="#F97316" /> : <Sun size={15} color="#F97316" />}
+              <Text style={styles.sectionTitle}>APP APPEARANCE & THEME</Text>
+            </View>
+
+            <View style={[styles.prefCard, theme === 'dark' && styles.prefCardDark]}>
+              <View style={styles.themeInfoRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={[styles.prefLabel, theme === 'dark' && styles.textWhite]}>THEME SELECTION</Text>
+                  <Text style={[styles.themeDesc, theme === 'dark' && styles.textMutedDark]}>
+                    Switch between crisp daylight clarity and executive nighttime darkness.
+                  </Text>
+                </View>
+                <View style={[styles.themeBadge, theme === 'dark' ? styles.themeBadgeDark : styles.themeBadgeLight]}>
+                  <Text style={[styles.themeBadgeText, theme === 'dark' ? styles.themeBadgeTextDark : styles.themeBadgeTextLight]}>
+                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.themeToggleRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.themeOptionBtn,
+                    theme === 'light' && styles.themeOptionBtnActive,
+                    theme === 'dark' && styles.themeOptionBtnInactiveDark,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    onToggleTheme?.('light');
+                  }}
+                >
+                  <Sun size={16} color={theme === 'light' ? '#EA580C' : '#94A3B8'} />
+                  <Text
+                    style={[
+                      styles.themeOptionText,
+                      theme === 'light' && styles.themeOptionTextActive,
+                      theme === 'dark' && styles.themeOptionTextInactiveDark,
+                    ]}
+                  >
+                    Light (Default)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.themeOptionBtn,
+                    theme === 'dark' && styles.themeOptionBtnActiveDark,
+                    theme === 'light' && styles.themeOptionBtnInactiveLight,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    onToggleTheme?.('dark');
+                  }}
+                >
+                  <Moon size={16} color={theme === 'dark' ? '#F97316' : '#64748B'} />
+                  <Text
+                    style={[
+                      styles.themeOptionText,
+                      theme === 'dark' && styles.themeOptionTextActiveDark,
+                      theme === 'light' && styles.themeOptionTextInactiveLight,
+                    ]}
+                  >
+                    Dark Mode
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -585,6 +875,35 @@ export function ProfileModal({
                 </View>
               )}
             </View>
+
+            {/* TALK TO ORANGE CONCIERGE & AI ASSISTANT CARD */}
+            <TouchableOpacity
+              style={styles.talkToOrangeCard}
+              activeOpacity={0.88}
+              onPress={() => {
+                Haptics.selectionAsync();
+                onDismiss();
+                onOpenTalkToOrange?.();
+              }}
+            >
+              <View style={styles.talkToOrangeLeft}>
+                <View style={styles.talkToOrangeIconWrap}>
+                  <Sparkles size={18} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.talkToOrangeTitle}>Talk to Orange</Text>
+                    <View style={styles.talkToOrangeBadge}>
+                      <Text style={styles.talkToOrangeBadgeText}>24x7 Concierge</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.talkToOrangeSub}>
+                    Instant Fares, Fleet Inquiries, Lost & Found & Support
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color="#F97316" />
+            </TouchableOpacity>
 
             {/* SAFETY DESK & HELPLINES */}
             <View style={styles.helplineCard}>
@@ -868,6 +1187,20 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+  },
+  comingSoonBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  comingSoonBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#F97316',
+    letterSpacing: 0.4,
   },
   walletAmount: {
     fontSize: 20,
@@ -1257,6 +1590,52 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
+  talkToOrangeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#14171F',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+    padding: 16,
+    marginBottom: 20,
+  },
+  talkToOrangeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  talkToOrangeIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  talkToOrangeTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  talkToOrangeBadge: {
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  talkToOrangeBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#F97316',
+    textTransform: 'uppercase',
+  },
+  talkToOrangeSub: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
   helplineCard: {
     backgroundColor: '#14171F',
     borderRadius: 20,
@@ -1335,5 +1714,250 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  themeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  themeDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  themeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  themeBadgeLight: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+  },
+  themeBadgeDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: 'rgba(249, 115, 22, 0.4)',
+  },
+  themeBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  themeBadgeTextLight: {
+    color: '#C2410C',
+  },
+  themeBadgeTextDark: {
+    color: '#FB923C',
+  },
+  themeToggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  themeOptionBtnActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#F97316',
+    borderWidth: 1.5,
+  },
+  themeOptionBtnActiveDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    borderColor: '#F97316',
+    borderWidth: 1.5,
+  },
+  themeOptionBtnInactiveDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  themeOptionBtnInactiveLight: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  themeOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  themeOptionTextActive: {
+    color: '#C2410C',
+    fontWeight: '800',
+  },
+  themeOptionTextActiveDark: {
+    color: '#F97316',
+    fontWeight: '800',
+  },
+  themeOptionTextInactiveDark: {
+    color: '#94A3B8',
+  },
+  themeOptionTextInactiveLight: {
+    color: '#64748B',
+  },
+  prefCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
+  },
+  cardDark: {
+    backgroundColor: '#0F172A',
+  },
+  headerDark: {
+    backgroundColor: '#0F172A',
+    borderBottomColor: '#1E293B',
+  },
+  savedPlacesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  savedPlacesCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  savedPlacesHeader: {
+    marginBottom: 14,
+  },
+  savedPlacesTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  savedPlacesSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  savedPlaceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  savedPlaceRowDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  savedPlaceLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  savedPlaceIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  savedPlaceLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  savedPlaceValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#475569',
+    marginTop: 2,
+  },
+  savedPlacePlaceholder: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  placeholderDark: {
+    color: '#64748B',
+  },
+  savedPlaceInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  savedPlaceInputDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#475569',
+    color: '#F8FAFC',
+  },
+  savePlaceBtn: {
+    backgroundColor: '#F97316',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  savePlaceBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cancelPlaceBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  cancelPlaceBtnDark: {
+    borderColor: '#475569',
+  },
+  cancelPlaceBtnText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  editPlaceBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  editPlaceBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
 });

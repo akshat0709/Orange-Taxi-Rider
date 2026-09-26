@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   ArrowLeft,
@@ -38,6 +39,8 @@ interface LocationSearchModalProps {
   onUseCurrentGPS: () => void;
   activeCity: 'All' | 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad';
   onChangeCity: (city: 'All' | 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad') => void;
+  theme?: 'light' | 'dark';
+  topInset?: number;
 }
 
 const { width } = Dimensions.get('window');
@@ -54,7 +57,13 @@ export function LocationSearchModal({
   onUseCurrentGPS,
   activeCity,
   onChangeCity,
+  theme = 'light',
+  topInset = 0,
 }: LocationSearchModalProps) {
+  const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
+  // Reliable top safe area padding that clears Dynamic Island (iPhone 14/15/16 Pro Dynamic Island is ~59pt)
+  const safeTopPadding = Math.max(insets.top, topInset, Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24)) + 12;
   const [activeField, setActiveField] = useState<'pickup' | 'drop'>('drop');
   const [pickupInput, setPickupInput] = useState(pickupText);
   const [dropInput, setDropInput] = useState('');
@@ -166,28 +175,33 @@ export function LocationSearchModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      <View style={[styles.container, isDark && styles.containerDark, { paddingTop: safeTopPadding }]}>
         {/* Header Bar */}
-        <View style={styles.header}>
+        <View style={[styles.header, isDark && styles.headerDark]}>
           <TouchableOpacity
-            style={styles.backBtn}
+            style={[styles.backBtn, isDark && styles.backBtnDark]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onClose();
             }}
           >
-            <ArrowLeft size={22} color="#FFFFFF" />
+            <ArrowLeft size={22} color={isDark ? '#F8FAFC' : '#0F172A'} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Where are you going?</Text>
+          <Text style={[styles.headerTitle, isDark && styles.textWhite]}>Where are you going?</Text>
           <View style={{ width: 38 }} />
         </View>
 
         {/* Dual Connected Inputs (Uber / Ola Style) */}
-        <View style={styles.inputsCard}>
+        <View style={[styles.inputsCard, isDark && styles.inputsCardDark]}>
           {/* Visual Route Connector */}
           <View style={styles.routePillGuide}>
             <View style={styles.pickupDot} />
-            <View style={styles.connectorLine} />
+            <View style={[styles.connectorLine, isDark && styles.connectorLineDark]} />
             <View style={styles.dropSquare} />
           </View>
 
@@ -196,14 +210,14 @@ export function LocationSearchModal({
             <View
               style={[
                 styles.inputRow,
-                activeField === 'pickup' && styles.inputRowActive,
+                activeField === 'pickup' && (isDark ? styles.inputRowActiveDark : styles.inputRowActive),
               ]}
             >
               <TextInput
                 ref={pickupInputRef}
-                style={styles.textInput}
+                style={[styles.textInput, isDark && styles.textWhite]}
                 placeholder="Enter pickup point..."
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 value={pickupInput}
                 autoCorrect={false}
                 autoCapitalize="words"
@@ -218,25 +232,25 @@ export function LocationSearchModal({
                   }}
                   style={styles.clearBtn}
                 >
-                  <X size={14} color="#9CA3AF" />
+                  <X size={14} color={isDark ? '#94A3B8' : '#64748B'} />
                 </TouchableOpacity>
               )}
             </View>
 
-            <View style={styles.inputDivider} />
+            <View style={[styles.inputDivider, isDark && styles.inputDividerDark]} />
 
             {/* Destination Input Field */}
             <View
               style={[
                 styles.inputRow,
-                activeField === 'drop' && styles.inputRowActive,
+                activeField === 'drop' && (isDark ? styles.inputRowActiveDark : styles.inputRowActive),
               ]}
             >
               <TextInput
                 ref={dropInputRef}
-                style={styles.textInput}
+                style={[styles.textInput, isDark && styles.textWhite]}
                 placeholder="Search destination, airport, hub..."
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 value={dropInput}
                 autoCorrect={false}
                 autoCapitalize="words"
@@ -251,7 +265,7 @@ export function LocationSearchModal({
                   }}
                   style={styles.clearBtn}
                 >
-                  <X size={14} color="#9CA3AF" />
+                  <X size={14} color={isDark ? '#94A3B8' : '#64748B'} />
                 </TouchableOpacity>
               )}
             </View>
@@ -261,7 +275,7 @@ export function LocationSearchModal({
         {/* Action Shortcuts (Use Current GPS / Choose on Map) */}
         <View style={styles.actionShortcutsRow}>
           <TouchableOpacity
-            style={styles.actionShortcutBtn}
+            style={[styles.actionShortcutBtn, isDark && styles.actionShortcutBtnDark]}
             disabled={gpsLocating}
             onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -280,20 +294,20 @@ export function LocationSearchModal({
             ) : (
               <Crosshair size={14} color="#22C55E" />
             )}
-            <Text style={styles.actionShortcutText}>
+            <Text style={[styles.actionShortcutText, isDark && styles.textWhite]}>
               {gpsLocating ? 'Detecting GPS...' : 'Current GPS'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionShortcutBtn}
+            style={[styles.actionShortcutBtn, isDark && styles.actionShortcutBtnDark]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onChooseOnMap(activeField);
             }}
           >
             <Map size={14} color="#F56B00" />
-            <Text style={styles.actionShortcutText}>Set on Map</Text>
+            <Text style={[styles.actionShortcutText, isDark && styles.textWhite]}>Set on Map</Text>
           </TouchableOpacity>
         </View>
 
@@ -306,13 +320,23 @@ export function LocationSearchModal({
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[styles.cityPill, activeCity === item && styles.cityPillActive]}
+                style={[
+                  styles.cityPill,
+                  isDark && styles.cityPillDark,
+                  activeCity === item && styles.cityPillActive,
+                ]}
                 onPress={() => {
                   Haptics.selectionAsync();
                   onChangeCity(item);
                 }}
               >
-                <Text style={[styles.cityPillText, activeCity === item && styles.cityPillTextActive]}>
+                <Text
+                  style={[
+                    styles.cityPillText,
+                    isDark && styles.textMutedDark,
+                    activeCity === item && styles.cityPillTextActive,
+                  ]}
+                >
                   {item}
                 </Text>
               </TouchableOpacity>
@@ -323,7 +347,7 @@ export function LocationSearchModal({
 
         {/* Results / Suggestions Section Header */}
         <View style={styles.resultsHeader}>
-          <Text style={styles.resultsHeaderTitle}>
+          <Text style={[styles.resultsHeaderTitle, isDark && styles.textMutedDark]}>
             {loading
               ? 'SEARCHING LIVE LOCATIONS...'
               : currentQuery.trim().length > 0
@@ -341,22 +365,22 @@ export function LocationSearchModal({
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.resultItem}
+              style={[styles.resultItem, isDark && styles.resultItemDark]}
               onPress={() => handleSelectLocation(item)}
             >
-              <View style={styles.resultIconBox}>{getIcon(item)}</View>
+              <View style={[styles.resultIconBox, isDark && styles.resultIconBoxDark]}>{getIcon(item)}</View>
               <View style={styles.resultDetails}>
                 <View style={styles.resultTitleRow}>
-                  <Text style={styles.resultName} numberOfLines={1}>
+                  <Text style={[styles.resultName, isDark && styles.textWhite]} numberOfLines={1}>
                     {item.name}
                   </Text>
                   {item.city && (
-                    <View style={styles.cityBadge}>
-                      <Text style={styles.cityBadgeText}>{item.city}</Text>
+                    <View style={[styles.cityBadge, isDark && styles.cityBadgeDark]}>
+                      <Text style={[styles.cityBadgeText, isDark && styles.textMutedDark]}>{item.city}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.resultSubtitle} numberOfLines={2}>
+                <Text style={[styles.resultSubtitle, isDark && styles.textMutedDark]} numberOfLines={2}>
                   {item.subtitle || `${item.city}, India`}
                 </Text>
               </View>
@@ -365,16 +389,16 @@ export function LocationSearchModal({
           ListEmptyComponent={
             !loading ? (
               <View style={styles.emptyContainer}>
-                <MapPin size={36} color="#4B5563" />
-                <Text style={styles.emptyTitle}>No locations matched</Text>
-                <Text style={styles.emptySub}>
+                <MapPin size={36} color={isDark ? '#64748B' : '#94A3B8'} />
+                <Text style={[styles.emptyTitle, isDark && styles.textWhite]}>No locations matched</Text>
+                <Text style={[styles.emptySub, isDark && styles.textMutedDark]}>
                   Try searching for an area, street, landmark or airport.
                 </Text>
               </View>
             ) : null
           }
         />
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -382,7 +406,10 @@ export function LocationSearchModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0D11',
+    backgroundColor: '#FFFFFF',
+  },
+  containerDark: {
+    backgroundColor: '#0B0F19',
   },
   header: {
     flexDirection: 'row',
@@ -391,32 +418,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A202C',
+    borderBottomColor: '#F1F5F9',
+  },
+  headerDark: {
+    borderBottomColor: '#1E293B',
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#1E232F',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  backBtnDark: {
+    backgroundColor: '#1E293B',
+  },
   headerTitle: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   inputsCard: {
     marginHorizontal: 16,
     marginTop: 14,
-    backgroundColor: '#151922',
-    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#232936',
+    borderColor: '#E2E8F0',
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  inputsCardDark: {
+    backgroundColor: '#111827',
+    borderColor: '#1F2937',
   },
   routePillGuide: {
     width: 24,
@@ -433,8 +470,11 @@ const styles = StyleSheet.create({
   connectorLine: {
     width: 2,
     height: 36,
-    backgroundColor: '#374151',
+    backgroundColor: '#CBD5E1',
     marginVertical: 4,
+  },
+  connectorLineDark: {
+    backgroundColor: '#374151',
   },
   dropSquare: {
     width: 10,
@@ -455,11 +495,14 @@ const styles = StyleSheet.create({
   inputRowActive: {
     backgroundColor: 'rgba(245, 107, 0, 0.08)',
   },
+  inputRowActiveDark: {
+    backgroundColor: 'rgba(245, 107, 0, 0.16)',
+  },
   textInput: {
     flex: 1,
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     paddingVertical: 4,
   },
   clearBtn: {
@@ -467,8 +510,11 @@ const styles = StyleSheet.create({
   },
   inputDivider: {
     height: 1,
-    backgroundColor: '#232936',
+    backgroundColor: '#E2E8F0',
     marginVertical: 4,
+  },
+  inputDividerDark: {
+    backgroundColor: '#1F2937',
   },
   actionShortcutsRow: {
     flexDirection: 'row',
@@ -482,16 +528,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#1E232F',
+    backgroundColor: '#F8FAFC',
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#2D3748',
+    borderColor: '#E2E8F0',
+  },
+  actionShortcutBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   actionShortcutText: {
-    color: '#E2E8F0',
+    color: '#1E293B',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   cityPillsContainer: {
     marginTop: 14,
@@ -501,16 +551,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#1A202C',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#2D3748',
+    borderColor: '#E2E8F0',
+  },
+  cityPillDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   cityPillActive: {
     backgroundColor: '#F56B00',
     borderColor: '#F56B00',
   },
   cityPillText: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -527,9 +581,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resultsHeaderTitle: {
-    color: '#6B7280',
+    color: '#64748B',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.8,
   },
   listContent: {
@@ -541,16 +595,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: '#161B26',
+    borderBottomColor: '#F1F5F9',
+  },
+  resultItemDark: {
+    borderBottomColor: '#1E293B',
   },
   resultIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: '#1A202C',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  resultIconBoxDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   resultDetails: {
     flex: 1,
@@ -563,24 +626,27 @@ const styles = StyleSheet.create({
   },
   resultName: {
     flex: 1,
-    color: '#F3F4F6',
+    color: '#0F172A',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   cityBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginLeft: 6,
   },
+  cityBadgeDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
   cityBadgeText: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   resultSubtitle: {
-    color: '#9CA3AF',
+    color: '#64748B',
     fontSize: 12,
     lineHeight: 16,
   },
@@ -591,16 +657,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyTitle: {
-    color: '#E5E7EB',
+    color: '#0F172A',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     marginTop: 12,
   },
   emptySub: {
-    color: '#6B7280',
+    color: '#64748B',
     fontSize: 13,
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+  },
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });

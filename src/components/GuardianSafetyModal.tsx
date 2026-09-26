@@ -36,6 +36,7 @@ interface GuardianSafetyModalProps {
   driver: Driver | null;
   guardian: GuardianContact | null;
   onOpenGuardianSetup: () => void;
+  theme?: 'light' | 'dark';
 }
 
 export function GuardianSafetyModal({
@@ -45,7 +46,9 @@ export function GuardianSafetyModal({
   driver,
   guardian,
   onOpenGuardianSetup,
+  theme = 'light',
 }: GuardianSafetyModalProps) {
+  const isDark = theme === 'dark';
   const [sosCountdown, setSosCountdown] = useState<number | null>(null);
   const [sosActive, setSosActive] = useState(false);
   const countdownTimerRef = useRef<any>(null);
@@ -166,20 +169,20 @@ export function GuardianSafetyModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onDismiss}>
       <View style={styles.modalOverlay}>
-        <View style={styles.card}>
+        <View style={[styles.card, isDark && styles.cardDark]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, isDark && styles.headerDark]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={styles.shieldIconWrap}>
                 <ShieldCheck size={22} color="#10B981" />
               </View>
               <View>
-                <Text style={styles.title}>Guardian Safety Suite</Text>
+                <Text style={[styles.title, isDark && styles.textWhite]}>Guardian Safety Suite</Text>
                 <Text style={styles.subTitle}>24x7 Monitored Ride Protection</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onDismiss}>
-              <X size={20} color="#9CA3AF" />
+            <TouchableOpacity style={[styles.closeBtn, isDark && styles.closeBtnDark]} onPress={onDismiss}>
+              <X size={20} color={isDark ? '#94A3B8' : '#64748B'} />
             </TouchableOpacity>
           </View>
 
@@ -198,7 +201,7 @@ export function GuardianSafetyModal({
             )}
 
             {/* TRIP SAFETY CONTEXT CARD */}
-            <View style={styles.tripCard}>
+            <View style={[styles.tripCard, isDark && styles.tripCardDark]}>
               <View style={styles.tripRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Car size={16} color="#F56B00" />
@@ -212,18 +215,18 @@ export function GuardianSafetyModal({
                 </View>
               </View>
 
-              <Text style={styles.tripModel}>
+              <Text style={[styles.tripModel, isDark && styles.textWhite]}>
                 {driver?.vehicle_model || booking?.vehicle_name || 'Mahindra BE.6 Electric SUV'} · Chauffeur: {driver?.full_name || 'Verified Driver'}
               </Text>
 
               {booking?.reference && (
-                <Text style={styles.tripRef}>Booking Reference: #{booking.reference}</Text>
+                <Text style={[styles.tripRef, isDark && styles.textMutedDark]}>Booking Reference: #{booking.reference}</Text>
               )}
             </View>
 
             {/* ACTION 1: CALL GUARDIAN */}
             <TouchableOpacity
-              style={styles.guardianActionCard}
+              style={[styles.guardianActionCard, isDark && styles.guardianActionCardDark]}
               onPress={handleCallGuardian}
               activeOpacity={0.8}
             >
@@ -232,14 +235,14 @@ export function GuardianSafetyModal({
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.actionTitle}>1-Tap Call Guardian</Text>
+                  <Text style={[styles.actionTitle, isDark && styles.textWhite]}>1-Tap Call Guardian</Text>
                   {guardian && (
                     <View style={styles.guardianPill}>
                       <Text style={styles.guardianPillText}>{guardian.name}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.actionSub}>
+                <Text style={[styles.actionSub, isDark && styles.textMutedDark]}>
                   {guardian
                     ? `Direct dial to ${guardian.name} (${guardian.phone})`
                     : 'Tap to configure trusted guardian contact'}
@@ -249,7 +252,7 @@ export function GuardianSafetyModal({
 
             {/* ACTION 2: SHARE LIVE RIDE */}
             <TouchableOpacity
-              style={styles.shareActionCard}
+              style={[styles.shareActionCard, isDark && styles.shareActionCardDark]}
               onPress={handleShareLiveRide}
               activeOpacity={0.8}
             >
@@ -257,8 +260,8 @@ export function GuardianSafetyModal({
                 <Share2 size={22} color="#10B981" />
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={styles.actionTitle}>Share Live Ride via WhatsApp</Text>
-                <Text style={styles.actionSub}>
+                <Text style={[styles.actionTitle, isDark && styles.textWhite]}>Share Live Ride via WhatsApp</Text>
+                <Text style={[styles.actionSub, isDark && styles.textMutedDark]}>
                   Send real-time GPS tracking link, vehicle plate & driver details
                 </Text>
               </View>
@@ -282,9 +285,9 @@ export function GuardianSafetyModal({
             </TouchableOpacity>
 
             {/* ACTION 4: ORANGE SAFETY DESK */}
-            <View style={styles.helplineBox}>
+            <View style={[styles.helplineBox, isDark && styles.helplineBoxDark]}>
               <View>
-                <Text style={styles.helplineTitle}>Orange 24x7 Safety Operations</Text>
+                <Text style={[styles.helplineTitle, isDark && styles.textWhite]}>Orange 24x7 Safety Operations</Text>
                 <Text style={styles.helplinePhone}>+91 11 4000 7000</Text>
               </View>
               <TouchableOpacity
@@ -298,13 +301,13 @@ export function GuardianSafetyModal({
 
             {/* GUARDIAN CONFIGURATION SHORTCUT */}
             <TouchableOpacity
-              style={styles.configBtn}
+              style={[styles.configBtn, isDark && styles.configBtnDark]}
               onPress={() => {
                 onDismiss();
                 onOpenGuardianSetup();
               }}
             >
-              <Text style={styles.configText}>
+              <Text style={[styles.configText, isDark && styles.textMutedDark]}>
                 {guardian ? '⚙️ Edit Guardian Contact' : '➕ Setup Guardian Contact in Profile'}
               </Text>
             </TouchableOpacity>
@@ -320,17 +323,26 @@ export function GuardianSafetyModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
   },
   card: {
-    backgroundColor: '#0E1117',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2E8F0',
     maxHeight: '90%',
     paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 20,
+  },
+  cardDark: {
+    backgroundColor: '#0E1117',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     flexDirection: 'row',
@@ -340,6 +352,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerDark: {
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   shieldIconWrap: {
@@ -355,7 +370,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: 0.2,
   },
   subTitle: {
@@ -367,6 +382,9 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  closeBtnDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   scrollBody: {
@@ -413,12 +431,16 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
   tripCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
     padding: 14,
     marginBottom: 16,
+  },
+  tripCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   tripRow: {
     flexDirection: 'row',
@@ -448,23 +470,27 @@ const styles = StyleSheet.create({
   tripModel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#0F172A',
     marginTop: 6,
   },
   tripRef: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 3,
   },
   guardianActionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#14171F',
+    backgroundColor: '#F0FDF4',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderColor: '#BBF7D0',
     padding: 16,
     marginBottom: 12,
+  },
+  guardianActionCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   callGuardianIcon: {
     width: 46,
@@ -477,12 +503,16 @@ const styles = StyleSheet.create({
   shareActionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderColor: '#E2E8F0',
     padding: 16,
     marginBottom: 12,
+  },
+  shareActionCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   shareIcon: {
     width: 46,
@@ -515,11 +545,11 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   actionSub: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginTop: 2,
     lineHeight: 16,
   },
@@ -550,21 +580,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14171F',
+    backgroundColor: '#FFF7ED',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#FED7AA',
     padding: 14,
     marginBottom: 14,
+  },
+  helplineBoxDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(245, 107, 0, 0.25)',
   },
   helplineTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#9A3412',
   },
   helplinePhone: {
     fontSize: 12,
-    color: '#F56B00',
+    color: '#EA580C',
     marginTop: 2,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     fontWeight: '700',
@@ -589,9 +623,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
   },
+  configBtnDark: {
+    backgroundColor: 'transparent',
+  },
   configText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: '#64748B',
+  },
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });

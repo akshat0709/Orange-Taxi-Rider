@@ -25,6 +25,7 @@ import {
   RotateCcw,
   Sparkles,
   FileText,
+  Calendar,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { Booking } from '../types';
@@ -35,6 +36,8 @@ interface RideHistoryModalProps {
   onClose: () => void;
   user: any;
   onRepeatTrip?: (pickupName: string, dropName: string) => void;
+  onResumeBooking?: (booking: Booking) => void;
+  theme?: 'light' | 'dark';
 }
 
 const { width } = Dimensions.get('window');
@@ -44,7 +47,10 @@ export function RideHistoryModal({
   onClose,
   user,
   onRepeatTrip,
+  onResumeBooking,
+  theme = 'light',
 }: RideHistoryModalProps) {
+  const isDark = theme === 'dark';
   const [trips, setTrips] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,6 +133,8 @@ export function RideHistoryModal({
         return { label: 'Arriving 🚗', bg: '#FFFBEB', text: '#D97706', border: '#FDE68A' };
       case 'cancelled':
         return { label: 'Cancelled', bg: '#FEF2F2', text: '#DC2626', border: '#FECACA' };
+      case 'scheduled':
+        return { label: 'Scheduled 📅', bg: '#F5F3FF', text: '#7C3AED', border: '#DDD6FE' };
       default:
         return { label: 'Searching 📡', bg: '#FFF7ED', text: '#EA580C', border: '#FED7AA' };
     }
@@ -151,42 +159,41 @@ export function RideHistoryModal({
   }
 
   return (
-    <>
-      <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
         <View style={styles.modalOverlay}>
-          <View style={styles.card}>
+          <View style={[styles.card, isDark && styles.cardDark]}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, isDark && styles.headerDark]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={styles.headerIconWrap}>
                   <Clock size={20} color="#F97316" />
                 </View>
                 <View>
-                  <Text style={styles.title}>Your Trips</Text>
-                  <Text style={styles.subTitle}>Live Supabase Ride History & Tax Invoices</Text>
+                  <Text style={[styles.title, isDark && styles.textWhite]}>Your Trips</Text>
+                  <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>Live Ride History & Tax Invoices</Text>
                 </View>
               </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <X size={20} color="#9CA3AF" />
+            <TouchableOpacity style={[styles.closeBtn, isDark && styles.closeBtnDark]} onPress={onClose}>
+              <X size={20} color={isDark ? '#94A3B8' : '#64748B'} />
             </TouchableOpacity>
           </View>
 
           {/* Subheader summary badge */}
-          <View style={styles.statsBanner}>
+          <View style={[styles.statsBanner, isDark && styles.statsBannerDark]}>
             <View style={styles.statsCol}>
-              <Text style={styles.statsNumber}>{trips.length}</Text>
-              <Text style={styles.statsLabel}>Total Bookings</Text>
+              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>{trips.length}</Text>
+              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Total Bookings</Text>
             </View>
-            <View style={styles.statsDivider} />
+            <View style={[styles.statsDivider, isDark && styles.statsDividerDark]} />
             <View style={styles.statsCol}>
-              <Text style={styles.statsNumber}>100%</Text>
-              <Text style={styles.statsLabel}>Electric Travel</Text>
+              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>100%</Text>
+              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Electric Travel</Text>
             </View>
-            <View style={styles.statsDivider} />
+            <View style={[styles.statsDivider, isDark && styles.statsDividerDark]} />
             <View style={styles.statsCol}>
-              <Text style={styles.statsNumber}>0%</Text>
-              <Text style={styles.statsLabel}>Cancellation Fee</Text>
+              <Text style={[styles.statsNumber, isDark && styles.textWhite]}>0%</Text>
+              <Text style={[styles.statsLabel, isDark && styles.textMutedDark]}>Cancellation Fee</Text>
             </View>
           </View>
 
@@ -194,15 +201,15 @@ export function RideHistoryModal({
           {loading && !refreshing ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#F97316" />
-              <Text style={styles.loadingText}>Fetching your rides from Supabase...</Text>
+              <Text style={[styles.loadingText, isDark && styles.textMutedDark]}>Fetching your rides...</Text>
             </View>
           ) : trips.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
                 <Car size={36} color="#F97316" />
               </View>
-              <Text style={styles.emptyTitle}>No Trips Yet</Text>
-              <Text style={styles.emptySubtitle}>
+              <Text style={[styles.emptyTitle, isDark && styles.textWhite]}>No Trips Yet</Text>
+              <Text style={[styles.emptySubtitle, isDark && styles.textMutedDark]}>
                 When you book 100% electric rides with Orange Taxi, your trip receipts and route history will appear here in real-time.
               </Text>
               <TouchableOpacity style={styles.emptyActionBtn} onPress={onClose}>
@@ -220,13 +227,31 @@ export function RideHistoryModal({
             >
               {trips.map((trip) => {
                 const status = getStatusBadge(trip.status);
+                const isResumable = ['searching', 'scheduled', 'accepted', 'arrived', 'in_progress'].includes(trip.status);
                 return (
-                  <View key={trip.id} style={styles.tripCard}>
+                  <TouchableOpacity
+                    key={trip.id}
+                    style={[
+                      styles.tripCard,
+                      isDark && styles.tripCardDark,
+                      isResumable && (isDark ? styles.tripCardResumableDark : styles.tripCardResumable),
+                    ]}
+                    activeOpacity={isResumable || trip.status === 'completed' ? 0.88 : 1}
+                    onPress={() => {
+                      if (isResumable) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        onClose();
+                        onResumeBooking?.(trip);
+                      } else if (trip.status === 'completed') {
+                        handleViewInvoice(trip);
+                      }
+                    }}
+                  >
                     {/* Top Row: Date + Status Badge */}
                     <View style={styles.tripHeaderRow}>
                       <View>
-                        <Text style={styles.tripDateText}>{formatTripDate(trip.created_at)}</Text>
-                        <Text style={styles.tripRefText}>Ref: {trip.reference || trip.id.substring(0, 8).toUpperCase()}</Text>
+                        <Text style={[styles.tripDateText, isDark && styles.textWhite]}>{formatTripDate(trip.created_at)}</Text>
+                        <Text style={[styles.tripRefText, isDark && styles.textMutedDark]}>Ref: {trip.reference || trip.id.substring(0, 8).toUpperCase()}</Text>
                       </View>
                       <View
                         style={[
@@ -241,11 +266,11 @@ export function RideHistoryModal({
                     </View>
 
                     {/* Route Details */}
-                    <View style={styles.routeContainer}>
+                    <View style={[styles.routeContainer, isDark && styles.routeContainerDark]}>
                       {/* Pickup */}
                       <View style={styles.routeRow}>
                         <View style={styles.greenPickupDot} />
-                        <Text style={styles.routeText} numberOfLines={1}>
+                        <Text style={[styles.routeText, isDark && styles.textWhite]} numberOfLines={1}>
                           {trip.pickup_area}
                         </Text>
                       </View>
@@ -256,18 +281,18 @@ export function RideHistoryModal({
                       {/* Drop-off */}
                       <View style={styles.routeRow}>
                         <View style={styles.orangeDropDot} />
-                        <Text style={styles.routeText} numberOfLines={1}>
+                        <Text style={[styles.routeText, isDark && styles.textWhite]} numberOfLines={1}>
                           {trip.drop_area}
                         </Text>
                       </View>
                     </View>
 
                     {/* Meta Strip: Vehicle, Fare, OTP */}
-                    <View style={styles.tripFooterRow}>
+                    <View style={[styles.tripFooterRow, isDark && styles.tripFooterRowDark]}>
                       <View style={styles.vehicleInfoCol}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Car size={14} color="#6B7280" />
-                          <Text style={styles.vehicleNameText}>
+                          <Car size={14} color={isDark ? '#94A3B8' : '#6B7280'} />
+                          <Text style={[styles.vehicleNameText, isDark && styles.textMutedDark]}>
                             {trip.vehicle_name || 'Mahindra BE.6'}
                           </Text>
                         </View>
@@ -277,50 +302,95 @@ export function RideHistoryModal({
                       </View>
 
                       <View style={styles.fareInfoCol}>
-                        <Text style={styles.fareAmountText}>₹{trip.estimated_fare}</Text>
+                        <Text style={[styles.fareAmountText, isDark && styles.textWhite]}>₹{trip.estimated_fare}</Text>
                         <Text style={styles.fareDistanceText}>{trip.distance_km || 12} km</Text>
                       </View>
                     </View>
 
                     {/* Action Buttons */}
                     <View style={styles.tripActionsRow}>
-                      <TouchableOpacity
-                        style={styles.invoiceActionBtn}
-                        onPress={() => handleViewInvoice(trip)}
-                      >
-                        <FileText size={14} color="#EA580C" />
-                        <Text style={styles.invoiceActionText}>Tax Invoice</Text>
-                      </TouchableOpacity>
+                      {/* Tax Invoice — ONLY for completed trips */}
+                      {trip.status === 'completed' ? (
+                        <TouchableOpacity
+                          style={[styles.invoiceActionBtn, isDark && styles.invoiceActionBtnDark]}
+                          onPress={() => handleViewInvoice(trip)}
+                        >
+                          <FileText size={14} color={isDark ? '#FB923C' : '#EA580C'} />
+                          <Text style={[styles.invoiceActionText, isDark && styles.invoiceActionTextDark]}>Tax Invoice</Text>
+                        </TouchableOpacity>
+                      ) : trip.status === 'searching' ? (
+                        /* Searching — show Resume Booking button */
+                        <TouchableOpacity
+                          style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            onClose();
+                            onResumeBooking?.(trip);
+                          }}
+                        >
+                          <Navigation size={14} color="#F97316" />
+                          <Text style={[styles.resumeActionText, isDark && styles.resumeActionTextDark]}>Resume Booking</Text>
+                        </TouchableOpacity>
+                      ) : trip.status === 'scheduled' ? (
+                        /* Scheduled — show View Scheduled Ride button */
+                        <TouchableOpacity
+                          style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark, { borderColor: '#DDD6FE', backgroundColor: isDark ? 'rgba(124, 58, 237, 0.15)' : '#F5F3FF' }]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            onClose();
+                            onResumeBooking?.(trip);
+                          }}
+                        >
+                          <Calendar size={14} color="#7C3AED" />
+                          <Text style={[styles.resumeActionText, { color: '#7C3AED' }]}>View Scheduled Ride</Text>
+                        </TouchableOpacity>
+                      ) : ['accepted', 'arrived', 'in_progress'].includes(trip.status) ? (
+                        /* In-progress / accepted / arrived — track ride */
+                        <TouchableOpacity
+                          style={[styles.resumeActionBtn, isDark && styles.resumeActionBtnDark]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            onClose();
+                            onResumeBooking?.(trip);
+                          }}
+                        >
+                          <Navigation size={14} color="#F97316" />
+                          <Text style={[styles.resumeActionText, isDark && styles.resumeActionTextDark]}>Track Ride</Text>
+                        </TouchableOpacity>
+                      ) : null /* CANCELLED RIDES: NO INVOICE / RECEIPT BUTTON */}
 
                       <TouchableOpacity
-                        style={styles.repeatActionBtn}
+                        style={[styles.repeatActionBtn, isDark && styles.repeatActionBtnDark]}
                         onPress={() => handleRepeat(trip)}
                       >
                         <RotateCcw size={14} color="#F97316" />
-                        <Text style={styles.repeatActionText}>Book Again</Text>
+                        <Text style={[styles.repeatActionText, isDark && styles.repeatActionTextDark]}>Book Again</Text>
                       </TouchableOpacity>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
               <View style={{ height: 32 }} />
             </ScrollView>
           )}
         </View>
+
+        {/* Tax Invoice Modal rendered inside the modal hierarchy */}
+        {invoiceModalVisible && (
+          <TaxInvoiceModal
+            visible={invoiceModalVisible}
+            onClose={() => {
+              setInvoiceModalVisible(false);
+              setSelectedInvoiceTrip(null);
+            }}
+            trip={selectedInvoiceTrip}
+            user={user}
+            theme={theme}
+          />
+        )}
       </View>
     </Modal>
-
-    <TaxInvoiceModal
-      visible={invoiceModalVisible}
-      onClose={() => {
-        setInvoiceModalVisible(false);
-        setSelectedInvoiceTrip(null);
-      }}
-      trip={selectedInvoiceTrip}
-      user={user}
-    />
-  </>
-);
+  );
 }
 
 const styles = StyleSheet.create({
@@ -480,6 +550,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  tripCardResumable: {
+    borderWidth: 1.5,
+    borderColor: '#FB923C',
+    backgroundColor: '#FFFDF9',
+  },
   tripHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -635,5 +710,79 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#F97316',
+  },
+  cardDark: {
+    backgroundColor: '#0F172A',
+  },
+  headerDark: {
+    borderBottomColor: '#1E293B',
+  },
+  closeBtnDark: {
+    backgroundColor: '#1E293B',
+  },
+  statsBannerDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  statsDividerDark: {
+    backgroundColor: '#334155',
+  },
+  tripCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  tripCardResumableDark: {
+    borderWidth: 1.5,
+    borderColor: '#F97316',
+    backgroundColor: '#1E293B',
+  },
+  routeContainerDark: {
+    backgroundColor: '#0F172A',
+  },
+  tripFooterRowDark: {
+    borderBottomColor: '#334155',
+  },
+  invoiceActionBtnDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  invoiceActionTextDark: {
+    color: '#FB923C',
+  },
+  repeatActionBtnDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  repeatActionTextDark: {
+    color: '#F97316',
+  },
+  textWhite: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
+  },
+  resumeActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  resumeActionBtnDark: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  resumeActionText: {
+    color: '#EA580C',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  resumeActionTextDark: {
+    color: '#FB923C',
   },
 });

@@ -21,7 +21,7 @@ export interface ServiceArea {
 export interface Booking {
   id: string;
   reference: string;
-  status: 'searching' | 'accepted' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'searching' | 'scheduled' | 'accepted' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
   pickup_area: string;
   pickup_address?: string;
   drop_area: string;
@@ -40,6 +40,7 @@ export interface Booking {
   tax_amount?: number;
   distance_km?: number;
   duration_min?: number;
+  scheduled_at?: string | null;
   created_at: string;
 }
 
