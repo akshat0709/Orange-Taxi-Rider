@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, Region } from 'react-native-maps';
-import { MapPin, Navigation, Car, Crosshair, Map } from 'lucide-react-native';
+import { MapPin, Navigation, Car, Crosshair, Map, Home, Briefcase } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 interface RideMapProps {
   pickup: { lat: number; lng: number; name?: string };
@@ -11,7 +11,7 @@ interface RideMapProps {
   height?: number | string;
   interactive?: boolean;
   isPinPickerMode?: boolean;
-  pinPickerTarget?: 'pickup' | 'drop';
+  pinPickerTarget?: 'pickup' | 'drop' | 'home' | 'work';
   onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
   onMapPress?: (coords: { lat: number; lng: number }) => void;
   onRecenterPress?: () => void;
@@ -378,11 +378,25 @@ export function RideMap({
         <View pointerEvents="none" style={styles.centerPinContainer}>
           <View style={styles.pinTooltip}>
             <Text style={styles.pinTooltipText}>
-              Drag map to place {pinPickerTarget === 'pickup' ? 'pickup point' : 'destination'}
+              {pinPickerTarget === 'home'
+                ? 'Drag map to pinpoint exact home address'
+                : pinPickerTarget === 'work'
+                ? 'Drag map to pinpoint exact office / workplace'
+                : `Drag map to place ${pinPickerTarget === 'pickup' ? 'pickup point' : 'destination'}`}
             </Text>
           </View>
-          <View style={[styles.centerPinHead, pinPickerTarget === 'pickup' && { backgroundColor: '#F97316' }]}>
-            {pinPickerTarget === 'pickup' ? (
+          <View
+            style={[
+              styles.centerPinHead,
+              (pinPickerTarget === 'pickup' || pinPickerTarget === 'home') && { backgroundColor: '#EA580C' },
+              pinPickerTarget === 'work' && { backgroundColor: '#2563EB' },
+            ]}
+          >
+            {pinPickerTarget === 'home' ? (
+              <Home size={18} color="#FFFFFF" />
+            ) : pinPickerTarget === 'work' ? (
+              <Briefcase size={18} color="#FFFFFF" />
+            ) : pinPickerTarget === 'pickup' ? (
               <MapPin size={18} color="#FFFFFF" />
             ) : (
               <Navigation size={18} color="#FFFFFF" />

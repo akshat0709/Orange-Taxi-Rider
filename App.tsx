@@ -830,6 +830,26 @@ function AppContent() {
       );
       return;
     }
+
+    try {
+      const savedCoords = await AsyncStorage.getItem('@orange_user_home_coords');
+      if (savedCoords) {
+        const parsed = JSON.parse(savedCoords);
+        if (parsed.lat && parsed.lng) {
+          setDropLocation({
+            id: 'home_saved',
+            name: savedHomeAddress,
+            subtitle: 'Saved Home Location',
+            city: (activeCity as any) || 'Bengaluru',
+            lat: parsed.lat,
+            lng: parsed.lng,
+          });
+          setStep(2);
+          return;
+        }
+      }
+    } catch (e) {}
+
     const matches = await searchPlaces(savedHomeAddress, activeCity, pickupCoords);
     if (matches.length > 0) {
       setDropLocation(matches[0]);
@@ -859,6 +879,26 @@ function AppContent() {
       );
       return;
     }
+
+    try {
+      const savedCoords = await AsyncStorage.getItem('@orange_user_work_coords');
+      if (savedCoords) {
+        const parsed = JSON.parse(savedCoords);
+        if (parsed.lat && parsed.lng) {
+          setDropLocation({
+            id: 'work_saved',
+            name: savedWorkAddress,
+            subtitle: 'Saved Work Location',
+            city: (activeCity as any) || 'Bengaluru',
+            lat: parsed.lat,
+            lng: parsed.lng,
+          });
+          setStep(2);
+          return;
+        }
+      }
+    } catch (e) {}
+
     const matches = await searchPlaces(savedWorkAddress, activeCity, pickupCoords);
     if (matches.length > 0) {
       setDropLocation(matches[0]);

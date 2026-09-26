@@ -12,9 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  ActivityIndicator,
+  FlatList,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import {
   X,
   User,
@@ -42,8 +46,16 @@ import {
   Briefcase,
   MapPin,
   Check,
+  Crosshair,
+  ArrowLeft,
+  Search,
+  Navigation,
+  Map as MapIcon,
+  Trash2,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { RideMap } from './RideMap';
+import { LocationItem, searchPlaces, reverseGeocodeCoordSafe } from '../lib/locationService';
 
 export interface GuardianContact {
   name: string;
@@ -107,10 +119,23 @@ export function ProfileModal({
   // Saved Places (Home & Work) states
   const [homeAddress, setHomeAddress] = useState('');
   const [workAddress, setWorkAddress] = useState('');
+  const [homeCoords, setHomeCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [workCoords, setWorkCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isEditingHome, setIsEditingHome] = useState(false);
   const [isEditingWork, setIsEditingWork] = useState(false);
   const [homeInput, setHomeInput] = useState('');
   const [workInput, setWorkInput] = useState('');
+
+  // Map Picker State for Home & Work
+  const [mapPickerVisible, setMapPickerVisible] = useState(false);
+  const [mapPickerTarget, setMapPickerTarget] = useState<'home' | 'work'>('home');
+  const [mapPickerCoords, setMapPickerCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937 });
+  const [mapPickerAddress, setMapPickerAddress] = useState<string>('');
+  const [mapPickerCity, setMapPickerCity] = useState<string>('Bengaluru');
+  const [mapPickerLoading, setMapPickerLoading] = useState(false);
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [mapSearchResults, setMapSearchResults] = useState<LocationItem[]>([]);
+  const [isSearchingMap, setIsSearchingMap] = useState(false);
 
   // Dynamic user trip count from Supabase
   const [rideCount, setRideCount] = useState<number | null>(null);
@@ -134,14 +159,198 @@ export function ProfileModal({
         setHomeAddress(home);
         setHomeInput(home);
       }
+      const homeC = await AsyncStorage.getItem('@orange_user_home_coords');
+      if (homeC) {
+        try { setHomeCoords(JSON.parse(homeC)); } catch (e) {}
+      }
       const work = await AsyncStorage.getItem('@orange_user_work_address');
       if (work) {
         setWorkAddress(work);
         setWorkInput(work);
       }
+      const workC = await AsyncStorage.getItem('@orange_user_work_coords');
+      if (workC) {
+        try { setWorkCoords(JSON.parse(workC)); } catch (e) {}
+      }
     } catch (e) {
       console.warn('Could not load saved places:', e);
     }
+  }
+
+  async function openMapPicker(target: 'home' | 'work') {
+    Haptics.selectionAsync();
+    setMapPickerTarget(target);
+    setMapSearchQuery('');
+    setMapSearchResults([]);
+    setIsSearchingMap(false);
+    setMapPickerLoading(true);
+
+    const existingCoords = target === 'home' ? homeCoords : workCoords;
+    const existingAddress = target === 'home' ? homeAddress : workAddress;
+
+    if (existingCoords && existingCoords.lat && existingCoords.lng) {
+      setMapPickerCoords(existingCoords);
+      setMapPickerAddress(existingAddress || `${target === 'home' ? 'Home' : 'Work'} Location`);
+      setMapPickerLoading(false);
+      setMapPickerVisible(true);
+      return;
+    }
+
+    // Try current GPS
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (loc?.coords?.latitude && loc?.coords?.longitude) {
+          const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+          setMapPickerCoords(coords);
+          const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+          setMapPickerAddress(resolved.displayText);
+          setMapPickerCity(resolved.cityName);
+          setMapPickerLoading(false);
+          setMapPickerVisible(true);
+          return;
+        }
+      }
+    } catch (e) {}
+
+    // Default fallback (Bengaluru center)
+    const fallback = { lat: 12.9719, lng: 77.5937 };
+    setMapPickerCoords(fallback);
+    try {
+      const resolved = await reverseGeocodeCoordSafe(fallback.lat, fallback.lng);
+      setMapPickerAddress(resolved.displayText);
+      setMapPickerCity(resolved.cityName);
+    } catch (e) {
+      setMapPickerAddress('Selected Location');
+    }
+    setMapPickerLoading(false);
+    setMapPickerVisible(true);
+  }
+
+  async function handleMapPickerRegionChange(coords: { lat: number; lng: number }) {
+    setMapPickerCoords(coords);
+    try {
+      const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+      if (resolved?.displayText) {
+        setMapPickerAddress(resolved.displayText);
+        setMapPickerCity(resolved.cityName);
+      } else {
+        setMapPickerAddress(`Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
+      }
+    } catch (e) {
+      setMapPickerAddress(`Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
+    }
+  }
+
+  async function handleMapSearch(text: string) {
+    setMapSearchQuery(text);
+    if (!text.trim()) {
+      setMapSearchResults([]);
+      setIsSearchingMap(false);
+      return;
+    }
+    setIsSearchingMap(true);
+    try {
+      const results = await searchPlaces(text, 'All', mapPickerCoords);
+      setMapSearchResults(results);
+    } catch (e) {
+      setMapSearchResults([]);
+    }
+  }
+
+  function handleSelectSearchResult(item: LocationItem) {
+    Haptics.selectionAsync();
+    const coords = { lat: item.lat, lng: item.lng };
+    setMapPickerCoords(coords);
+    const fullText = item.name + (item.subtitle ? `, ${item.subtitle}` : '');
+    setMapPickerAddress(fullText);
+    setMapPickerCity(item.city as any);
+    setMapSearchQuery('');
+    setMapSearchResults([]);
+    setIsSearchingMap(false);
+  }
+
+  async function handleRecenterGPS() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (loc?.coords?.latitude && loc?.coords?.longitude) {
+        const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+        setMapPickerCoords(coords);
+        const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+        setMapPickerAddress(resolved.displayText);
+        setMapPickerCity(resolved.cityName);
+      }
+    } catch (e) {
+      Alert.alert('Location Error', 'Could not detect your current GPS location.');
+    }
+  }
+
+  async function handleConfirmMapLocation() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const cleaned = mapPickerAddress.trim() || `${mapPickerTarget === 'home' ? 'Home' : 'Work'} Location`;
+    try {
+      if (mapPickerTarget === 'home') {
+        await AsyncStorage.setItem('@orange_user_home_address', cleaned);
+        await AsyncStorage.setItem('@orange_user_home_coords', JSON.stringify(mapPickerCoords));
+        setHomeAddress(cleaned);
+        setHomeInput(cleaned);
+        setHomeCoords(mapPickerCoords);
+        setIsEditingHome(false);
+        onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
+      } else {
+        await AsyncStorage.setItem('@orange_user_work_address', cleaned);
+        await AsyncStorage.setItem('@orange_user_work_coords', JSON.stringify(mapPickerCoords));
+        setWorkAddress(cleaned);
+        setWorkInput(cleaned);
+        setWorkCoords(mapPickerCoords);
+        setIsEditingWork(false);
+        onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setMapPickerVisible(false);
+      Alert.alert(
+        `${mapPickerTarget === 'home' ? 'Home' : 'Work'} Address Saved! 📍`,
+        `Your ${mapPickerTarget === 'home' ? 'home' : 'work'} address has been set to:\n\n${cleaned}\n\nYou can now take 1-tap quick rides directly from the home screen.`
+      );
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not save address.');
+    }
+  }
+
+  async function handleClearSavedPlace(target: 'home' | 'work') {
+    Alert.alert(
+      `Clear ${target === 'home' ? 'Home' : 'Work'} Address`,
+      `Are you sure you want to remove your saved ${target === 'home' ? 'home' : 'work'} address?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            if (target === 'home') {
+              await AsyncStorage.removeItem('@orange_user_home_address');
+              await AsyncStorage.removeItem('@orange_user_home_coords');
+              setHomeAddress('');
+              setHomeInput('');
+              setHomeCoords(null);
+              setIsEditingHome(false);
+              onSavedPlacesUpdated?.({ home: '', work: workAddress });
+            } else {
+              await AsyncStorage.removeItem('@orange_user_work_address');
+              await AsyncStorage.removeItem('@orange_user_work_coords');
+              setWorkAddress('');
+              setWorkInput('');
+              setWorkCoords(null);
+              setIsEditingWork(false);
+              onSavedPlacesUpdated?.({ home: homeAddress, work: '' });
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function handleSaveHome() {
@@ -446,24 +655,40 @@ export function ProfileModal({
                     <Home size={18} color="#EA580C" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Home</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Home</Text>
+                      {homeCoords && (
+                        <View style={styles.geoVerifiedBadge}>
+                          <Sparkles size={10} color="#16A34A" />
+                          <Text style={styles.geoVerifiedText}>GPS Pinned</Text>
+                        </View>
+                      )}
+                    </View>
+
                     {isEditingHome ? (
                       <View style={{ marginTop: 6 }}>
                         <TextInput
                           style={[styles.savedPlaceInput, isDark && styles.savedPlaceInputDark]}
-                          placeholder="Enter your home address (e.g. Whitefield, Bengaluru)"
+                          placeholder="Enter home address or pick on map"
                           placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                           value={homeInput}
                           onChangeText={setHomeInput}
                           autoFocus
                         />
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                          <TouchableOpacity
+                            style={[styles.chooseOnMapBtn, { backgroundColor: '#EA580C' }]}
+                            onPress={() => openMapPicker('home')}
+                          >
+                            <MapIcon size={13} color="#FFFFFF" />
+                            <Text style={styles.savePlaceBtnText}>Choose on Map</Text>
+                          </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.savePlaceBtn}
                             onPress={handleSaveHome}
                           >
-                            <Check size={14} color="#FFFFFF" />
-                            <Text style={styles.savePlaceBtnText}>Save Home</Text>
+                            <Check size={13} color="#FFFFFF" />
+                            <Text style={styles.savePlaceBtnText}>Save</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.cancelPlaceBtn, isDark && styles.cancelPlaceBtnDark]}
@@ -477,29 +702,54 @@ export function ProfileModal({
                         </View>
                       </View>
                     ) : (
-                      <Text
-                        style={[
-                          homeAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
-                          isDark && (homeAddress ? styles.textMutedDark : styles.placeholderDark),
-                        ]}
-                        numberOfLines={1}
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => openMapPicker('home')}
+                        style={{ marginTop: 2 }}
                       >
-                        {homeAddress || 'Set your home address for instant booking'}
-                      </Text>
+                        <Text
+                          style={[
+                            homeAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
+                            isDark && (homeAddress ? styles.textMutedDark : styles.placeholderDark),
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {homeAddress || 'Tap to load map and pinpoint home'}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
+
                 {!isEditingHome && (
-                  <TouchableOpacity
-                    style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setHomeInput(homeAddress);
-                      setIsEditingHome(true);
-                    }}
-                  >
-                    <Edit3 size={15} color="#F97316" />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.mapPlaceActionBtn, { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFF7ED', borderColor: '#EA580C' }]}
+                      onPress={() => openMapPicker('home')}
+                      activeOpacity={0.8}
+                    >
+                      <MapIcon size={13} color="#EA580C" />
+                      <Text style={[styles.mapPlaceActionText, { color: '#EA580C' }]}>Map</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setHomeInput(homeAddress);
+                        setIsEditingHome(true);
+                      }}
+                    >
+                      <Edit3 size={14} color="#F97316" />
+                    </TouchableOpacity>
+                    {homeAddress ? (
+                      <TouchableOpacity
+                        style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
+                        onPress={() => handleClearSavedPlace('home')}
+                      >
+                        <Trash2 size={13} color="#94A3B8" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 )}
               </View>
 
@@ -510,24 +760,40 @@ export function ProfileModal({
                     <Briefcase size={18} color="#2563EB" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Work / Office</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Work / Office</Text>
+                      {workCoords && (
+                        <View style={[styles.geoVerifiedBadge, { backgroundColor: 'rgba(37, 99, 235, 0.12)', borderColor: 'rgba(37, 99, 235, 0.3)' }]}>
+                          <Sparkles size={10} color="#2563EB" />
+                          <Text style={[styles.geoVerifiedText, { color: '#2563EB' }]}>GPS Pinned</Text>
+                        </View>
+                      )}
+                    </View>
+
                     {isEditingWork ? (
                       <View style={{ marginTop: 6 }}>
                         <TextInput
                           style={[styles.savedPlaceInput, isDark && styles.savedPlaceInputDark]}
-                          placeholder="Enter your office address (e.g. Cyber City, Gurugram)"
+                          placeholder="Enter office address or pick on map"
                           placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                           value={workInput}
                           onChangeText={setWorkInput}
                           autoFocus
                         />
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                          <TouchableOpacity
+                            style={[styles.chooseOnMapBtn, { backgroundColor: '#2563EB' }]}
+                            onPress={() => openMapPicker('work')}
+                          >
+                            <MapIcon size={13} color="#FFFFFF" />
+                            <Text style={styles.savePlaceBtnText}>Choose on Map</Text>
+                          </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.savePlaceBtn, { backgroundColor: '#2563EB' }]}
                             onPress={handleSaveWork}
                           >
-                            <Check size={14} color="#FFFFFF" />
-                            <Text style={styles.savePlaceBtnText}>Save Work</Text>
+                            <Check size={13} color="#FFFFFF" />
+                            <Text style={styles.savePlaceBtnText}>Save</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.cancelPlaceBtn, isDark && styles.cancelPlaceBtnDark]}
@@ -541,29 +807,54 @@ export function ProfileModal({
                         </View>
                       </View>
                     ) : (
-                      <Text
-                        style={[
-                          workAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
-                          isDark && (workAddress ? styles.textMutedDark : styles.placeholderDark),
-                        ]}
-                        numberOfLines={1}
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => openMapPicker('work')}
+                        style={{ marginTop: 2 }}
                       >
-                        {workAddress || 'Set your workplace or office address'}
-                      </Text>
+                        <Text
+                          style={[
+                            workAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
+                            isDark && (workAddress ? styles.textMutedDark : styles.placeholderDark),
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {workAddress || 'Tap to load map and pinpoint office'}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
+
                 {!isEditingWork && (
-                  <TouchableOpacity
-                    style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setWorkInput(workAddress);
-                      setIsEditingWork(true);
-                    }}
-                  >
-                    <Edit3 size={15} color="#2563EB" />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.mapPlaceActionBtn, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', borderColor: '#2563EB' }]}
+                      onPress={() => openMapPicker('work')}
+                      activeOpacity={0.8}
+                    >
+                      <MapIcon size={13} color="#2563EB" />
+                      <Text style={[styles.mapPlaceActionText, { color: '#2563EB' }]}>Map</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setWorkInput(workAddress);
+                        setIsEditingWork(true);
+                      }}
+                    >
+                      <Edit3 size={14} color="#2563EB" />
+                    </TouchableOpacity>
+                    {workAddress ? (
+                      <TouchableOpacity
+                        style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
+                        onPress={() => handleClearSavedPlace('work')}
+                      >
+                        <Trash2 size={13} color="#94A3B8" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 )}
               </View>
             </View>
@@ -960,6 +1251,152 @@ export function ProfileModal({
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+
+      {/* =============================================================== */}
+      {/* FULL-SCREEN INTERACTIVE MAP PICKER FOR SAVED PLACES             */}
+      {/* =============================================================== */}
+      {mapPickerVisible && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0B0F19' : '#FFFFFF', zIndex: 9999 }]}>
+          {/* Header */}
+          <View style={[styles.mapPickerHeader, isDark && styles.mapPickerHeaderDark]}>
+            <TouchableOpacity
+              style={[styles.mapPickerBackBtn, isDark && styles.mapPickerBackBtnDark]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setMapPickerVisible(false);
+              }}
+            >
+              <ArrowLeft size={20} color={isDark ? '#F8FAFC' : '#0F172A'} />
+            </TouchableOpacity>
+
+            <View style={{ flex: 1, marginHorizontal: 12 }}>
+              <Text style={[styles.mapPickerTitle, isDark && styles.textWhite]}>
+                {mapPickerTarget === 'home' ? 'Pinpoint Home on Map' : 'Pinpoint Work on Map'}
+              </Text>
+              <Text style={[styles.mapPickerSub, isDark && styles.textMutedDark]}>
+                Drag map to drop pin at your exact gate or door
+              </Text>
+            </View>
+
+            <View style={{ width: 36 }} />
+          </View>
+
+          {/* Quick Search Bar */}
+          <View style={[styles.mapPickerSearchBarWrap, isDark && styles.mapPickerSearchBarWrapDark]}>
+            <Search size={16} color={isDark ? '#94A3B8' : '#64748B'} style={{ marginLeft: 12 }} />
+            <TextInput
+              style={[styles.mapPickerSearchInput, isDark && styles.mapPickerSearchInputDark]}
+              placeholder={`Search area, colony or tech park...`}
+              placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+              value={mapSearchQuery}
+              onChangeText={handleMapSearch}
+            />
+            {mapSearchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setMapSearchQuery('');
+                  setMapSearchResults([]);
+                  setIsSearchingMap(false);
+                }}
+                style={{ padding: 8 }}
+              >
+                <X size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Search Results Dropdown overlay */}
+          {isSearchingMap && mapSearchResults.length > 0 && (
+            <View style={[styles.mapSearchResultsCard, isDark && styles.mapSearchResultsCardDark]}>
+              <FlatList
+                data={mapSearchResults}
+                keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
+                style={{ maxHeight: 220 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.mapSearchItem, isDark && styles.mapSearchItemDark]}
+                    onPress={() => handleSelectSearchResult(item)}
+                  >
+                    <MapPin size={16} color="#F97316" style={{ marginTop: 2 }} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.mapSearchItemName, isDark && styles.textWhite]}>{item.name}</Text>
+                      {item.subtitle ? (
+                        <Text style={[styles.mapSearchItemSub, isDark && styles.textMutedDark]} numberOfLines={1}>
+                          {item.subtitle}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
+
+          {/* Map View */}
+          <View style={{ flex: 1, position: 'relative' }}>
+            <RideMap
+              pickup={mapPickerCoords}
+              interactive={true}
+              height="100%"
+              isPinPickerMode={true}
+              pinPickerTarget={mapPickerTarget}
+              onPinLocationChange={handleMapPickerRegionChange}
+              theme={theme}
+            />
+
+            {/* Floating GPS Recenter Button */}
+            <TouchableOpacity
+              style={[styles.mapPickerGpsBtn, isDark && styles.mapPickerGpsBtnDark]}
+              onPress={handleRecenterGPS}
+              activeOpacity={0.85}
+            >
+              <Crosshair size={20} color="#F97316" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Bottom Confirmation Card */}
+          <View style={[styles.mapPickerBottomCard, isDark && styles.mapPickerBottomCardDark]}>
+            <View style={styles.mapPickerAddressRow}>
+              <View style={[
+                styles.mapPickerIconBadge,
+                mapPickerTarget === 'home' ? { backgroundColor: '#EA580C' } : { backgroundColor: '#2563EB' },
+              ]}>
+                {mapPickerTarget === 'home' ? (
+                  <Home size={20} color="#FFFFFF" />
+                ) : (
+                  <Briefcase size={20} color="#FFFFFF" />
+                )}
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.mapPickerMicroLabel, isDark && styles.textMutedDark]}>
+                  {mapPickerTarget === 'home' ? 'SAVED HOME LOCATION' : 'SAVED WORK LOCATION'}
+                </Text>
+                <Text style={[styles.mapPickerAddressTitle, isDark && styles.textWhite]} numberOfLines={2}>
+                  {mapPickerAddress || 'Position pin at your building or gate'}
+                </Text>
+                <Text style={[styles.mapPickerCoordsText, isDark && styles.textMutedDark]}>
+                  {mapPickerCity} • ({mapPickerCoords.lat.toFixed(4)}, {mapPickerCoords.lng.toFixed(4)})
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.mapPickerConfirmBtn,
+                mapPickerTarget === 'home' ? { backgroundColor: '#EA580C' } : { backgroundColor: '#2563EB' },
+              ]}
+              onPress={handleConfirmMapLocation}
+              activeOpacity={0.85}
+            >
+              <Check size={18} color="#FFFFFF" />
+              <Text style={styles.mapPickerConfirmBtnText}>
+                {mapPickerTarget === 'home' ? 'Confirm & Save Home Address' : 'Confirm & Save Work Address'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </Modal>
   );
 }
@@ -1959,5 +2396,231 @@ const styles = StyleSheet.create({
   editPlaceBtnDark: {
     backgroundColor: '#1E293B',
     borderColor: '#334155',
+  },
+  chooseOnMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  mapPlaceActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  mapPlaceActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  geoVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  geoVerifiedText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  mapPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 56 : 20,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  mapPickerHeaderDark: {
+    backgroundColor: '#0F172A',
+    borderBottomColor: '#1E293B',
+  },
+  mapPickerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapPickerBackBtnDark: {
+    backgroundColor: '#1E293B',
+  },
+  mapPickerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  mapPickerSub: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  mapPickerSearchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  mapPickerSearchBarWrapDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  mapPickerSearchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  mapPickerSearchInputDark: {
+    color: '#F8FAFC',
+  },
+  mapSearchResultsCard: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 172 : 136,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  mapSearchResultsCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  mapSearchItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  mapSearchItemDark: {
+    borderBottomColor: '#334155',
+  },
+  mapSearchItemName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  mapSearchItemSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  mapPickerGpsBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  mapPickerGpsBtnDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  mapPickerBottomCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  mapPickerBottomCardDark: {
+    backgroundColor: '#0F172A',
+    borderTopColor: '#1E293B',
+  },
+  mapPickerAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  mapPickerIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapPickerMicroLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+  mapPickerAddressTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
+    lineHeight: 19,
+  },
+  mapPickerCoordsText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+  },
+  mapPickerConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  mapPickerConfirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });
