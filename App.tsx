@@ -1204,20 +1204,30 @@ function AppContent() {
             </TouchableOpacity>
           </View>
         ) : step === 2 ? (
-          /* STEP 2: MINIMAL VEHICLE SELECTION HEADER */
-          <View style={[styles.step2Header, theme === 'dark' && styles.step2HeaderDark]}>
+          /* STEP 2: MINIMAL VEHICLE SELECTION FLOATING HEADER (SAFELY BELOW DYNAMIC ISLAND) */
+          <View style={[styles.step2FloatingHeader, { top: topSafeOffset }]}>
             <TouchableOpacity
-              style={[styles.step2BackBtn, theme === 'dark' && styles.step2BackBtnDark]}
+              style={[styles.step2BackCircleBtn, theme === 'dark' && styles.step2BackCircleBtnDark]}
               activeOpacity={0.85}
-              onPress={() => setStep(1)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setStep(1);
+              }}
             >
-              <ArrowLeft size={18} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
+              <ArrowLeft size={19} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
             </TouchableOpacity>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={[styles.step2HeaderTitle, theme === 'dark' && styles.textWhite]}>Select Ride</Text>
-              <Text style={styles.step2HeaderSub}>100% Zero-Emission EV Fleet</Text>
+
+            <View style={[styles.step2HeaderPill, theme === 'dark' && styles.step2HeaderPillDark]}>
+              <View style={styles.step2PillIndicator} />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={[styles.step2HeaderPillTitle, theme === 'dark' && styles.textWhite]}>
+                  {distKm ? `${distKm} km · ~${durationMin} min` : 'Select Ride'}
+                </Text>
+                <Text style={styles.step2HeaderPillSub}>100% Zero-Emission EV</Text>
+              </View>
             </View>
-            <View style={{ width: 40 }} />
+
+            <View style={{ width: 44 }} />
           </View>
         ) : null}
 
@@ -1565,11 +1575,11 @@ function AppContent() {
           </View>
         ) : step === 2 ? (
           /* =============================================================== */
-          /* STEP 2: RIDE SELECTION & ROUTE REVIEW (UBER/OLA STYLE SHEET)     */
+          /* STEP 2: RIDE SELECTION & ROUTE REVIEW (FULL SCREEN MAP + SHEET) */
           /* =============================================================== */
-          <View style={{ flex: 1 }}>
-            {/* Top Route Map */}
-            <View style={{ height: height * 0.35, position: 'relative' }}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            {/* Full Screen Background Route Map */}
+            <View style={StyleSheet.absoluteFill}>
               <RideMap
                 pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: pickupText }}
                 drop={dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name } : undefined}
@@ -1578,26 +1588,22 @@ function AppContent() {
                 routeDistanceKm={distKm}
                 routeDurationMin={durationMin}
                 theme={theme}
+                showRoutePill={false}
+                edgePadding={{ top: topSafeOffset + 60, right: 60, bottom: height * 0.54, left: 60 }}
               />
-              {/* Floating Back Button on Map */}
-              <TouchableOpacity
-                style={[
-                  styles.floatingBackCircleBtn,
-                  theme === 'dark' && styles.floatingBackCircleBtnDark,
-                  { top: topSafeOffset, left: 16 },
-                ]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setStep(1);
-                }}
-              >
-                <ArrowLeft size={18} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
-              </TouchableOpacity>
             </View>
 
-            {/* Bottom Swipeable Booking Sheet */}
-            <ScrollView style={[styles.sheetScroll, theme === 'dark' && styles.sheetScrollDark]} showsVerticalScrollIndicator={false}>
+            {/* Bottom Swipeable Booking Sheet Floating Over Map */}
+            <View style={[styles.sheetContainer, theme === 'dark' && styles.sheetContainerDark]}>
+              <View style={styles.sheetHandleBox}>
+                <View style={[styles.sheetHandle, theme === 'dark' && styles.sheetHandleDark]} />
+              </View>
+
+              <ScrollView
+                style={[styles.sheetScroll, theme === 'dark' && styles.sheetScrollDark]}
+                contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
+                showsVerticalScrollIndicator={false}
+              >
               {/* Pickup -> Destination Bar (Tap to re-edit anytime) */}
               <TouchableOpacity
                 style={[styles.sheetRouteBar, theme === 'dark' && styles.sheetRouteBarDark]}
@@ -1932,6 +1938,7 @@ function AppContent() {
               <View style={{ height: 36 }} />
             </ScrollView>
           </View>
+        </View>
         ) : (
           /* =============================================================== */
           /* STEP 1: UBER / OLA MAP-FIRST HOME SCREEN                        */
@@ -2924,14 +2931,16 @@ const styles = StyleSheet.create({
   },
 
   // -------------------------------------------------------------------------
-  // STEP 2 VEHICLE SELECTION HEADER — DARK VARIANTS
+  // STEP 2 VEHICLE SELECTION FLOATING HEADER — DARK VARIANTS
   // -------------------------------------------------------------------------
-  step2HeaderDark: {
-    backgroundColor: '#0B0F19',
-    borderBottomColor: '#1E293B',
+  step2BackCircleBtnDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+    shadowColor: '#000',
   },
-  step2BackBtnDark: {
-    backgroundColor: '#1E293B',
+  step2HeaderPillDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
   },
 
   // -------------------------------------------------------------------------
@@ -3011,8 +3020,16 @@ const styles = StyleSheet.create({
   // -------------------------------------------------------------------------
   // STEP 2 RIDE SELECTION SHEET — DARK VARIANTS
   // -------------------------------------------------------------------------
-  sheetScrollDark: {
+  sheetContainerDark: {
     backgroundColor: '#0B0F19',
+    borderColor: '#1E293B',
+    shadowColor: '#000',
+  },
+  sheetHandleDark: {
+    backgroundColor: '#334155',
+  },
+  sheetScrollDark: {
+    backgroundColor: 'transparent',
   },
   sheetRouteBarDark: {
     backgroundColor: '#0F172A',
@@ -3163,37 +3180,62 @@ const styles = StyleSheet.create({
   },
 
   // -------------------------------------------------------------------------
-  // STEP 2 VEHICLE SELECTION HEADER
+  // STEP 2 VEHICLE SELECTION FLOATING HEADER (BELOW DYNAMIC ISLAND)
   // -------------------------------------------------------------------------
-  step2Header: {
+  step2FloatingHeader: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    zIndex: 20,
+    zIndex: 40,
   },
-  step2BackBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
+  step2BackCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  step2HeaderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  step2HeaderTitle: {
-    fontSize: 16,
+  step2PillIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F97316',
+  },
+  step2HeaderPillTitle: {
+    fontSize: 13,
     fontWeight: '800',
-    color: '#111827',
+    color: '#0F172A',
   },
-  step2HeaderSub: {
-    fontSize: 11,
-    fontWeight: '600',
+  step2HeaderPillSub: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#F97316',
   },
 
@@ -3973,14 +4015,38 @@ const styles = StyleSheet.create({
   // -------------------------------------------------------------------------
   // STEP 2: RIDE SELECTION BOTTOM SHEET
   // -------------------------------------------------------------------------
+  sheetContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: height * 0.58,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 20,
+    zIndex: 30,
+    paddingTop: 4,
+  },
+  sheetHandleBox: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+  },
   sheetScroll: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -16,
     paddingHorizontal: 16,
-    paddingTop: 16,
   },
   sheetRouteBar: {
     flexDirection: 'row',

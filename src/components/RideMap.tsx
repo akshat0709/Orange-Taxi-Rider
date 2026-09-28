@@ -18,6 +18,8 @@ interface RideMapProps {
   routeDistanceKm?: number;
   routeDurationMin?: number;
   theme?: 'light' | 'dark';
+  showRoutePill?: boolean;
+  edgePadding?: { top: number; right: number; bottom: number; left: number };
 }
 
 const { width } = Dimensions.get('window');
@@ -110,6 +112,8 @@ export function RideMap({
   routeDistanceKm,
   routeDurationMin,
   theme = 'light',
+  showRoutePill = true,
+  edgePadding,
 }: RideMapProps) {
   const mapRef = useRef<MapView>(null);
   const isInProgress = status === 'in_progress';
@@ -222,7 +226,7 @@ export function RideMap({
         }
 
         mapRef.current.fitToCoordinates(coords, {
-          edgePadding: { top: 90, right: 60, bottom: 90, left: 60 },
+          edgePadding: edgePadding || { top: 90, right: 60, bottom: 90, left: 60 },
           animated: true,
         });
       } else {
@@ -407,7 +411,7 @@ export function RideMap({
       )}
 
       {/* Floating Status / Route Info Pill */}
-      {hasValidDrop && (
+      {showRoutePill && hasValidDrop && (
         <View style={[styles.floatingRoutePill, theme === 'dark' && styles.floatingRoutePillDark]}>
           <View style={[styles.liveIndicator, isInProgress && { backgroundColor: '#22C55E' }]} />
           <Text style={[styles.floatingRouteText, theme === 'dark' && styles.floatingRouteTextDark]}>
