@@ -2689,6 +2689,18 @@ function AppContent() {
         />
 
         {/* ================================================================= */}
+        {/* ORANGE WALLET MODAL                                                */}
+        {/* ================================================================= */}
+        <WalletModal
+          visible={walletModalVisible}
+          onClose={() => setWalletModalVisible(false)}
+          userId={user?.id}
+          currentBalance={walletBalance}
+          onBalanceUpdated={(newBal) => setWalletBalance(newBal)}
+          theme={theme}
+        />
+
+        {/* ================================================================= */}
         {/* SUPABASE AUTH MODAL                                               */}
         {/* ================================================================= */}
         <Modal visible={authModalVisible} animationType="slide" transparent={true}>
