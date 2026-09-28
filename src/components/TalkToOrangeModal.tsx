@@ -61,6 +61,7 @@ interface TalkToOrangeModalProps {
   topInset?: number;
   activeBooking?: Booking | null;
   onOpenChauffeurChat?: () => void;
+  activeCity?: string;
 }
 
 const QUICK_SUGGESTIONS = [
@@ -81,7 +82,7 @@ const INITIAL_GREETING: ChatMessage = {
 };
 
 // Intelligent domain matcher for instant response
-function getConciergeResponse(input: string): { text: string; actionButton?: ChatMessage['actionButton'] } {
+function getConciergeResponse(input: string, activeCity: string = 'Bengaluru'): { text: string; actionButton?: ChatMessage['actionButton'] } {
   const query = input.toLowerCase().trim();
 
   // Fares & Pricing
@@ -120,8 +121,28 @@ function getConciergeResponse(input: string): { text: string; actionButton?: Cha
     query.includes('t2') ||
     query.includes('t3') ||
     query.includes('kempegowda') ||
+    query.includes('blr') ||
     query.includes('flight')
   ) {
+    let airportName = 'Kempegowda International Airport, Bengaluru';
+    let lat = 13.1989;
+    let lng = 77.7068;
+    let airportCode = 'BLR';
+
+    if (activeCity === 'Delhi NCR' || query.includes('delhi') || query.includes('igi') || query.includes('t3')) {
+       if (!query.includes('blr') && !query.includes('kempegowda') && !query.includes('bengaluru')) {
+           airportName = 'IGI Airport Terminal 3, New Delhi';
+           lat = 28.5562;
+           lng = 77.1000;
+           airportCode = 'DEL';
+       }
+    } else if (query.includes('delhi') || query.includes('igi')) {
+        airportName = 'IGI Airport Terminal 3, New Delhi';
+        lat = 28.5562;
+        lng = 77.1000;
+        airportCode = 'DEL';
+    }
+
     return {
       text:
         '✈️ *Orange Airport Concierge Service:*\n\n' +
@@ -130,9 +151,9 @@ function getConciergeResponse(input: string): { text: string; actionButton?: Cha
         '• 45 minutes complimentary waiting time post landing.\n' +
         '• Chauffeur assists with heavy luggage right at the terminal pillar.',
       actionButton: {
-        label: '✈️ Book Airport Transfer',
+        label: `✈️ Book Airport Transfer (${airportCode})`,
         actionType: 'book_airport',
-        data: { name: 'IGI Airport Terminal 3, New Delhi', lat: 28.5562, lng: 77.1000 },
+        data: { name: airportName, lat, lng },
       },
     };
   }
@@ -297,6 +318,7 @@ export function TalkToOrangeModal({
   topInset = 0,
   activeBooking,
   onOpenChauffeurChat,
+  activeCity,
 }: TalkToOrangeModalProps) {
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
@@ -338,7 +360,7 @@ export function TalkToOrangeModal({
 
     // Generate intelligent AI response after short realistic typing pause
     setTimeout(() => {
-      const reply = getConciergeResponse(text);
+      const reply = getConciergeResponse(text, activeCity);
       const assistantMsg: ChatMessage = {
         id: `orange-${Date.now()}`,
         sender: 'orange',

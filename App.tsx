@@ -2553,6 +2553,7 @@ function AppContent() {
           topInset={insets.top}
           theme={theme}
           activeBooking={activeBooking}
+          activeCity={activeCity}
           onOpenChauffeurChat={() => {
             setTalkToOrangeVisible(false);
             setChatModalVisible(true);
