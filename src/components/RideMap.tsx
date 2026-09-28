@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 interface RideMapProps {
   pickup: { lat: number; lng: number; name?: string };
   drop?: { lat: number; lng: number; name?: string };
+  waypoint?: { lat: number; lng: number; name?: string } | null;
   driverLocation?: { lat: number; lng: number } | null;
   status?: string;
   height?: number | string;
@@ -100,6 +101,7 @@ export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: 
 export function RideMap({
   pickup,
   drop,
+  waypoint,
   driverLocation,
   status = 'searching',
   height = 220,
@@ -262,12 +264,17 @@ export function RideMap({
 
   // Polyline dynamically tracks moving car to target
   const polylineCoords = isInProgress && hasValidDrop && drop
-    ? [currentCarCoord, { latitude: drop.lat, longitude: drop.lng }]
+    ? [
+        currentCarCoord,
+        ...(waypoint && waypoint.lat ? [{ latitude: waypoint.lat, longitude: waypoint.lng }] : []),
+        { latitude: drop.lat, longitude: drop.lng },
+      ]
     : (status === 'accepted' || status === 'arrived') && (currentCarPos?.lat)
     ? [currentCarCoord, { latitude: pickup.lat, longitude: pickup.lng }]
     : hasValidDrop && drop
     ? [
         { latitude: pickup.lat, longitude: pickup.lng },
+        ...(waypoint && waypoint.lat ? [{ latitude: waypoint.lat, longitude: waypoint.lng }] : []),
         ...(driverLocation?.lat ? [{ latitude: driverLocation.lat, longitude: driverLocation.lng }] : []),
         { latitude: drop.lat, longitude: drop.lng },
       ]
@@ -318,6 +325,23 @@ export function RideMap({
             <View style={styles.pickupPulseContainer}>
               <View style={styles.pickupPulseOuter} />
               <View style={styles.pickupPulseInner} />
+            </View>
+          </Marker>
+        )}
+
+        {/* Intermediate Stop / Waypoint Pin */}
+        {waypoint && waypoint.lat && (
+          <Marker
+            coordinate={{ latitude: waypoint.lat, longitude: waypoint.lng }}
+            title="Intermediate Stop"
+            description={waypoint.name || 'Stop 1'}
+            anchor={{ x: 0.5, y: 1.0 }}
+          >
+            <View style={styles.waypointMarkerContainer}>
+              <View style={styles.waypointMarkerBadge}>
+                <Text style={styles.waypointMarkerBadgeText}>1</Text>
+              </View>
+              <View style={styles.waypointMarkerPin} />
             </View>
           </Marker>
         )}
@@ -511,6 +535,34 @@ const styles = StyleSheet.create({
     width: 2,
     height: 6,
     backgroundColor: '#18181B',
+  },
+  waypointMarkerContainer: {
+    alignItems: 'center',
+  },
+  waypointMarkerBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#7C3AED',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  waypointMarkerBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  waypointMarkerPin: {
+    width: 2,
+    height: 6,
+    backgroundColor: '#7C3AED',
   },
   driverCarMarkerWrapper: {
     alignItems: 'center',

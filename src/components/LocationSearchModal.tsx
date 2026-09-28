@@ -33,14 +33,18 @@ interface LocationSearchModalProps {
   pickupText: string;
   pickupCoords: { lat: number; lng: number };
   dropLocation?: LocationItem | null;
+  stopLocation?: LocationItem | null;
   onSelectPickup: (loc: { name: string; lat: number; lng: number; city: string }) => void;
   onSelectDrop: (loc: LocationItem) => void;
+  onSelectStop?: (loc: LocationItem) => void;
+  onRemoveStop?: () => void;
   onChooseOnMap: (target: 'pickup' | 'drop') => void;
   onUseCurrentGPS: () => void;
   activeCity: 'All' | 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad';
   onChangeCity: (city: 'All' | 'Delhi NCR' | 'Bengaluru' | 'Mumbai' | 'Hyderabad') => void;
   theme?: 'light' | 'dark';
   topInset?: number;
+  initialTarget?: 'drop' | 'stop' | 'pickup';
 }
 
 const { width } = Dimensions.get('window');
@@ -51,22 +55,28 @@ export function LocationSearchModal({
   pickupText,
   pickupCoords,
   dropLocation,
+  stopLocation,
   onSelectPickup,
   onSelectDrop,
+  onSelectStop,
+  onRemoveStop,
   onChooseOnMap,
   onUseCurrentGPS,
   activeCity,
   onChangeCity,
   theme = 'light',
   topInset = 0,
+  initialTarget = 'drop',
 }: LocationSearchModalProps) {
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
   // Reliable top safe area padding that clears Dynamic Island (iPhone 14/15/16 Pro Dynamic Island is ~59pt)
   const safeTopPadding = Math.max(insets.top, topInset, Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 24)) + 12;
-  const [activeField, setActiveField] = useState<'pickup' | 'drop'>('drop');
+  const [activeField, setActiveField] = useState<'pickup' | 'drop' | 'stop'>(initialTarget);
   const [pickupInput, setPickupInput] = useState(pickupText);
-  const [dropInput, setDropInput] = useState('');
+  const [dropInput, setDropInput] = useState(dropLocation?.name || '');
+  const [stopInput, setStopInput] = useState(stopLocation?.name || '');
+  const [showStopField, setShowStopField] = useState(Boolean(stopLocation));
   const [results, setResults] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [gpsLocating, setGpsLocating] = useState(false);
@@ -74,22 +84,32 @@ export function LocationSearchModal({
   const searchTimeoutRef = useRef<any>(null);
   const dropInputRef = useRef<TextInput>(null);
   const pickupInputRef = useRef<TextInput>(null);
+  const stopInputRef = useRef<TextInput>(null);
 
   // Sync inputs and load initial recommendations when modal opens
   useEffect(() => {
     if (visible) {
       setPickupInput(pickupText);
-      setDropInput('');
-      setActiveField('drop');
-      executeSearch('', activeCity);
+      setDropInput(dropLocation?.name || '');
+      setStopInput(stopLocation?.name || '');
+      setShowStopField(Boolean(stopLocation) || initialTarget === 'stop');
+      setActiveField(initialTarget);
+      const initialQuery = initialTarget === 'pickup' ? pickupText : initialTarget === 'stop' ? (stopLocation?.name || '') : (dropLocation?.name || '');
+      executeSearch(initialQuery, activeCity);
 
       // Smooth autofocus after modal transition
       const timer = setTimeout(() => {
-        dropInputRef.current?.focus();
+        if (initialTarget === 'pickup') {
+          pickupInputRef.current?.focus();
+        } else if (initialTarget === 'stop') {
+          stopInputRef.current?.focus();
+        } else {
+          dropInputRef.current?.focus();
+        }
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, initialTarget]);
 
   // Keep pickupInput updated whenever parent pickupText updates
   useEffect(() => {
@@ -101,7 +121,7 @@ export function LocationSearchModal({
   // If active city changes while modal is open, reload recommendations
   useEffect(() => {
     if (visible) {
-      const currentQuery = activeField === 'pickup' ? pickupInput : dropInput;
+      const currentQuery = activeField === 'pickup' ? pickupInput : activeField === 'stop' ? stopInput : dropInput;
       executeSearch(currentQuery, activeCity);
     }
   }, [activeCity]);
@@ -119,9 +139,11 @@ export function LocationSearchModal({
   }
 
   // Handle live debounced search as user types
-  function handleTextChange(text: string, field: 'pickup' | 'drop') {
+  function handleTextChange(text: string, field: 'pickup' | 'drop' | 'stop') {
     if (field === 'pickup') {
       setPickupInput(text);
+    } else if (field === 'stop') {
+      setStopInput(text);
     } else {
       setDropInput(text);
     }
@@ -156,6 +178,15 @@ export function LocationSearchModal({
       setActiveField('drop');
       dropInputRef.current?.focus();
       executeSearch(dropInput, activeCity);
+    } else if (activeField === 'stop') {
+      setStopInput(item.name);
+      onSelectStop?.(item);
+      if (!dropLocation) {
+        setActiveField('drop');
+        dropInputRef.current?.focus();
+      } else {
+        onClose();
+      }
     } else {
       setDropInput(item.name);
       onSelectDrop(item);
@@ -237,6 +268,46 @@ export function LocationSearchModal({
               )}
             </View>
 
+            {/* Intermediate Stop Input Field (if visible) */}
+            {showStopField && (
+              <>
+                <View style={[styles.inputDivider, isDark && styles.inputDividerDark]} />
+                <View
+                  style={[
+                    styles.inputRow,
+                    activeField === 'stop' && (isDark ? styles.inputRowActiveDark : styles.inputRowActive),
+                  ]}
+                >
+                  <View style={styles.stopFieldPill}>
+                    <Text style={styles.stopFieldPillText}>Stop 1</Text>
+                  </View>
+                  <TextInput
+                    ref={stopInputRef}
+                    style={[styles.textInput, isDark && styles.textWhite]}
+                    placeholder="Add intermediate stop..."
+                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                    value={stopInput}
+                    autoCorrect={false}
+                    autoCapitalize="words"
+                    onFocus={() => setActiveField('stop')}
+                    onChangeText={(text) => handleTextChange(text, 'stop')}
+                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      setStopInput('');
+                      setShowStopField(false);
+                      onRemoveStop?.();
+                      setActiveField('drop');
+                      executeSearch('', activeCity);
+                    }}
+                    style={styles.clearBtn}
+                  >
+                    <X size={14} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
             <View style={[styles.inputDivider, isDark && styles.inputDividerDark]} />
 
             {/* Destination Input Field */}
@@ -272,7 +343,7 @@ export function LocationSearchModal({
           </View>
         </View>
 
-        {/* Action Shortcuts (Use Current GPS / Choose on Map) */}
+        {/* Action Shortcuts (Use Current GPS / Add Stop / Choose on Map) */}
         <View style={styles.actionShortcutsRow}>
           <TouchableOpacity
             style={[styles.actionShortcutBtn, isDark && styles.actionShortcutBtnDark]}
@@ -299,11 +370,25 @@ export function LocationSearchModal({
             </Text>
           </TouchableOpacity>
 
+          {!showStopField && (
+            <TouchableOpacity
+              style={[styles.actionShortcutBtn, isDark && styles.actionShortcutBtnDark]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowStopField(true);
+                setActiveField('stop');
+                setTimeout(() => stopInputRef.current?.focus(), 150);
+              }}
+            >
+              <Text style={{ color: '#7C3AED', fontWeight: '800', fontSize: 12 }}>+ Add Stop</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[styles.actionShortcutBtn, isDark && styles.actionShortcutBtnDark]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onChooseOnMap(activeField);
+              onChooseOnMap(activeField === 'pickup' ? 'pickup' : 'drop');
             }}
           >
             <Map size={14} color="#F56B00" />
@@ -512,6 +597,18 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E2E8F0',
     marginVertical: 4,
+  },
+  stopFieldPill: {
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  stopFieldPillText: {
+    color: '#7C3AED',
+    fontSize: 10,
+    fontWeight: '800',
   },
   inputDividerDark: {
     backgroundColor: '#1F2937',

@@ -222,6 +222,23 @@ function AppContent() {
   // Talk to Orange 24x7 Concierge & AI Assistant Modal
   const [talkToOrangeVisible, setTalkToOrangeVisible] = useState(false);
 
+  // Multi-Stop Rides
+  const [intermediateStop, setIntermediateStop] = useState<LocationItem | null>(null);
+  const [searchTarget, setSearchTarget] = useState<'pickup' | 'drop' | 'stop'>('drop');
+
+  // Promo Code & Discounts
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; description: string } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  // In-App Realtime Notification Banner
+  const [inAppNotification, setInAppNotification] = useState<{
+    id: string;
+    title: string;
+    message: string;
+    type: 'assigned' | 'arrived' | 'started' | 'completed' | 'info';
+  } | null>(null);
+
   // Saved Places (Home & Work) for 1-Tap Quick Booking
   const [savedHomeAddress, setSavedHomeAddress] = useState('');
   const [savedWorkAddress, setSavedWorkAddress] = useState('');
@@ -578,21 +595,69 @@ function AppContent() {
     }
   }
 
-  // Distance & Fare Calculations
-  const rawDist = dropLocation
-    ? haversine(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng)
-    : 10;
+  // Distance & Fare Calculations (with Multi-Stop Waypoint support)
+  let rawDist = 0;
+  if (dropLocation) {
+    if (intermediateStop) {
+      const d1 = haversine(pickupCoords.lat, pickupCoords.lng, intermediateStop.lat, intermediateStop.lng);
+      const d2 = haversine(intermediateStop.lat, intermediateStop.lng, dropLocation.lat, dropLocation.lng);
+      rawDist = d1 + d2;
+    } else {
+      rawDist = haversine(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
+    }
+  } else {
+    rawDist = 10;
+  }
   const distKm = Math.max(2.5, Math.round(rawDist * 10) / 10);
-  const durationMin = Math.round(distKm / 0.45);
+  const durationMin = Math.round(distKm / 0.45) + (intermediateStop ? 8 : 0);
 
   const baseFare = selectedVehicle?.base_fare || 59;
   const perKm = selectedVehicle?.per_km || 15;
   const minFare = selectedVehicle?.minimum_fare || 129;
   const distanceFare = Math.round(perKm * distKm);
-  const preTax = Math.max(minFare, baseFare + distanceFare);
+  const stopFare = intermediateStop ? 35 : 0; // ₹35 intermediate stop convenience fee
+  const preTax = Math.max(minFare, baseFare + distanceFare + stopFare);
   const taxAmount = Math.round(preTax * 0.05); // 5% GST (SAC 996412)
   const platformFee = 0;
-  const totalEstimatedFare = preTax + taxAmount + platformFee;
+  const calculatedPreDiscount = preTax + taxAmount + platformFee;
+  const discountAmount = appliedPromo ? Math.min(appliedPromo.discount, calculatedPreDiscount - 40) : 0;
+  const totalEstimatedFare = Math.max(40, calculatedPreDiscount - discountAmount);
+
+  // Available Promo Codes Database
+  const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: number; minFare: number; desc: string }> = {
+    'ORANGE50': { discountType: 'flat', value: 50, minFare: 120, desc: '₹50 flat off on luxury EV rides' },
+    'FIRST100': { discountType: 'flat', value: 100, minFare: 180, desc: '₹100 welcome bonus on Orange fleet' },
+    'BE6VIP': { discountType: 'percent', value: 20, minFare: 150, desc: '20% off up to ₹150 on Mahindra BE.6' },
+    'ELECTRIC': { discountType: 'flat', value: 75, minFare: 140, desc: '₹75 clean mobility subsidy' },
+  };
+
+  function handleApplyPromo() {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) {
+      setPromoError('Please enter a promo code');
+      return;
+    }
+    const promo = PROMO_CODES[code];
+    if (!promo) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setPromoError('Invalid code. Try ORANGE50, FIRST100, or BE6VIP.');
+      return;
+    }
+    if (calculatedPreDiscount < promo.minFare) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPromoError(`Minimum ride fare of ₹${promo.minFare} required for ${code}.`);
+      return;
+    }
+    let disc = 0;
+    if (promo.discountType === 'flat') {
+      disc = promo.value;
+    } else {
+      disc = Math.min(150, Math.round((calculatedPreDiscount * promo.value) / 100));
+    }
+    setAppliedPromo({ code, discount: disc, description: promo.desc });
+    setPromoError(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
 
   const currentResumableBooking =
     pendingSearchBooking ||
@@ -644,6 +709,38 @@ function AppContent() {
         if (statusChanged || driverChanged || vehicleChanged || otpChanged) {
           if (statusChanged) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            let notifTitle = '';
+            let notifMsg = '';
+            let notifType: 'assigned' | 'arrived' | 'started' | 'completed' | 'info' = 'info';
+
+            if (newBooking.status === 'accepted') {
+              notifTitle = '🚗 Chauffeur Assigned!';
+              notifMsg = `${newBooking.driver_name || 'Your chauffeur'} is on the way in a Mahindra BE.6 (${newBooking.vehicle_number || 'EV'})`;
+              notifType = 'assigned';
+            } else if (newBooking.status === 'arrived') {
+              notifTitle = '📍 Chauffeur Arrived!';
+              notifMsg = `Chauffeur has reached pickup bay. Share OTP ${newBooking.ride_otp || ''} to begin.`;
+              notifType = 'arrived';
+            } else if (newBooking.status === 'in_progress') {
+              notifTitle = '🌿 Quiet Luxury Ride Started';
+              notifMsg = 'Pre-cooled AC active at 22°C. Enjoy the quiet EV commute!';
+              notifType = 'started';
+            } else if (newBooking.status === 'completed') {
+              notifTitle = '🎉 Arrived at Destination';
+              notifMsg = `Trip completed. Fare: ₹${newBooking.estimated_fare || ''}. Tax invoice generated.`;
+              notifType = 'completed';
+            }
+
+            if (notifTitle) {
+              setInAppNotification({
+                id: `notif-${Date.now()}`,
+                title: notifTitle,
+                message: notifMsg,
+                type: notifType,
+              });
+              setTimeout(() => setInAppNotification(null), 6000);
+            }
           }
 
           if (newBooking.status === 'completed' && prev.status !== 'completed' && !newBooking.rating) {
@@ -777,6 +874,13 @@ function AppContent() {
       const scheduledIso = scheduledDate ? scheduledDate.toISOString() : null;
       const scheduledFormatted = scheduledDate ? formatScheduleDate(scheduledDate) : '';
 
+      const effectiveDropArea = intermediateStop
+        ? `Via ${intermediateStop.name} ➔ ${dropLocation.name}`
+        : dropLocation.name;
+      const effectiveDropAddress = intermediateStop
+        ? `${intermediateStop.lat},${intermediateStop.lng} | ${dropLocation.lat},${dropLocation.lng}`
+        : `${dropLocation.lat},${dropLocation.lng}`;
+
       const { data, error } = await supabase
         .from('bookings')
         .insert({
@@ -784,8 +888,8 @@ function AppContent() {
           reference: ref,
           pickup_area: effectivePickup,
           pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng}`,
-          drop_area: dropLocation.name,
-          drop_address: `${dropLocation.lat},${dropLocation.lng}`,
+          drop_area: effectiveDropArea,
+          drop_address: effectiveDropAddress,
           distance_km: distKm,
           duration_min: durationMin,
           vehicle_code: selectedVehicle?.code || 'ORANGE_SEDAN',
@@ -1130,6 +1234,38 @@ function AppContent() {
           </TouchableOpacity>
         )}
 
+        {/* IN-APP REALTIME DRIVER NOTIFICATION BANNER */}
+        {inAppNotification && (
+          <TouchableOpacity
+            style={[
+              styles.floatingNotificationBanner,
+              inAppNotification.type === 'arrived' && styles.notifBannerArrived,
+              inAppNotification.type === 'assigned' && styles.notifBannerAssigned,
+              inAppNotification.type === 'completed' && styles.notifBannerCompleted,
+              { top: topSafeOffset + 4 },
+            ]}
+            activeOpacity={0.9}
+            onPress={() => setInAppNotification(null)}
+          >
+            <View style={styles.notifIconWrap}>
+              {inAppNotification.type === 'arrived' ? (
+                <MapPin size={17} color="#FFFFFF" />
+              ) : inAppNotification.type === 'completed' ? (
+                <CheckCircle size={17} color="#FFFFFF" />
+              ) : (
+                <Car size={17} color="#FFFFFF" />
+              )}
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.notifBannerTitle}>{inAppNotification.title}</Text>
+              <Text style={styles.notifBannerMessage}>{inAppNotification.message}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setInAppNotification(null)} style={{ padding: 4 }}>
+              <X size={15} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        )}
+
         {pinPickerActive ? null : step === 1 ? (
           /* STEP 1: FLOATING ISLAND HEADER */
           <View style={[styles.floatingIslandHeader, { top: topSafeOffset }]}>
@@ -1273,7 +1409,7 @@ function AppContent() {
               <View style={styles.step2PillIndicator} />
               <View style={{ alignItems: 'center' }}>
                 <Text style={[styles.step2HeaderPillTitle, theme === 'dark' && styles.textWhite]}>
-                  {distKm ? `${distKm} km · ~${durationMin} min` : 'Select Ride'}
+                  {distKm ? `${distKm} km${intermediateStop ? ' (1 stop)' : ''} · ~${durationMin} min` : 'Select Ride'}
                 </Text>
                 <Text style={styles.step2HeaderPillSub}>100% Zero-Emission EV</Text>
               </View>
@@ -1635,6 +1771,7 @@ function AppContent() {
               <RideMap
                 pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: pickupText }}
                 drop={dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name } : undefined}
+                waypoint={intermediateStop ? { lat: intermediateStop.lat, lng: intermediateStop.lng, name: intermediateStop.name } : null}
                 interactive={true}
                 height="100%"
                 routeDistanceKm={distKm}
@@ -1664,12 +1801,23 @@ function AppContent() {
                 <View style={styles.sheetRouteVisual}>
                   <View style={styles.sheetGreenDot} />
                   <View style={styles.sheetLine} />
+                  {intermediateStop && (
+                    <>
+                      <View style={styles.sheetStopDot} />
+                      <View style={styles.sheetLine} />
+                    </>
+                  )}
                   <View style={styles.sheetOrangeDot} />
                 </View>
                 <View style={{ flex: 1, justifyContent: 'space-between' }}>
                   <Text style={styles.sheetRoutePickup} numberOfLines={1}>
                     {pickupText}
                   </Text>
+                  {intermediateStop && (
+                    <Text style={styles.sheetRouteStop} numberOfLines={1}>
+                      📍 Stop 1: {intermediateStop.name}
+                    </Text>
+                  )}
                   <Text style={[styles.sheetRouteDrop, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
                     {dropLocation ? dropLocation.name : 'Select drop-off destination'}
                   </Text>
@@ -1922,6 +2070,105 @@ function AppContent() {
                 </TouchableOpacity>
               </View>
 
+              {/* ZERO SURGE GUARANTEE CARD */}
+              <View style={[styles.surgeFreeCard, theme === 'dark' && styles.surgeFreeCardDark]}>
+                <View style={styles.surgeFreeIconBadge}>
+                  <ShieldCheck size={18} color="#10B981" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.surgeFreeTitle, theme === 'dark' && styles.textWhite]}>
+                      Zero Surge Guarantee
+                    </Text>
+                    <View style={styles.surgeFreePill}>
+                      <Text style={styles.surgeFreePillText}>0% SURGE</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.surgeFreeSub, theme === 'dark' && styles.textMutedDark]}>
+                    Fare is 100% locked. Zero peak surge, rain multiplier, or cancellation fee guaranteed by Orange EV fleet.
+                  </Text>
+                </View>
+              </View>
+
+              {/* PROMO CODE & OFFERS CARD */}
+              <View style={[styles.promoCard, theme === 'dark' && styles.promoCardDark]}>
+                <View style={styles.promoHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={14} color="#F97316" />
+                    <Text style={[styles.promoTitle, theme === 'dark' && styles.textWhite]}>
+                      PROMO CODE & OFFERS
+                    </Text>
+                  </View>
+                  {appliedPromo && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setAppliedPromo(null);
+                        setPromoInput('');
+                        setPromoError(null);
+                      }}
+                    >
+                      <Text style={styles.promoRemoveText}>Remove</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {appliedPromo ? (
+                  <View style={styles.appliedPromoBanner}>
+                    <CheckCircle size={15} color="#10B981" />
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.appliedPromoCodeText}>{appliedPromo.code} APPLIED (-₹{appliedPromo.discount})</Text>
+                      <Text style={styles.appliedPromoDescText}>{appliedPromo.description}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.promoInputRow}>
+                      <TextInput
+                        style={[styles.promoInput, theme === 'dark' && styles.promoInputDark, theme === 'dark' && styles.textWhite]}
+                        placeholder="Enter promo code (e.g. ORANGE50)"
+                        placeholderTextColor={theme === 'dark' ? '#64748B' : '#94A3B8'}
+                        value={promoInput}
+                        onChangeText={(t) => {
+                          setPromoInput(t.toUpperCase());
+                          setPromoError(null);
+                        }}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity
+                        style={[styles.promoApplyBtn, !promoInput.trim() && styles.promoApplyBtnDisabled]}
+                        disabled={!promoInput.trim()}
+                        onPress={handleApplyPromo}
+                      >
+                        <Text style={styles.promoApplyText}>Apply</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {promoError && (
+                      <Text style={styles.promoErrorText}>{promoError}</Text>
+                    )}
+
+                    {/* Quick Promo Chips */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPromosScroll}>
+                      {['ORANGE50', 'FIRST100', 'BE6VIP', 'ELECTRIC'].map((code) => (
+                        <TouchableOpacity
+                          key={code}
+                          style={[styles.quickPromoChip, theme === 'dark' && styles.quickPromoChipDark]}
+                          onPress={() => {
+                            Haptics.selectionAsync();
+                            setPromoInput(code);
+                            setPromoError(null);
+                          }}
+                        >
+                          <Text style={[styles.quickPromoChipText, theme === 'dark' && styles.textWhite]}>{code}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+              </View>
+
               {/* PAYMENT METHOD SELECTOR */}
               <View style={styles.paymentMethodRow}>
                 <TouchableOpacity
@@ -1997,6 +2244,8 @@ function AppContent() {
                       <Text style={styles.bookPrimaryText}>
                         {scheduledDate
                           ? `Schedule ${selectedVehicle?.name || 'Ride'} · ${formatScheduleShort(scheduledDate)}`
+                          : appliedPromo
+                          ? `Book ${selectedVehicle?.name || 'Ride'} · ₹${totalEstimatedFare} (Saved ₹${discountAmount})`
                           : `Book ${selectedVehicle?.name || 'Ride'} · ₹${totalEstimatedFare}`}
                       </Text>
                       <ArrowRight size={18} color="#FFFFFF" />
@@ -2017,6 +2266,8 @@ function AppContent() {
             <View style={StyleSheet.absoluteFill}>
               <RideMap
                 pickup={pickupCoords}
+                drop={dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name } : undefined}
+                waypoint={intermediateStop ? { lat: intermediateStop.lat, lng: intermediateStop.lng, name: intermediateStop.name } : null}
                 interactive={true}
                 height="100%"
                 onMapPress={handleHomeMapPress}
@@ -2195,12 +2446,48 @@ function AppContent() {
               {/* Vertical connector line */}
               <View style={[styles.destConnectorLine, theme === 'dark' && styles.destConnectorLineDark]} />
 
+              {/* Intermediate Stop Row (if set) */}
+              {intermediateStop && (
+                <>
+                  <TouchableOpacity
+                    style={styles.destStopRow}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSearchTarget('stop');
+                      setSearchModalVisible(true);
+                    }}
+                  >
+                    <View style={styles.stopWaypointBox}>
+                      <Text style={styles.stopWaypointText}>1</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={[styles.destMicroLabel, { color: '#7C3AED' }]}>Stop 1 (Waypoint)</Text>
+                      <Text style={[styles.destPrimaryAddress, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
+                        {intermediateStop.name}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setIntermediateStop(null);
+                      }}
+                      style={{ padding: 6 }}
+                    >
+                      <X size={15} color="#EF4444" />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  <View style={[styles.destConnectorLine, theme === 'dark' && styles.destConnectorLineDark]} />
+                </>
+              )}
+
               {/* Destination Row: "Where you want to go?" */}
               <TouchableOpacity
                 style={styles.destStopRow}
                 activeOpacity={0.8}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSearchTarget('drop');
                   setSearchModalVisible(true);
                 }}
               >
@@ -2251,8 +2538,22 @@ function AppContent() {
                 </View>
               </TouchableOpacity>
 
-              {/* Quick Filter Chips: Home, Work, Airport */}
+              {/* Quick Filter Chips: Home, Work, Airport, Add Stop */}
               <View style={[styles.minimalChipsRow, theme === 'dark' && styles.minimalChipsRowDark]}>
+                <TouchableOpacity
+                  style={[styles.minimalChip, intermediateStop && styles.minimalChipActiveStop, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSearchTarget('stop');
+                    setSearchModalVisible(true);
+                  }}
+                >
+                  <Text style={[styles.minimalChipText, intermediateStop && { color: '#7C3AED' }, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    {intermediateStop ? '📍 Stop 1 Set' : '➕ Add Stop'}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
                   activeOpacity={0.75}
@@ -2465,6 +2766,8 @@ function AppContent() {
           pickupText={pickupText}
           pickupCoords={pickupCoords}
           dropLocation={dropLocation}
+          stopLocation={intermediateStop}
+          initialTarget={searchTarget}
           onSelectPickup={(loc) => {
             setPickupText(loc.name);
             setPickupCoords({ lat: loc.lat, lng: loc.lng });
@@ -2473,6 +2776,12 @@ function AppContent() {
             setDropLocation(loc);
             setSearchModalVisible(false);
             setStep(2); // Jump directly to ride & vehicle selection
+          }}
+          onSelectStop={(loc) => {
+            setIntermediateStop(loc);
+          }}
+          onRemoveStop={() => {
+            setIntermediateStop(null);
           }}
           onChooseOnMap={(target) => {
             setSearchModalVisible(false);
@@ -4852,5 +5161,247 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+
+  /* IN-APP REALTIME NOTIFICATION BANNER */
+  floatingNotificationBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  notifBannerArrived: {
+    backgroundColor: '#047857',
+    borderColor: '#10B981',
+  },
+  notifBannerAssigned: {
+    backgroundColor: '#1E293B',
+    borderColor: '#3B82F6',
+  },
+  notifBannerCompleted: {
+    backgroundColor: '#4338CA',
+    borderColor: '#6366F1',
+  },
+  notifIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  notifBannerMessage: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    marginTop: 1,
+    lineHeight: 15,
+  },
+
+  /* MULTI-STOP WAYPOINT STYLES */
+  stopWaypointBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#7C3AED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopWaypointText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  sheetStopDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#7C3AED',
+  },
+  sheetRouteStop: {
+    color: '#7C3AED',
+    fontSize: 12,
+    fontWeight: '700',
+    marginVertical: 2,
+  },
+  minimalChipActiveStop: {
+    borderColor: '#7C3AED',
+    backgroundColor: 'rgba(124, 58, 237, 0.08)',
+  },
+
+  /* ZERO SURGE GUARANTEE CARD */
+  surgeFreeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  surgeFreeCardDark: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  surgeFreeIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  surgeFreeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  surgeFreePill: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  surgeFreePillText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  surgeFreeSub: {
+    fontSize: 11,
+    color: '#047857',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+
+  /* PROMO CODE & OFFERS CARD */
+  promoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  promoCardDark: {
+    backgroundColor: '#111827',
+    borderColor: '#1F2937',
+  },
+  promoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  promoTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.8,
+  },
+  promoRemoveText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  appliedPromoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  appliedPromoCodeText: {
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  appliedPromoDescText: {
+    color: '#166534',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  promoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  promoInput: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  promoInputDark: {
+    backgroundColor: '#1F2937',
+    borderColor: '#374151',
+  },
+  promoApplyBtn: {
+    backgroundColor: '#F97316',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  promoApplyBtnDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
+  promoApplyText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  promoErrorText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  quickPromosScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  quickPromoChip: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  quickPromoChipDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  quickPromoChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#EA580C',
   },
 });
