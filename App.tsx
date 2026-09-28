@@ -121,6 +121,24 @@ function formatScheduleDate(d: Date): string {
   );
 }
 
+function getDispatchStatus(scheduledAt: string): { label: string; urgency: 'normal' | 'soon' | 'active' } {
+  const now = new Date();
+  const pickup = new Date(scheduledAt);
+  const diffMins = Math.floor((pickup.getTime() - now.getTime()) / 60000);
+
+  if (diffMins > 30) {
+    const hrs = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return { label: `Dispatches in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`, urgency: 'normal' };
+  } else if (diffMins > 5) {
+    return { label: '🟡 Driver search starting soon', urgency: 'soon' };
+  } else if (diffMins >= -5) {
+    return { label: '🔴 Driver broadcast active', urgency: 'active' };
+  } else {
+    return { label: 'Dispatching now...', urgency: 'active' };
+  }
+}
+
 function AppContent() {
   // Safe area insets — needed for absolute-positioned floating headers on Dynamic Island devices
   const insets = useSafeAreaInsets();

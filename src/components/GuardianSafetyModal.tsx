@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   ScrollView,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -36,6 +37,7 @@ interface GuardianSafetyModalProps {
   driver: Driver | null;
   guardian: GuardianContact | null;
   onOpenGuardianSetup: () => void;
+  onSosActivated?: () => void;
   theme?: 'light' | 'dark';
 }
 
@@ -46,6 +48,7 @@ export function GuardianSafetyModal({
   driver,
   guardian,
   onOpenGuardianSetup,
+  onSosActivated,
   theme = 'light',
 }: GuardianSafetyModalProps) {
   const isDark = theme === 'dark';
@@ -137,25 +140,38 @@ export function GuardianSafetyModal({
     Linking.openURL(`tel:${cleanPhone}`);
   }
 
-  function handleShareLiveRide() {
+  async function handleShareLiveRide() {
     Haptics.selectionAsync();
-    const refStr = booking?.reference ? `#${booking.reference}` : 'Active Journey';
-    const plate = driver?.vehicle_number || 'Orange EV';
-    const model = driver?.vehicle_model || booking?.vehicle_name || 'Electric Sedan';
-    const driverName = driver?.full_name || 'Orange Chauffeur';
-    const driverPhone = driver?.phone || '+91 11 4000 7000';
-    const pickup = booking?.pickup_area || 'Pickup Point';
-    const drop = booking?.drop_area || 'Destination';
     const trackUrl = `https://orange-taxi.com/track?ref=${booking?.reference || ''}`;
+    const driverName = driver?.full_name || 'Your Chauffeur';
+    const pickup = booking?.pickup_area || 'Pickup';
+    const drop = booking?.drop_area || 'Destination';
 
-    const text = `🛡️ *Orange Taxi · Live Journey Status*\n\n` +
-      `Hey, I am currently riding in an Orange EV Taxi:\n\n` +
-      `• *Booking:* ${refStr}\n` +
-      `• *Vehicle:* ${plate} (${model})\n` +
-      `• *Chauffeur:* ${driverName} (${driverPhone})\n` +
-      `• *Route:* ${pickup} → ${drop}\n` +
-      `• *Live Radar Tracking:* ${trackUrl}\n\n` +
-      `Monitored 24x7 by Orange Safety Operations Control.`;
+    const message =
+      `🍊 I'm on my way! Track my Orange Taxi ride live:\n${trackUrl}\n\n` +
+      `Driver: ${driverName}\n` +
+      `From: ${pickup} → ${drop}\n\n` +
+      `— Sent via Orange Taxi Safety`;
+
+    try {
+      await Share.share({ message, url: trackUrl });
+    } catch (e) {
+      // fallback silently
+    }
+  }
+
+  function handleWhatsAppShareLiveRide() {
+    Haptics.selectionAsync();
+    const trackUrl = `https://orange-taxi.com/track?ref=${booking?.reference || ''}`;
+    const driverName = driver?.full_name || 'Your Chauffeur';
+    const pickup = booking?.pickup_area || 'Pickup';
+    const drop = booking?.drop_area || 'Destination';
+
+    const text =
+      `🍊 I'm on my way! Track my Orange Taxi ride live:\n${trackUrl}\n\n` +
+      `Driver: ${driverName}\n` +
+      `From: ${pickup} → ${drop}\n\n` +
+      `— Sent via Orange Taxi Safety`;
 
     if (guardian?.phone) {
       const cleanTarget = guardian.phone.replace(/[^0-9]/g, '');
@@ -260,9 +276,26 @@ export function GuardianSafetyModal({
                 <Share2 size={22} color="#10B981" />
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={[styles.actionTitle, isDark && styles.textWhite]}>Share Live Ride via WhatsApp</Text>
+                <Text style={[styles.actionTitle, isDark && styles.textWhite]}>Share Live Ride</Text>
                 <Text style={[styles.actionSub, isDark && styles.textMutedDark]}>
-                  Send real-time GPS tracking link, vehicle plate & driver details
+                  Send real-time tracking link via any app (Messages, WhatsApp, etc.)
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* ACTION 2b: WHATSAPP SHARE */}
+            <TouchableOpacity
+              style={[styles.shareActionCard, isDark && styles.shareActionCardDark]}
+              onPress={handleWhatsAppShareLiveRide}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.shareIcon, { backgroundColor: 'rgba(37,211,102,0.15)', borderColor: 'rgba(37,211,102,0.3)' }]}>
+                <Share2 size={22} color="#25D366" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={[styles.actionTitle, isDark && styles.textWhite]}>Share via WhatsApp</Text>
+                <Text style={[styles.actionSub, isDark && styles.textMutedDark]}>
+                  Send tracking link directly to guardian on WhatsApp
                 </Text>
               </View>
             </TouchableOpacity>
