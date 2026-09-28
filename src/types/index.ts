@@ -42,6 +42,9 @@ export interface Booking {
   duration_min?: number;
   scheduled_at?: string | null;
   created_at: string;
+  rating?: number | null;
+  review?: string | null;
+  driver_name?: string | null;
 }
 
 export interface Driver {

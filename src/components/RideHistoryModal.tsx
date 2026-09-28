@@ -28,10 +28,29 @@ import {
   Calendar,
   Trash2,
   AlertCircle,
+  Star,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { Booking } from '../types';
 import { TaxInvoiceModal } from './TaxInvoiceModal';
+
+function getDispatchStatus(scheduledAt: string): { label: string; urgency: 'normal' | 'soon' | 'active' } {
+  const now = new Date();
+  const pickup = new Date(scheduledAt);
+  const diffMins = Math.floor((pickup.getTime() - now.getTime()) / 60000);
+
+  if (diffMins > 30) {
+    const hrs = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return { label: `Dispatches in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`, urgency: 'normal' };
+  } else if (diffMins > 5) {
+    return { label: '🟡 Driver search starting soon', urgency: 'soon' };
+  } else if (diffMins >= -5) {
+    return { label: '🔴 Driver broadcast active', urgency: 'active' };
+  } else {
+    return { label: 'Dispatching now...', urgency: 'active' };
+  }
+}
 
 interface RideHistoryModalProps {
   visible: boolean;
@@ -456,6 +475,17 @@ export function RideHistoryModal({
                       </View>
                     </View>
 
+                    {/* Rating Row */}
+                    {trip.rating && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, marginBottom: 2 }}>
+                        <Star size={12} fill="#F59E0B" color="#F59E0B" />
+                        <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '700' }}>{trip.rating}/5</Text>
+                        {trip.review && (
+                          <Text style={{ fontSize: 11, color: '#94A3B8', flex: 1 }} numberOfLines={1}> · {trip.review}</Text>
+                        )}
+                      </View>
+                    )}
+
                     {/* SCHEDULED RIDE DISPATCH WINDOW BANNER */}
                     {isScheduled && (
                       <View style={[styles.scheduledCardInfoBox, isDark && styles.scheduledCardInfoBoxDark]}>
@@ -466,7 +496,7 @@ export function RideHistoryModal({
                           </Text>
                         </View>
                         <Text style={[styles.scheduledCardInfoText, isDark && styles.textMutedDark]}>
-                          Zero surge fare locked. Fleet Chauffeur assignment begins 15–30 mins before pickup with pre-cooled AC at 22°C.
+                          {trip.scheduled_at ? getDispatchStatus(trip.scheduled_at).label : 'Zero surge fare locked.'} · Fleet Chauffeur assignment begins 15–30 mins before pickup.
                         </Text>
                       </View>
                     )}

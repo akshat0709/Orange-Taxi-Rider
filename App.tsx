@@ -53,6 +53,7 @@ import {
   Sun,
   Moon,
   Calendar,
+  Wallet,
 } from 'lucide-react-native';
 import { supabase } from './src/lib/supabase';
 import { VehicleCategory, Booking, Driver } from './src/types';
@@ -67,6 +68,7 @@ import { GuardianSafetyModal } from './src/components/GuardianSafetyModal';
 import { AmenitiesModal } from './src/components/AmenitiesModal';
 import { ScheduleModal } from './src/components/ScheduleModal';
 import { TalkToOrangeModal } from './src/components/TalkToOrangeModal';
+import { WalletModal } from './src/components/WalletModal';
 import {
   LocationItem,
   getSanitizedLocation,
@@ -190,7 +192,7 @@ function AppContent() {
   const [quietRide, setQuietRide] = useState(false);
 
   // Payment & Fare
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'wallet'>('cash');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [assignedDriver, setAssignedDriver] = useState<Driver | null>(null);
@@ -204,12 +206,14 @@ function AppContent() {
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [guardianModalVisible, setGuardianModalVisible] = useState(false);
   const [guardianContact, setGuardianContact] = useState<GuardianContact | null>(null);
+  const [sosAlertActive, setSosAlertActive] = useState(false);
 
   // Minimalist Redesign (Option B) States
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'chat' | 'profile'>('home');
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [amenitiesModalVisible, setAmenitiesModalVisible] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [walletModalVisible, setWalletModalVisible] = useState(false);
 
   // Ride Scheduling
   const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
@@ -601,6 +605,25 @@ function AppContent() {
       ? activeBooking
       : null;
 
+  const rateNowBooking =
+    step === 1 && activeBooking?.status === 'completed' && !activeBooking?.rating
+      ? activeBooking
+      : null;
+
+  // Dispatch countdown state for scheduled ride home card
+  const [dispatchStatus, setDispatchStatus] = useState<{ label: string; urgency: 'normal' | 'soon' | 'active' } | null>(null);
+
+  useEffect(() => {
+    if (!activeBooking?.scheduled_at || activeBooking.status !== 'scheduled') {
+      setDispatchStatus(null);
+      return;
+    }
+    const update = () => setDispatchStatus(getDispatchStatus(activeBooking.scheduled_at!));
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [activeBooking?.scheduled_at, activeBooking?.status]);
+
   // -------------------------------------------------------------------------
   // AUTO-REFRESH SYNC (WebSocket + 2.5s Polling)
   // -------------------------------------------------------------------------
@@ -623,8 +646,8 @@ function AppContent() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
 
-          if (newBooking.status === 'completed' && prev.status !== 'completed') {
-            setRatingModalVisible(true);
+          if (newBooking.status === 'completed' && prev.status !== 'completed' && !newBooking.rating) {
+            setTimeout(() => setRatingModalVisible(true), 2000);
           }
           return { ...prev, ...newBooking };
         }
@@ -1086,9 +1109,27 @@ function AppContent() {
           translucent={true}
         />
 
-        {/* ================================================================= */}
-        {/* FLOATING TOP HEADERS (OPTION B MINIMAL DESIGN)                    */}
-        {/* ================================================================= */}
+        {/* SOS ACTIVE PERSISTENT BANNER */}
+        {sosAlertActive && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#EF4444',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              zIndex: 999,
+            }}
+            onPress={() => setSosAlertActive(false)}
+          >
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+              🚨 SOS Active — Emergency contacts notified
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 12 }}>Dismiss</Text>
+          </TouchableOpacity>
+        )}
+
         {pinPickerActive ? null : step === 1 ? (
           /* STEP 1: FLOATING ISLAND HEADER */
           <View style={[styles.floatingIslandHeader, { top: topSafeOffset }]}>
@@ -1118,18 +1159,11 @@ function AppContent() {
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
-                Alert.alert(
-                  'Orange Wallet',
-                  `Current Balance: ₹${walletBalance}\n\nOnline wallet recharge via Razorpay / UPI is coming soon! Payment gateway integration is currently in progress.\n\nCurrently, trips can be paid directly via Cash or UPI on arrival.`,
-                  [{ text: 'Got it', style: 'default' }]
-                );
+                setWalletModalVisible(true);
               }}
             >
               <CreditCard size={15} color={theme === 'dark' ? '#F97316' : '#18181B'} />
               <Text style={[styles.floatingWalletText, theme === 'dark' && styles.textWhite]}>₹ {walletBalance}</Text>
-              <View style={styles.walletSoonBadge}>
-                <Text style={styles.walletSoonBadgeText}>SOON</Text>
-              </View>
             </TouchableOpacity>
 
             {/* Right Action Cluster: Theme Switcher & City Selector */}
@@ -1903,7 +1937,7 @@ function AppContent() {
                 >
                   <Banknote size={16} color={paymentMethod === 'cash' ? '#F56B00' : '#9CA3AF'} />
                   <Text style={[styles.paymentChipText, paymentMethod === 'cash' && styles.paymentChipTextActive]}>
-                    Cash on Arrival
+                    Cash
                   </Text>
                 </TouchableOpacity>
 
@@ -1920,7 +1954,24 @@ function AppContent() {
                 >
                   <CreditCard size={16} color={paymentMethod === 'upi' ? '#F56B00' : '#9CA3AF'} />
                   <Text style={[styles.paymentChipText, paymentMethod === 'upi' && styles.paymentChipTextActive]}>
-                    UPI / QR Code
+                    UPI
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.paymentChip,
+                    paymentMethod === 'wallet' && styles.paymentChipActive,
+                    theme === 'dark' && styles.paymentChipDark,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setPaymentMethod('wallet');
+                  }}
+                >
+                  <Wallet size={16} color={paymentMethod === 'wallet' ? '#F56B00' : '#9CA3AF'} />
+                  <Text style={[styles.paymentChipText, paymentMethod === 'wallet' && styles.paymentChipTextActive]}>
+                    Wallet ₹{walletBalance}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1982,6 +2033,35 @@ function AppContent() {
                 { bottom: Math.max(insets.bottom, 12) + 72 },
               ]}
             >
+              {/* ── RATE YOUR LAST RIDE PROMPT ── */}
+              {rateNowBooking && (
+                <TouchableOpacity
+                  style={[styles.rateNowCard, theme === 'dark' && styles.rateNowCardDark]}
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setRatingModalVisible(true);
+                  }}
+                >
+                  <View style={styles.rateNowLeft}>
+                    <View style={styles.rateNowIconBadge}>
+                      <Star size={18} color="#F59E0B" fill="#F59E0B" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.rateNowTitle, theme === 'dark' && styles.textWhite]}>
+                        Rate Your Last Ride
+                      </Text>
+                      <Text style={[styles.rateNowSubtitle, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
+                        How was your ride with {rateNowBooking.driver_name || 'your chauffeur'}?
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.rateNowActionBtn}>
+                    <Text style={styles.rateNowActionText}>Rate →</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {/* ── UPCOMING SCHEDULED RIDE BANNER ── */}
               {activeScheduledBooking && (
                 <TouchableOpacity
@@ -2023,6 +2103,16 @@ function AppContent() {
                       >
                         {activeScheduledBooking.pickup_area || 'Pickup'} → {activeScheduledBooking.drop_area || 'Destination'}
                       </Text>
+                      {dispatchStatus && (
+                        <Text style={[
+                          styles.scheduledHomeRouteText,
+                          { marginTop: 4, fontWeight: '700',
+                            color: dispatchStatus.urgency === 'active' ? '#EF4444' : dispatchStatus.urgency === 'soon' ? '#D97706' : '#7C3AED'
+                          }
+                        ]}>
+                          {dispatchStatus.label}
+                        </Text>
+                      )}
                     </View>
                   </View>
 
@@ -2556,6 +2646,7 @@ function AppContent() {
           driver={assignedDriver}
           guardian={guardianContact}
           onOpenGuardianSetup={() => setProfileModalVisible(true)}
+          onSosActivated={() => setSosAlertActive(true)}
           theme={theme}
         />
 
@@ -3555,6 +3646,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  // ── RATE NOW HOME CARD ──
+  rateNowCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  rateNowCardDark: {
+    backgroundColor: '#1C1A0E',
+    borderColor: '#D97706',
+    shadowColor: '#000',
+  },
+  rateNowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  rateNowIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateNowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78350F',
+  },
+  rateNowSubtitle: {
+    fontSize: 11,
+    color: '#92400E',
+    marginTop: 1,
+  },
+  rateNowActionBtn: {
+    backgroundColor: '#F59E0B',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  rateNowActionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   // ── SCHEDULED RIDE HOME BANNER ──
   scheduledHomeCard: {

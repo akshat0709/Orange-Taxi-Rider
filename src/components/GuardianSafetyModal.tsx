@@ -88,39 +88,56 @@ export function GuardianSafetyModal({
   async function executeEmergencySos() {
     setSosActive(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    onSosActivated?.();
 
-    // 1. Mark SOS on active booking in Supabase
+    // 1. Log SOS to sos_alerts table (don't block on DB errors)
+    Promise.resolve(
+      supabase.from('sos_alerts').insert({
+        booking_id: booking?.id,
+        user_id: booking?.customer_id,
+        driver_id: booking?.driver_id,
+        guardian_phone: guardian?.phone,
+        triggered_at: new Date().toISOString(),
+        pickup_area: booking?.pickup_area,
+        drop_area: booking?.drop_area,
+        status: 'triggered',
+      })
+    ).catch(() => {});
+
+    // 2. Also mark SOS on active booking
     if (booking?.id) {
-      try {
-        await supabase
+      Promise.resolve(
+        supabase
           .from('bookings')
           .update({ sos_raised: true })
-          .eq('id', booking.id);
-      } catch (e) {
-        console.warn('Could not flag SOS on booking:', e);
-      }
+          .eq('id', booking.id)
+      ).catch(() => {});
     }
 
-    // 2. Dispatch emergency alert to Guardian via WhatsApp if configured
+    // 3. Send WhatsApp SOS to guardian
     if (guardian?.phone) {
-      const cleanTarget = guardian.phone.replace(/[^0-9]/g, '');
-      const formattedTarget = cleanTarget.startsWith('91') ? cleanTarget : `91${cleanTarget}`;
-      const sosMessage = `🚨 *URGENT EMERGENCY SOS ALERT*\n\n` +
-        `I have raised an emergency SOS in my Orange Electric Taxi.\n\n` +
-        `• *Booking Ref:* #${booking?.reference || 'ACTIVE'}\n` +
-        `• *Vehicle:* ${driver?.vehicle_number || booking?.vehicle_name || 'Orange EV'}\n` +
-        `• *Chauffeur:* ${driver?.full_name || 'Driver'} (${driver?.phone || 'Helpline'})\n` +
-        `• *Live Radar Tracking:* https://orange-taxi.com/track?ref=${booking?.reference || ''}\n\n` +
-        `Police (112) is being dialed now. Please check on me immediately!`;
-
-      Linking.openURL(`https://wa.me/${formattedTarget}?text=${encodeURIComponent(sosMessage)}`).catch(() => {});
+      const cleanPhone = guardian.phone.replace(/[^0-9]/g, '');
+      const msg = [
+        '🚨 EMERGENCY ALERT from Orange Taxi Safety',
+        '',
+        `Passenger has triggered SOS during their ride.`,
+        `🚗 Booking: ${booking?.reference || 'N/A'}`,
+        `📍 Route: ${booking?.pickup_area || ''} → ${booking?.drop_area || ''}`,
+        `👤 Driver: ${driver?.full_name || 'N/A'} | 📞 ${driver?.phone || 'N/A'}`,
+        `Live Track: https://orange-taxi.com/track?ref=${booking?.reference || ''}`,
+        '',
+        '⚠️ Please check on them or call 112 immediately.',
+      ].join('\n');
+      const waUrl = `https://wa.me/${cleanPhone.startsWith('91') ? '' : '91'}${cleanPhone}?text=${encodeURIComponent(msg)}`;
+      await Linking.openURL(waUrl).catch(() => {});
     }
 
-    // 3. Dial National Emergency Helpline (112)
+    // 4. Dial National Emergency Helpline (112) after short delay
     setTimeout(() => {
-      Linking.openURL('tel:112');
-    }, 600);
+      Linking.openURL('tel:112').catch(() => {});
+    }, 800);
   }
+
 
   function handleCallGuardian() {
     if (!guardian?.phone) {
@@ -215,6 +232,27 @@ export function GuardianSafetyModal({
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* SOS ACTIVE BANNER */}
+            {sosActive && (
+              <View style={styles.sosActiveBanner}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <AlertTriangle size={20} color="#EF4444" />
+                  <Text style={styles.sosActiveBannerTitle}>🚨 SOS ACTIVE — Emergency Triggered</Text>
+                </View>
+                <Text style={styles.sosActiveBannerSub}>
+                  Guardian notified via WhatsApp · Emergency services alerted
+                </Text>
+                <TouchableOpacity
+                  style={styles.call112Btn}
+                  onPress={() => Linking.openURL('tel:112').catch(() => {})}
+                >
+                  <PhoneCall size={16} color="#FFFFFF" />
+                  <Text style={styles.call112BtnText}>Call 112 Now</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
 
             {/* TRIP SAFETY CONTEXT CARD */}
             <View style={[styles.tripCard, isDark && styles.tripCardDark]}>
@@ -669,5 +707,42 @@ const styles = StyleSheet.create({
   },
   textMutedDark: {
     color: '#94A3B8',
+  },
+  sosActiveBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 2,
+    borderColor: '#EF4444',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+  },
+  sosActiveBannerTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#EF4444',
+    letterSpacing: 0.3,
+    flexShrink: 1,
+  },
+  sosActiveBannerSub: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  call112Btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  call112BtnText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 });
