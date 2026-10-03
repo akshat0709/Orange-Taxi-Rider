@@ -99,6 +99,34 @@ export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: 
   return R * c;
 }
 
+
+export function decodePolyline(encoded: string) {
+  const poly = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+    poly.push({ latitude: (lat / 1E5), longitude: (lng / 1E5) });
+  }
+  return poly;
+}
+
 export function RideMap({
   pickup,
   drop,
@@ -264,8 +292,58 @@ export function RideMap({
     ? { latitude: currentCarPos.lat, longitude: currentCarPos.lng }
     : { latitude: pickup.lat, longitude: pickup.lng };
 
-  // Polyline dynamically tracks moving car to target
-  const polylineCoords = isInProgress && hasValidDrop && drop
+
+  // -------------------------------------------------------------------------
+  // GOOGLE DIRECTIONS API FETCH
+  // -------------------------------------------------------------------------
+  const [routePolyline, setRoutePolyline] = React.useState<{latitude: number, longitude: number}[]>([]);
+  const [fetchedDistance, setFetchedDistance] = React.useState<string | null>(null);
+  const [fetchedDuration, setFetchedDuration] = React.useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pickup.lat || !pickup.lng) return;
+    
+    let target = drop;
+    // If en-route to pickup, target is pickup. If en-route to dropoff, target is dropoff.
+    if ((status === 'accepted' || status === 'arrived') && driverLocation) {
+        target = { lat: pickup.lat, lng: pickup.lng };
+    } else if (isInProgress && drop && drop.lat) {
+        target = drop;
+    } else if (drop && drop.lat) {
+        target = drop;
+    }
+
+    if (!target || !target.lat) {
+        setRoutePolyline([]);
+        return;
+    }
+
+    const origin = (status === 'accepted' || status === 'arrived' || isInProgress) && driverLocation?.lat
+        ? `${driverLocation.lat},${driverLocation.lng}`
+        : `${pickup.lat},${pickup.lng}`;
+    const destination = `${target.lat},${target.lng}`;
+    
+    const API_KEY = "AIzaSyD-IOH9cMppWtKjw_zn-m7XOE3ut62HVX8";
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&key=${API_KEY}`;
+    
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (data.routes && data.routes.length > 0) {
+            const encoded = data.routes[0].overview_polyline.points;
+            setRoutePolyline(decodePolyline(encoded));
+            
+            const leg = data.routes[0].legs[0];
+            setFetchedDistance(leg.distance.text);
+            setFetchedDuration(leg.duration.text);
+        }
+      })
+      .catch(e => console.log("Directions fetch error:", e));
+
+  }, [pickup.lat, drop?.lat, driverLocation?.lat, status]);
+
+  // Polyline dynamically tracks moving car to target (fallback to straight line if API fails)
+  const fallbackPolyline = isInProgress && hasValidDrop && drop
     ? [
         currentCarCoord,
         ...(waypoint && waypoint.lat ? [{ latitude: waypoint.lat, longitude: waypoint.lng }] : []),
@@ -393,9 +471,9 @@ export function RideMap({
         )}
 
         {/* Route Line - Crisp Charcoal Black in Light Mode, Electric Orange in Dark Mode */}
-        {polylineCoords.length > 1 && (
+        {(routePolyline.length > 0 || fallbackPolyline.length > 1) && (
           <Polyline
-            coordinates={polylineCoords}
+            coordinates={routePolyline.length > 0 ? routePolyline : fallbackPolyline}
             strokeColor={theme === 'dark' ? '#F97316' : '#18181B'}
             strokeWidth={4.5}
             lineDashPattern={[0]}
@@ -463,8 +541,8 @@ export function RideMap({
               ? '🟢 Live Chauffeur GPS to Destination'
               : status === 'accepted' || status === 'arrived'
               ? '🚗 Chauffeur En Route to Pickup'
-              : routeDistanceKm && routeDurationMin
-              ? `⚡ ${routeDistanceKm} km · ~${routeDurationMin} mins`
+              : (fetchedDistance || routeDistanceKm) && (fetchedDuration || routeDurationMin)
+              ? `⚡ ${fetchedDistance || routeDistanceKm} · ~${fetchedDuration || routeDurationMin}`
               : '📍 Route Preview'}
           </Text>
         </View>
