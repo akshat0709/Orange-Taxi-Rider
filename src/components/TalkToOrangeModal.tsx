@@ -98,9 +98,7 @@ function getConciergeResponse(input: string, activeCity: string = 'Bengaluru'): 
     return {
       text:
         '🏷️ *Transparent Pricing Across Fleets:*\n\n' +
-        '• *Orange Go:* ₹49 Base + ₹12/km (Min ₹99, 4 seats)\n' +
-        '• *Orange Sedan:* ₹59 Base + ₹15/km (Min ₹129, 4 seats)\n' +
-        '• *Orange XL:* ₹79 Base + ₹20/km (Min ₹179, 6-7 seats)\n\n' +
+        '• *Orange Signature (Mahindra BE 6):* ₹99 Base + ₹18/km (Min ₹149, 4 seats)\n\n' +
         '✅ Zero surge pricing on advance scheduled rides.\n' +
         '✅ 5% GST included with downloadable Tax Invoice.\n' +
         '✅ No hidden booking or cancellation penalties.',

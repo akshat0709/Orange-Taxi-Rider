@@ -517,16 +517,16 @@ export function ProfileModal({
         style={styles.modalOverlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.card}>
+        <View style={[styles.card, isDark && styles.cardDark]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, isDark && styles.headerDark]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={styles.avatarIconWrap}>
                 <User size={20} color="#F97316" />
               </View>
               <View>
-                <Text style={styles.title}>Rider Profile</Text>
-                <Text style={styles.subTitle}>
+                <Text style={[styles.title, isDark && styles.textWhite]}>Rider Profile</Text>
+                <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
                   {user ? 'Account, Safety & Ride Settings' : 'Guest Account · Tap to Sign In'}
                 </Text>
               </View>
@@ -539,14 +539,14 @@ export function ProfileModal({
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
             {/* RIDER INFO / GUEST CARD */}
             {user ? (
-              <View style={styles.riderCard}>
+              <View style={[styles.riderCard, isDark && styles.riderCardDark]}>
                 <View style={styles.riderHeader}>
                   <View style={styles.largeAvatar}>
                     <Text style={styles.largeAvatarChar}>{userName.charAt(0).toUpperCase()}</Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={styles.riderName}>{userName}</Text>
+                      <Text style={[styles.riderName, isDark && styles.textWhite]}>{userName}</Text>
                       <View style={styles.verifiedBadge}>
                         <ShieldCheck size={11} color="#10B981" />
                         <Text style={styles.verifiedText}>Verified</Text>
@@ -574,13 +574,13 @@ export function ProfileModal({
                 </View>
               </View>
             ) : (
-              <View style={styles.guestCard}>
+              <View style={[styles.guestCard, isDark && styles.guestCardDark]}>
                 <View style={styles.guestHeader}>
                   <View style={styles.guestAvatar}>
                     <User size={26} color="#F97316" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={styles.guestTitle}>Guest Rider</Text>
+                    <Text style={[styles.guestTitle, isDark && styles.textWhite]}>Guest Rider</Text>
                     <Text style={styles.guestSub}>Local simulator session active</Text>
                     <View style={styles.guestBadge}>
                       <Text style={styles.guestBadgeText}>Simulated Profile</Text>
@@ -1408,7 +1408,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
-    backgroundColor: '#0E1117',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
@@ -1439,7 +1439,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: 0.2,
   },
   subTitle: {
@@ -1457,7 +1457,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   riderCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -1486,7 +1486,7 @@ const styles = StyleSheet.create({
   riderName: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -1551,7 +1551,7 @@ const styles = StyleSheet.create({
   guestTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   guestSub: {
     fontSize: 12,
@@ -1584,7 +1584,7 @@ const styles = StyleSheet.create({
   guestSignInText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   guestFootnote: {
     fontSize: 11,
@@ -1642,7 +1642,7 @@ const styles = StyleSheet.create({
   walletAmount: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     marginTop: 2,
   },
   walletSub: {
@@ -1695,7 +1695,7 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   historySub: {
     fontSize: 11,
@@ -1745,7 +1745,7 @@ const styles = StyleSheet.create({
   amenitiesTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   amenitiesIncludedBadge: {
     backgroundColor: 'rgba(249, 115, 22, 0.15)',
@@ -1796,7 +1796,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#14171F',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
     padding: 16,
     marginBottom: 20,
   },
@@ -1845,7 +1845,7 @@ const styles = StyleSheet.create({
   quietTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   quietSub: {
     fontSize: 11,
@@ -1894,7 +1894,7 @@ const styles = StyleSheet.create({
   guardianName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   guardianSub: {
     fontSize: 13,
@@ -1930,7 +1930,7 @@ const styles = StyleSheet.create({
   callGuardianText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   editGuardianBtn: {
     flexDirection: 'row',
@@ -1969,7 +1969,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -2025,7 +2025,7 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   talkToOrangeCard: {
     flexDirection: 'row',
@@ -2054,7 +2054,7 @@ const styles = StyleSheet.create({
   talkToOrangeTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   talkToOrangeBadge: {
     backgroundColor: 'rgba(249, 115, 22, 0.2)',
@@ -2077,7 +2077,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#14171F',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
     padding: 16,
     marginBottom: 20,
   },
@@ -2100,7 +2100,7 @@ const styles = StyleSheet.create({
   helplineLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   helplineSub: {
     fontSize: 11,
@@ -2150,7 +2150,7 @@ const styles = StyleSheet.create({
   signInCardText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   themeInfoRow: {
     flexDirection: 'row',
@@ -2238,7 +2238,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   themeOptionTextInactiveDark: {
-    color: '#94A3B8',
+    color: '#475569',
   },
   themeOptionTextInactiveLight: {
     color: '#64748B',
@@ -2331,7 +2331,7 @@ const styles = StyleSheet.create({
   },
   savedPlacePlaceholder: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#475569',
     fontStyle: 'italic',
     marginTop: 2,
   },
@@ -2351,7 +2351,7 @@ const styles = StyleSheet.create({
   savedPlaceInputDark: {
     backgroundColor: '#1E293B',
     borderColor: '#475569',
-    color: '#F8FAFC',
+    color: '#0F172A',
   },
   savePlaceBtn: {
     backgroundColor: '#F97316',
@@ -2363,7 +2363,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   savePlaceBtnText: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2494,7 +2494,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   mapPickerSearchInputDark: {
-    color: '#F8FAFC',
+    color: '#0F172A',
   },
   mapSearchResultsCard: {
     position: 'absolute',
@@ -2590,7 +2590,7 @@ const styles = StyleSheet.create({
   mapPickerMicroLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#475569',
     letterSpacing: 0.5,
   },
   mapPickerAddressTitle: {
@@ -2619,8 +2619,16 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   mapPickerConfirmBtnText: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '800',
+  },
+  riderCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  guestCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
 });

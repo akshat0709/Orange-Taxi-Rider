@@ -18,15 +18,15 @@ export interface ResolvedVehicleDetails {
 
 /**
  * Extracts license plate from compound strings like:
- * "Orange Go · DL 01 EV 1001" -> "DL 01 EV 1001"
- * "Orange Sedan [KA 01 EV 4421]" -> "KA 01 EV 4421"
+ * "Orange Signature · DL 01 EV 1001" -> "DL 01 EV 1001"
+ * "Orange Signature [KA 01 EV 4421]" -> "KA 01 EV 4421"
  * "DL 01 EV 1001" -> "DL 01 EV 1001"
  */
 export function extractPlateFromVehicleName(vehicleName?: string | null): string | null {
   if (!vehicleName) return null;
   const str = vehicleName.trim();
 
-  // 1. Delimited by dot: "Orange Go · DL 01 EV 1001"
+  // 1. Delimited by dot: "Orange Signature · DL 01 EV 1001"
   if (str.includes('·')) {
     const parts = str.split('·');
     const candidate = parts[parts.length - 1].trim().toUpperCase();
@@ -35,14 +35,14 @@ export function extractPlateFromVehicleName(vehicleName?: string | null): string
     }
   }
 
-  // 2. Delimited by brackets: "Orange Sedan [KA 01 EV 4421]"
+  // 2. Delimited by brackets: "Orange Signature [KA 01 EV 4421]"
   const bracketMatch = str.match(/\[(.*?)\]/);
   if (bracketMatch && bracketMatch[1]) {
     const cand = bracketMatch[1].trim().toUpperCase();
     if (cand !== 'UNASSIGNED') return cand;
   }
 
-  // 3. Delimited by parentheses: "Orange Sedan (DL 01 EV 1001)"
+  // 3. Delimited by parentheses: "Orange Signature (DL 01 EV 1001)"
   const parenMatch = str.match(/\((.*?)\)/);
   if (parenMatch && parenMatch[1]) {
     const cand = parenMatch[1].trim().toUpperCase();
@@ -61,8 +61,8 @@ export function extractPlateFromVehicleName(vehicleName?: string | null): string
 
 /**
  * Cleans vehicle name of plate or extra decorations:
- * "Orange Sedan · DL 01 EV 1001" -> "Orange Sedan"
- * "Orange Sedan [KA 01 EV 4421]" -> "Orange Sedan"
+ * "Orange Signature · DL 01 EV 1001" -> "Orange Signature"
+ * "Orange Signature [KA 01 EV 4421]" -> "Orange Signature"
  */
 export function cleanVehicleModelName(vehicleName?: string | null): string {
   if (!vehicleName) return 'Mahindra BE.6 Luxury EV';
@@ -183,7 +183,7 @@ export function getResolvedVehicleDetails(
     model = isPartner ? 'Tata Nexon EV Max' : 'Mahindra BE.6 Luxury EV';
   }
 
-  // If model is just "Orange Sedan", append luxury EV subtitle for premium clarity
+  // If model is just "Orange Signature", append luxury EV subtitle for premium clarity
   if (model.toLowerCase() === 'orange sedan') {
     model = 'Mahindra BE.6 Luxury EV';
   } else if (model.toLowerCase() === 'orange go') {

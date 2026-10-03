@@ -122,7 +122,7 @@ export function WalletModal({
       return;
     }
     if (selectedAmount < 10) {
-      Alert.alert('Minimum \u20b910', 'Please add at least \u20b910 to your wallet.');
+      Alert.alert('Minimum ₹10', 'Please add at least ₹10 to your wallet.');
       return;
     }
 
@@ -193,7 +193,7 @@ export function WalletModal({
           </Text>
         </View>
         <Text style={[styles.txAmount, { color: isCredit ? '#10B981' : '#EF4444' }]}>
-          {isCredit ? '+' : '-'}\u20b9{item.amount}
+          {isCredit ? '+' : '-'}₹{item.amount}
         </Text>
       </View>
     );
@@ -269,7 +269,7 @@ export function WalletModal({
                     isDark && selectedAmount !== amt && styles.textWhite,
                   ]}
                 >
-                  \u20b9{amt}
+                  ₹{amt}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -302,7 +302,7 @@ export function WalletModal({
               ) : (
                 <>
                   <Plus size={15} color="#FFFFFF" />
-                  <Text style={styles.addBtnText}>Add \u20b9{selectedAmount}</Text>
+                  <Text style={styles.addBtnText}>Add ₹{selectedAmount}</Text>
                 </>
               )}
             </TouchableOpacity>

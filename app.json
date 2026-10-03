@@ -29,6 +29,9 @@
         "backgroundColor": "#0B0D11",
         "foregroundImage": "./assets/android-icon-foreground.png"
       }
-    }
+    },
+    "plugins": [
+      "expo-sharing"
+    ]
   }
 }

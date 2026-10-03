@@ -14,6 +14,8 @@ import {
   Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import {
   X,
   FileText,
@@ -210,16 +212,114 @@ export function TaxInvoiceModal({
     }
   }
 
-  async function handleShareInvoice() {
+    async function handleShareInvoice() {
     Haptics.selectionAsync();
-    const invoiceBody = generateInvoicePlainText();
+    
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1e293b; background-color: #ffffff; }
+            .header { text-align: center; border-bottom: 2px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { font-size: 28px; font-weight: 800; color: #ea580c; letter-spacing: -1px; margin: 0; }
+            .sub { font-size: 12px; color: #64748b; margin-top: 5px; }
+            .section { margin-bottom: 30px; }
+            .section-title { font-size: 14px; font-weight: 700; color: #94a3b8; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px; letter-spacing: 1px; text-transform: uppercase; }
+            .grid { display: flex; flex-direction: row; justify-content: space-between; }
+            .col { flex: 1; }
+            .item-row { display: flex; flex-direction: row; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #475569; }
+            .item-row.total { font-weight: 800; font-size: 18px; color: #0f172a; border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 10px; }
+            .item-row.tax { color: #94a3b8; font-size: 12px; }
+            .footer { margin-top: 50px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="logo">ORANGE TAXI</h1>
+            <div class="sub">Official Tax Invoice • Issued under Rule 46 CGST</div>
+            <div class="sub">GSTIN: 29AABCO1234F1Z5 • SAC: 9966 (Passenger Transport)</div>
+          </div>
+          
+          <div class="grid section">
+            <div class="col">
+              <div class="section-title">Invoice Details</div>
+              <div style="font-weight: 700; color: #0f172a;">#${invoiceNumber}</div>
+              <div style="font-size: 13px; margin-top: 5px;">Date: ${formattedDate}</div>
+              <div style="font-size: 13px; margin-top: 5px;">Ref: ${currentTrip.reference || currentTrip.id}</div>
+              <div style="font-size: 13px; margin-top: 5px; color: #10b981; font-weight: 700;">PAID • ${paymentMethod}</div>
+            </div>
+            <div class="col" style="text-align: right;">
+              <div class="section-title">Billed To</div>
+              <div style="font-weight: 700; color: #0f172a;">${riderName}</div>
+              <div style="font-size: 13px; margin-top: 5px;">${recipientEmail || user?.email || 'N/A'}</div>
+              <div style="font-size: 13px; margin-top: 5px;">${riderPhone}</div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Journey Details</div>
+            <div style="font-size: 14px; line-height: 1.6;">
+              <strong>Vehicle:</strong> ${vehicleName} (${vehicleNumber})<br/>
+              <strong>Distance:</strong> ${currentTrip.distance_km || 12} km<br/>
+              <strong>From:</strong> ${pickupLoc}<br/>
+              <strong>To:</strong> ${dropLoc}
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Itemized Billing</div>
+            <div class="item-row">
+              <span>Base Fare & Chauffeur Charges</span>
+              <span>₹${baseCharge.toFixed(2)}</span>
+            </div>
+            <div class="item-row">
+              <span>Distance / Time Charges</span>
+              <span>₹${distanceCharge.toFixed(2)}</span>
+            </div>
+            
+            <div class="item-row">
+              <span>CGST (2.5%)</span>
+              <span>₹${cgst.toFixed(2)}</span>
+            </div>
+            <div class="item-row">
+              <span>SGST (2.5%)</span>
+              <span>₹${sgst.toFixed(2)}</span>
+            </div>
+            
+            
+            <div class="item-row total">
+              <span>Total Amount Paid</span>
+              <span>₹${fare.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            Orange Taxi Limited • Cyber Park, Electronic City, Bengaluru 560100<br/>
+            Support: 1800-200-ORANGE • support@orangetaxi.in<br/>
+            This is a computer generated invoice and does not require a physical signature.
+          </div>
+        </body>
+      </html>
+    `;
+
     try {
-      await Share.share({
-        title: `Tax Invoice ${invoiceNumber}`,
-        message: invoiceBody,
-      });
+      // Generate PDF
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      
+      // Share PDF
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Tax Invoice ${invoiceNumber}`,
+          UTI: 'com.adobe.pdf'
+        });
+      } else {
+        // Fallback to text if Sharing is totally broken
+        await Share.share({ message: generateInvoicePlainText() });
+      }
     } catch (err) {
-      console.warn('Share error:', err);
+      console.warn('PDF generation/share error:', err);
     }
   }
 

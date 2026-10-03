@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { MapPin, Navigation, Car, Crosshair, Map, Home, Briefcase } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 interface RideMapProps {
@@ -19,6 +19,7 @@ interface RideMapProps {
   routeDistanceKm?: number;
   routeDurationMin?: number;
   theme?: 'light' | 'dark';
+  nearbyDrivers?: {id: string, lat: number, lng: number}[];
   showRoutePill?: boolean;
   edgePadding?: { top: number; right: number; bottom: number; left: number };
 }
@@ -114,6 +115,7 @@ export function RideMap({
   routeDistanceKm,
   routeDurationMin,
   theme = 'light',
+  nearbyDrivers = [],
   showRoutePill = true,
   edgePadding,
 }: RideMapProps) {
@@ -291,7 +293,7 @@ export function RideMap({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
+        provider={Platform.OS === 'android' ? PROVIDER_DEFAULT : PROVIDER_DEFAULT}
         customMapStyle={theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE}
         userInterfaceStyle={theme === 'dark' ? 'dark' : 'light'}
         scrollEnabled={interactive}
@@ -399,6 +401,24 @@ export function RideMap({
             lineDashPattern={[0]}
           />
         )}
+      
+        {/* Nearby Drivers Markers (Uber Style) */}
+        {!drop && !isPinPickerMode && nearbyDrivers && nearbyDrivers.map(d => (
+          <Marker
+            key={`driver-${d.id}`}
+            coordinate={{ latitude: d.lat, longitude: d.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <View style={{
+              width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF',
+              borderWidth: 2, borderColor: '#F97316', alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4
+            }}>
+              <Car size={14} color="#F97316" />
+            </View>
+          </Marker>
+        ))}
       </MapView>
 
       {/* CENTER PIN FOR "SET ON MAP" MODE */}
