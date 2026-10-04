@@ -373,9 +373,7 @@ export function RideMap({
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_DEFAULT : PROVIDER_DEFAULT}
         customMapStyle={Platform.OS === 'android' ? [] : (theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE)}
-        loadingEnabled={true}
-        loadingBackgroundColor={theme === 'dark' ? '#0F172A' : '#F8FAFC'}
-        loadingIndicatorColor="#F97316"
+        
         userInterfaceStyle={theme === 'dark' ? 'dark' : 'light'}
         scrollEnabled={interactive}
         zoomEnabled={interactive}
