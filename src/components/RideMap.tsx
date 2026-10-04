@@ -367,12 +367,15 @@ export function RideMap({
   }
 
   return (
-    <View style={[styles.container, typeof height === 'number' ? { height } : { flex: 1 }]}>
+    <View style={[styles.container, typeof height === 'number' ? { height } : { flex: 1 }, theme === 'dark' && { backgroundColor: '#0F172A', borderColor: '#1E293B' }]}>
       <MapView
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_DEFAULT : PROVIDER_DEFAULT}
-        customMapStyle={theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE}
+        customMapStyle={Platform.OS === 'android' ? [] : (theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE)}
+        loadingEnabled={true}
+        loadingBackgroundColor={theme === 'dark' ? '#0F172A' : '#F8FAFC'}
+        loadingIndicatorColor="#F97316"
         userInterfaceStyle={theme === 'dark' ? 'dark' : 'light'}
         scrollEnabled={interactive}
         zoomEnabled={interactive}
@@ -471,9 +474,9 @@ export function RideMap({
         )}
 
         {/* Route Line - Crisp Charcoal Black in Light Mode, Electric Orange in Dark Mode */}
-        {(routePolyline.length > 0 || fallbackPolyline.length > 1) && (
+        {(routePolyline.length > 1 || fallbackPolyline.length > 1) && (
           <Polyline
-            coordinates={routePolyline.length > 0 ? routePolyline : fallbackPolyline}
+            coordinates={routePolyline.length > 1 ? routePolyline : fallbackPolyline}
             strokeColor={theme === 'dark' ? '#F97316' : '#18181B'}
             strokeWidth={4.5}
             lineDashPattern={[0]}
