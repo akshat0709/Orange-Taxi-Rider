@@ -33,6 +33,12 @@
     },
     "plugins": [
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6281f240-7855-4c28-b728-82e0ec12a71d"
+      }
+    },
+    "owner": "akshat0709"
   }
 }

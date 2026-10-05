@@ -471,26 +471,8 @@ useEffect(() => {
               Math.abs(curLat - lastDriverLocRef.current.lat) < 0.00002 &&
               Math.abs(curLng - lastDriverLocRef.current.lng) < 0.00002;
 
-            // If active ride and coordinates are stationary (simulator testing or idle driver)
-            if ((currentStatus === 'accepted' || currentStatus === 'in_progress') && (dbStationary || !lastDriverLocRef.current)) {
-              const dLat = targetCoords.lat - curLat;
-              const dLng = targetCoords.lng - curLng;
-              const distDeg = Math.hypot(dLat, dLng);
-
-              // If more than ~25 meters from destination, take a smooth ~35m step along route vector
-              if (distDeg > 0.00025) {
-                const step = Math.min(0.00035, distDeg * 0.12);
-                curLat = curLat + (dLat / distDeg) * step;
-                curLng = curLng + (dLng / distDeg) * step;
-
-                // Fire-and-forget Supabase update to keep all clients in sync
-                supabase
-                  .from('drivers')
-                  .update({ current_lat: curLat, current_lng: curLng })
-                  .eq('id', driverId)
-                  .then(() => {}, () => {});
-              }
-            }
+            // Trust the database coordinates for real driver movement
+            // No more mock interpolation that overrides the driver's actual GPS!
 
             lastDriverLocRef.current = { lat: curLat, lng: curLng };
             hydrated.current_lat = curLat;
