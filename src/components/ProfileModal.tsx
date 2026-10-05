@@ -124,7 +124,7 @@ export function ProfileModal({
       description: 'Orange Wallet Recharge',
       image: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
       currency: 'INR',
-      key: 'rzp_test_YourTestKey',
+      key: 'rzp_test_TjnylwNIDTQjP2',
       amount: (amount * 100).toString(),
       name: 'Orange Taxi',
       prefill: {

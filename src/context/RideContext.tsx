@@ -912,6 +912,10 @@ async function handleConfirmBooking() {
     setPinAddressText(pickupText);
     setIsBookingPinConfirm(true);
     setPinPickerActive(true);
+    
+    // IMPORTANT: Since we use React Navigation, we MUST explicitly return to the Home screen (step 1)
+    // where the Pin Picker overlay is physically rendered over the map!
+    setStep(1);
   }
 
 async function executeBookingSubmission(finalCoords?: { lat: number; lng: number }, finalAddress?: string) {
