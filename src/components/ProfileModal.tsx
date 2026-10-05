@@ -581,7 +581,7 @@ export function ProfileModal({
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
                     <Text style={[styles.guestTitle, isDark && styles.textWhite]}>Guest Rider</Text>
-                    <Text style={styles.guestSub}>Local simulator session active</Text>
+                    <Text style={[styles.guestSub, isDark && styles.textMutedDark]}>Local simulator session active</Text>
                     <View style={styles.guestBadge}>
                       <Text style={styles.guestBadgeText}>Simulated Profile</Text>
                     </View>
@@ -606,7 +606,7 @@ export function ProfileModal({
             )}
 
             {/* ORANGE WALLET CARD */}
-            <View style={styles.walletCard}>
+            <View style={[styles.walletCard, isDark && styles.walletCardDark]}>
               <View style={styles.walletLeft}>
                 <View style={styles.walletIconWrap}>
                   <Wallet size={20} color="#F97316" />
@@ -618,8 +618,8 @@ export function ProfileModal({
                       <Text style={styles.comingSoonBadgeText}>SOON</Text>
                     </View>
                   </View>
-                  <Text style={styles.walletAmount}>₹{walletBalance}</Text>
-                  <Text style={styles.walletSub}>Razorpay gateway integration in progress</Text>
+                  <Text style={[styles.walletAmount, isDark && styles.textWhite]}>₹{walletBalance}</Text>
+                  <Text style={[styles.walletSub, isDark && styles.textMutedDark]}>Razorpay gateway integration in progress</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -1169,7 +1169,7 @@ export function ProfileModal({
 
             {/* TALK TO ORANGE CONCIERGE & AI ASSISTANT CARD */}
             <TouchableOpacity
-              style={styles.talkToOrangeCard}
+              style={[styles.talkToOrangeCard, isDark && styles.talkToOrangeCardDark]}
               activeOpacity={0.88}
               onPress={() => {
                 Haptics.selectionAsync();
@@ -1183,12 +1183,12 @@ export function ProfileModal({
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.talkToOrangeTitle}>Talk to Orange</Text>
+                    <Text style={[styles.talkToOrangeTitle, isDark && styles.textWhite]}>Talk to Orange</Text>
                     <View style={styles.talkToOrangeBadge}>
                       <Text style={styles.talkToOrangeBadgeText}>24x7 Concierge</Text>
                     </View>
                   </View>
-                  <Text style={styles.talkToOrangeSub}>
+                  <Text style={[styles.talkToOrangeSub, isDark && styles.textMutedDark]}>
                     Instant Fares, Fleet Inquiries, Lost & Found & Support
                   </Text>
                 </View>
@@ -1197,12 +1197,12 @@ export function ProfileModal({
             </TouchableOpacity>
 
             {/* SAFETY DESK & HELPLINES */}
-            <View style={styles.helplineCard}>
-              <Text style={styles.helplineTitle}>24x7 Safety & Emergency Response</Text>
+            <View style={[styles.helplineCard, isDark && styles.helplineCardDark]}>
+              <Text style={[styles.helplineTitle, isDark && styles.textWhite]}>24x7 Safety & Emergency Response</Text>
               <View style={styles.helplineRow}>
                 <View>
-                  <Text style={styles.helplineLabel}>National Emergency SOS</Text>
-                  <Text style={styles.helplineSub}>Police & Medical Helpline</Text>
+                  <Text style={[styles.helplineLabel, isDark && styles.textWhite]}>National Emergency SOS</Text>
+                  <Text style={[styles.helplineSub, isDark && styles.textMutedDark]}>Police & Medical Helpline</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.helplineActionBtn}
@@ -1215,8 +1215,8 @@ export function ProfileModal({
 
               <View style={[styles.helplineRow, { borderBottomWidth: 0 }]}>
                 <View>
-                  <Text style={styles.helplineLabel}>Orange Fleet Control</Text>
-                  <Text style={styles.helplineSub}>24x7 Safety Desk Dispatch</Text>
+                  <Text style={[styles.helplineLabel, isDark && styles.textWhite]}>Orange Fleet Control</Text>
+                  <Text style={[styles.helplineSub, isDark && styles.textMutedDark]}>24x7 Safety Desk Dispatch</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.helplineActionBtn}
@@ -1527,10 +1527,10 @@ const styles = StyleSheet.create({
     color: '#F97316',
   },
   guestCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#FFF7ED',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.25)',
+    borderColor: '#FFEDD5',
     padding: 16,
     marginBottom: 16,
   },
@@ -2074,7 +2074,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   helplineCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2645,6 +2645,19 @@ const styles = StyleSheet.create({
   }
 ,
   prefCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: '#334155',
+  }
+,
+  walletCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(249, 115, 22, 0.15)',
+  },
+  talkToOrangeCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: '#334155',
+  },
+  helplineCardDark: {
     backgroundColor: '#14171F',
     borderColor: '#334155',
   }
