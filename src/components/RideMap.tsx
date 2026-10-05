@@ -372,7 +372,7 @@ export function RideMap({
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-        customMapStyle={theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE}
+        customMapStyle={Platform.OS === 'android' ? [] : (theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE)}
         
         userInterfaceStyle={theme === 'dark' ? 'dark' : 'light'}
         scrollEnabled={interactive}
