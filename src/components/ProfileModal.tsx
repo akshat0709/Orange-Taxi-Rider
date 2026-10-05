@@ -129,7 +129,15 @@ export function ProfileModal({
   // Map Picker State for Home & Work
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
   const [mapPickerTarget, setMapPickerTarget] = useState<'home' | 'work'>('home');
-  const [mapPickerCoords, setMapPickerCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937 });
+  const [mapPickerCoords, setMapPickerCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
   const [mapPickerAddress, setMapPickerAddress] = useState<string>('');
   const [mapPickerCity, setMapPickerCity] = useState<string>('Bengaluru');
   const [mapPickerLoading, setMapPickerLoading] = useState(false);
@@ -200,7 +208,15 @@ export function ProfileModal({
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
         if (loc?.coords?.latitude && loc?.coords?.longitude) {
           const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
           setMapPickerCoords(coords);
@@ -274,7 +290,15 @@ export function ProfileModal({
   async function handleRecenterGPS() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
       if (loc?.coords?.latitude && loc?.coords?.longitude) {
         const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
         setMapPickerCoords(coords);
@@ -298,7 +322,15 @@ export function ProfileModal({
         setHomeInput(cleaned);
         setHomeCoords(mapPickerCoords);
         setIsEditingHome(false);
-        onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
+        onSavedPlacesUpdated?.({ home: cleaned, work: workAddress   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
       } else {
         await AsyncStorage.setItem('@orange_user_work_address', cleaned);
         await AsyncStorage.setItem('@orange_user_work_coords', JSON.stringify(mapPickerCoords));
@@ -306,7 +338,15 @@ export function ProfileModal({
         setWorkInput(cleaned);
         setWorkCoords(mapPickerCoords);
         setIsEditingWork(false);
-        onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
+        onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setMapPickerVisible(false);
@@ -337,7 +377,15 @@ export function ProfileModal({
               setHomeInput('');
               setHomeCoords(null);
               setIsEditingHome(false);
-              onSavedPlacesUpdated?.({ home: '', work: workAddress });
+              onSavedPlacesUpdated?.({ home: '', work: workAddress   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
             } else {
               await AsyncStorage.removeItem('@orange_user_work_address');
               await AsyncStorage.removeItem('@orange_user_work_coords');
@@ -345,7 +393,15 @@ export function ProfileModal({
               setWorkInput('');
               setWorkCoords(null);
               setIsEditingWork(false);
-              onSavedPlacesUpdated?.({ home: homeAddress, work: '' });
+              onSavedPlacesUpdated?.({ home: homeAddress, work: ''   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
             }
           },
         },
@@ -364,7 +420,15 @@ export function ProfileModal({
       await AsyncStorage.setItem('@orange_user_home_address', cleaned);
       setHomeAddress(cleaned);
       setIsEditingHome(false);
-      onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
+      onSavedPlacesUpdated?.({ home: cleaned, work: workAddress   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Could not save home address.');
@@ -382,7 +446,15 @@ export function ProfileModal({
       await AsyncStorage.setItem('@orange_user_work_address', cleaned);
       setWorkAddress(cleaned);
       setIsEditingWork(false);
-      onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
+      onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned   relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
+});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Could not save work address.');
@@ -1124,7 +1196,7 @@ export function ProfileModal({
                       {RELATIONSHIP_OPTIONS.map((opt) => (
                         <TouchableOpacity
                           key={opt}
-                          style={[styles.relChip, relationship === opt && styles.relChipActive]}
+                          style={[styles.relChip, !isDark && styles.relChipLight, relationship === opt && styles.relChipActive]}
                           onPress={() => {
                             Haptics.selectionAsync();
                             setRelationship(opt);
@@ -1146,10 +1218,10 @@ export function ProfileModal({
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
                     {guardian && (
                       <TouchableOpacity
-                        style={styles.cancelBtn}
+                        style={[styles.cancelBtn, !isDark && styles.cancelBtnLight]}
                         onPress={() => setIsEditingGuardian(false)}
                       >
-                        <Text style={styles.cancelBtnText}>Cancel</Text>
+                        <Text style={[styles.cancelBtnText, !isDark && styles.textDark]}>Cancel</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
@@ -2662,4 +2734,12 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   }
 
+  relChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#F1F5F9',
+  },
+  textDark: { color: '#0F172A' },
 });
