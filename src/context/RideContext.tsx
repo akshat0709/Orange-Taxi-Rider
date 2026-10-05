@@ -662,6 +662,38 @@ const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: num
     'ELECTRIC': { discountType: 'flat', value: 75, minFare: 140, desc: '₹75 clean mobility subsidy' },
   };
 
+  useEffect(() => {
+    if (pickupCoords.lat && dropLocation?.lat) {
+      const fetchDistance = async () => {
+        try {
+          const origin = `${pickupCoords.lat},${pickupCoords.lng}`;
+          const dest = `${dropLocation.lat},${dropLocation.lng}`;
+          const API_KEY = "AIzaSyD-IOH9cMppWtKjw_zn-m7XOE3ut62HVX8";
+          const res = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${dest}&key=${API_KEY}`);
+          const json = await res.json();
+          if (json.rows?.[0]?.elements?.[0]?.status === 'OK') {
+            const meters = json.rows[0].elements[0].distance.value;
+            const seconds = json.rows[0].elements[0].duration.value;
+            setDistKm(meters / 1000);
+            setDurationMin(Math.round(seconds / 60));
+          } else {
+            const hDist = haversineMeters(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
+            setDistKm(Math.max(1, (hDist / 1000) * 1.4));
+            setDurationMin(Math.max(3, Math.round((hDist / 1000) * 1.4 / 0.4)));
+          }
+        } catch (e) {
+          const hDist = haversineMeters(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
+          setDistKm(Math.max(1, (hDist / 1000) * 1.4));
+          setDurationMin(Math.max(3, Math.round((hDist / 1000) * 1.4 / 0.4)));
+        }
+      };
+      fetchDistance();
+    } else {
+      setDistKm(0);
+      setDurationMin(0);
+    }
+  }, [pickupCoords.lat, pickupCoords.lng, dropLocation?.lat, dropLocation?.lng]);
+
 function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
     if (!code) {
