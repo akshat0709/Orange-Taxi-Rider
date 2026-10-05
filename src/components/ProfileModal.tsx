@@ -613,7 +613,7 @@ export function ProfileModal({
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.walletLabel}>Orange Wallet</Text>
+                    <Text style={[styles.walletLabel, isDark ? {color: '#94A3B8'} : {color: '#6B7280'}]}>Orange Wallet</Text>
                     <View style={styles.comingSoonBadge}>
                       <Text style={styles.comingSoonBadgeText}>SOON</Text>
                     </View>
@@ -1205,7 +1205,7 @@ export function ProfileModal({
                   <Text style={[styles.helplineSub, isDark && styles.textMutedDark]}>Police & Medical Helpline</Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.helplineActionBtn}
+                  style={[styles.helplineActionBtn, isDark ? {backgroundColor: 'rgba(255,255,255,0.06)'} : {backgroundColor: '#EF44440F', borderWidth: 1, borderColor: '#FCA5A5'}]}
                   onPress={() => Linking.openURL('tel:112')}
                 >
                   <Phone size={12} color="#EF4444" />
@@ -1219,7 +1219,7 @@ export function ProfileModal({
                   <Text style={[styles.helplineSub, isDark && styles.textMutedDark]}>24x7 Safety Desk Dispatch</Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.helplineActionBtn}
+                  style={[styles.helplineActionBtn, isDark ? {backgroundColor: 'rgba(255,255,255,0.06)'} : {backgroundColor: '#EF44440F', borderWidth: 1, borderColor: '#FCA5A5'}]}
                   onPress={() => Linking.openURL('tel:+911140007000')}
                 >
                   <Phone size={12} color="#F97316" />
@@ -1898,7 +1898,7 @@ const styles = StyleSheet.create({
   },
   guardianSub: {
     fontSize: 13,
-    color: '#D1D5DB',
+    color: '#4B5563',
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1915,7 +1915,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: '#E2E8F0',
   },
   callGuardianBtn: {
     flex: 1,
@@ -2095,7 +2095,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: '#E2E8F0',
   },
   helplineLabel: {
     fontSize: 13,
