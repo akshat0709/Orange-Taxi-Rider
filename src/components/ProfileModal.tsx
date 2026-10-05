@@ -861,7 +861,7 @@ export function ProfileModal({
 
             {/* RIDE HISTORY SHORTCUT CARD */}
             <TouchableOpacity
-              style={styles.historyCard}
+              style={[styles.historyCard, isDark && styles.historyCardDark]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
@@ -874,8 +874,8 @@ export function ProfileModal({
                   <Clock size={20} color="#3B82F6" />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.historyTitle}>My Trips & Ride History</Text>
-                  <Text style={styles.historySub}>
+                  <Text style={[styles.historyTitle, isDark && styles.textWhite]}>My Trips & Ride History</Text>
+                  <Text style={[styles.historySub, isDark && styles.textMutedDark]}>
                     Live rides, route tracking & Tax Invoices
                   </Text>
                 </View>
@@ -888,7 +888,7 @@ export function ProfileModal({
 
             {/* IN-CAB AMENITIES & FACILITIES SHORTCUT CARD */}
             <TouchableOpacity
-              style={styles.amenitiesCard}
+              style={[styles.amenitiesCard, isDark && styles.amenitiesCardDark]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
@@ -902,12 +902,12 @@ export function ProfileModal({
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.amenitiesTitle}>The Orange Experience</Text>
+                    <Text style={[styles.amenitiesTitle, isDark && styles.textWhite]}>The Orange Experience</Text>
                     <View style={styles.amenitiesIncludedBadge}>
                       <Text style={styles.amenitiesIncludedText}>INCLUDED</Text>
                     </View>
                   </View>
-                  <Text style={styles.amenitiesSub}>
+                  <Text style={[styles.amenitiesSub, isDark && styles.textMutedDark]}>
                     LED screens · Studio audio · Daily papers · Bottled water
                   </Text>
                 </View>
@@ -924,19 +924,19 @@ export function ProfileModal({
               <Text style={styles.sectionTitle}>CABIN COMFORT & PREFERENCES</Text>
             </View>
 
-            <View style={styles.prefCard}>
-              <Text style={styles.prefLabel}>DEFAULT CABIN CLIMATE</Text>
+            <View style={[styles.prefCard, isDark && styles.prefCardDark]}>
+              <Text style={[styles.prefLabel, isDark && styles.textMutedDark]}>DEFAULT CABIN CLIMATE</Text>
               <View style={styles.climateRow}>
                 {CLIMATE_OPTIONS.map((item) => {
                   const isActive = selectedClimate === item.id;
                   return (
                     <TouchableOpacity
                       key={item.id}
-                      style={[styles.climateChip, isActive && styles.climateChipActive]}
+                      style={[styles.climateChip, isDark && styles.climateChipDark, isActive && styles.climateChipActive]}
                       onPress={() => handleClimateChange(item.id)}
                     >
                       <Text
-                        style={[styles.climateChipText, isActive && styles.climateChipTextActive]}
+                        style={[styles.climateChipText, isDark && styles.textWhite, isActive && styles.climateChipTextActive]}
                       >
                         {item.label}
                       </Text>
@@ -949,9 +949,9 @@ export function ProfileModal({
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <VolumeX size={15} color="#9CA3AF" />
-                    <Text style={styles.quietTitle}>Quiet Ride Mode</Text>
+                    <Text style={[styles.quietTitle, isDark && styles.textWhite]}>Quiet Ride Mode</Text>
                   </View>
-                  <Text style={styles.quietSub}>
+                  <Text style={[styles.quietSub, isDark && styles.textMutedDark]}>
                     Driver keeps conversational interaction minimal for a restful trip.
                   </Text>
                 </View>
@@ -1044,7 +1044,7 @@ export function ProfileModal({
               </Text>
             </View>
 
-            <View style={styles.guardianCard}>
+            <View style={[styles.guardianCard, isDark && styles.guardianCardDark]}>
               {savedSuccess && (
                 <View style={styles.successBar}>
                   <CheckCircle size={14} color="#10B981" />
@@ -1059,7 +1059,7 @@ export function ProfileModal({
                       <HeartHandshake size={24} color="#10B981" />
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.guardianName}>{guardian.name}</Text>
+                      <Text style={[styles.guardianName, isDark && styles.textWhite]}>{guardian.name}</Text>
                       <Text style={styles.guardianSub}>
                         {guardian.relationship || 'Guardian'} · {guardian.phone}
                       </Text>
@@ -1670,10 +1670,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
+    borderColor: '#E2E8F0',
     padding: 16,
     marginBottom: 20,
   },
@@ -1720,10 +1720,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14171F',
+    backgroundColor: '#FFF7ED',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.25)',
+    borderColor: '#FFEDD5',
     padding: 16,
     marginBottom: 20,
   },
@@ -1793,7 +1793,7 @@ const styles = StyleSheet.create({
     color: '#F97316',
   },
   prefCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F8FAFC',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1816,9 +1816,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#0B0D11',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2E8F0',
     alignItems: 'center',
   },
   climateChipActive: {
@@ -1854,10 +1854,10 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   guardianCard: {
-    backgroundColor: '#14171F',
+    backgroundColor: '#F0FDF4',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: '#D1FAE5',
     padding: 16,
     marginBottom: 20,
   },
@@ -2243,10 +2243,6 @@ const styles = StyleSheet.create({
   themeOptionTextInactiveLight: {
     color: '#64748B',
   },
-  prefCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
   textWhite: {
     color: '#F8FAFC',
   },
@@ -2631,4 +2627,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderColor: '#334155',
   },
+  historyCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(59, 130, 246, 0.25)',
+  },
+  amenitiesCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+  },
+  guardianCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  climateChipDark: {
+    backgroundColor: '#0B0D11',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  }
+,
+  prefCardDark: {
+    backgroundColor: '#14171F',
+    borderColor: '#334155',
+  }
+
 });
