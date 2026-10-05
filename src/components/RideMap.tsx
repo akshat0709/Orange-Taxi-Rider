@@ -371,8 +371,8 @@ export function RideMap({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={Platform.OS === 'android' ? PROVIDER_DEFAULT : PROVIDER_DEFAULT}
-        customMapStyle={Platform.OS === 'android' ? [] : (theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE)}
+        provider={PROVIDER_GOOGLE}
+        customMapStyle={theme === 'dark' ? DARK_MAP_STYLE : MINIMAL_LIGHT_MAP_STYLE}
         
         userInterfaceStyle={theme === 'dark' ? 'dark' : 'light'}
         scrollEnabled={interactive}
