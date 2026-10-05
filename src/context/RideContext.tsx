@@ -570,23 +570,12 @@ async function checkActiveRide(userId?: string) {
 
 async function initApp() {
     try {
-      // 1. Fetch live vehicle categories from Supabase
-      const { data: vData } = await supabase
-        .from('vehicle_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-
-      if (vData && vData.length > 0) {
-        setVehicles(vData);
-        setSelectedVehicle(vData[0]);
-      } else {
-        const defaults: VehicleCategory[] = [
-          { id: '1', code: 'ORANGE_SIGNATURE', name: 'Orange Signature', tagline: 'Spotless, Pre-Cooled Mahindra BE 6 EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 },
-        ];
-        setVehicles(defaults);
-        setSelectedVehicle(defaults[1]);
-      }
+      // 1. Hardcode single vehicle category (Orange Signature)
+      const defaults: VehicleCategory[] = [
+        { id: '1', code: 'ORANGE_SIGNATURE', name: 'Orange Signature', tagline: 'Spotless, Pre-Cooled Mahindra BE 6 EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 }
+      ];
+      setVehicles(defaults);
+      setSelectedVehicle(defaults[0]);
 
       // 2. Acquire sanitized location
       await refreshLocation(activeCity);

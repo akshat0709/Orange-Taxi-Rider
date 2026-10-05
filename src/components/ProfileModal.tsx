@@ -54,6 +54,9 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { useRideContext } from '../context/RideContext';
+// @ts-ignore
+import RazorpayCheckout from 'react-native-razorpay';
 import { RideMap } from './RideMap';
 import { LocationItem, searchPlaces, reverseGeocodeCoordSafe } from '../lib/locationService';
 
@@ -105,7 +108,35 @@ export function ProfileModal({
 
   // Guardian state
   const [guardian, setGuardian] = useState<GuardianContact | null>(null);
+    const { setWalletBalance } = useRideContext();
   const [isEditingGuardian, setIsEditingGuardian] = useState(false);
+
+  const handleRazorpayRecharge = (amount: number) => {
+    var options = {
+      description: 'Orange Wallet Recharge',
+      image: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
+      currency: 'INR',
+      key: 'rzp_test_YourTestKey',
+      amount: (amount * 100).toString(),
+      name: 'Orange Taxi',
+      prefill: {
+        email: user?.email || 'test@example.com',
+        contact: '7294073222',
+        name: user?.user_metadata?.full_name || 'Passenger'
+      },
+      theme: { color: '#F97316' }
+    };
+
+    RazorpayCheckout.open(options).then((data: any) => {
+      // success
+      Alert.alert('Recharge Successful', `Successfully added ₹${amount} to your Orange Wallet!\nPayment ID: ${data.razorpay_payment_id}`);
+      setWalletBalance((prev: number) => prev + amount);
+    }).catch((error: any) => {
+      // error
+      Alert.alert('Payment Failed', `Transaction was cancelled or failed.\nError: ${error.code} | ${error.description}`);
+    });
+  };
+
   const [guardianName, setGuardianName] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('');
   const [relationship, setRelationship] = useState('Parent');
@@ -129,15 +160,7 @@ export function ProfileModal({
   // Map Picker State for Home & Work
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
   const [mapPickerTarget, setMapPickerTarget] = useState<'home' | 'work'>('home');
-  const [mapPickerCoords, setMapPickerCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+  const [mapPickerCoords, setMapPickerCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9719, lng: 77.5937 });
   const [mapPickerAddress, setMapPickerAddress] = useState<string>('');
   const [mapPickerCity, setMapPickerCity] = useState<string>('Bengaluru');
   const [mapPickerLoading, setMapPickerLoading] = useState(false);
@@ -208,15 +231,7 @@ export function ProfileModal({
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (loc?.coords?.latitude && loc?.coords?.longitude) {
           const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
           setMapPickerCoords(coords);
@@ -290,15 +305,7 @@ export function ProfileModal({
   async function handleRecenterGPS() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       if (loc?.coords?.latitude && loc?.coords?.longitude) {
         const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
         setMapPickerCoords(coords);
@@ -322,15 +329,7 @@ export function ProfileModal({
         setHomeInput(cleaned);
         setHomeCoords(mapPickerCoords);
         setIsEditingHome(false);
-        onSavedPlacesUpdated?.({ home: cleaned, work: workAddress   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+        onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
       } else {
         await AsyncStorage.setItem('@orange_user_work_address', cleaned);
         await AsyncStorage.setItem('@orange_user_work_coords', JSON.stringify(mapPickerCoords));
@@ -338,15 +337,7 @@ export function ProfileModal({
         setWorkInput(cleaned);
         setWorkCoords(mapPickerCoords);
         setIsEditingWork(false);
-        onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+        onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setMapPickerVisible(false);
@@ -377,15 +368,7 @@ export function ProfileModal({
               setHomeInput('');
               setHomeCoords(null);
               setIsEditingHome(false);
-              onSavedPlacesUpdated?.({ home: '', work: workAddress   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+              onSavedPlacesUpdated?.({ home: '', work: workAddress });
             } else {
               await AsyncStorage.removeItem('@orange_user_work_address');
               await AsyncStorage.removeItem('@orange_user_work_coords');
@@ -393,15 +376,7 @@ export function ProfileModal({
               setWorkInput('');
               setWorkCoords(null);
               setIsEditingWork(false);
-              onSavedPlacesUpdated?.({ home: homeAddress, work: ''   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+              onSavedPlacesUpdated?.({ home: homeAddress, work: '' });
             }
           },
         },
@@ -420,15 +395,7 @@ export function ProfileModal({
       await AsyncStorage.setItem('@orange_user_home_address', cleaned);
       setHomeAddress(cleaned);
       setIsEditingHome(false);
-      onSavedPlacesUpdated?.({ home: cleaned, work: workAddress   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+      onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Could not save home address.');
@@ -446,15 +413,7 @@ export function ProfileModal({
       await AsyncStorage.setItem('@orange_user_work_address', cleaned);
       setWorkAddress(cleaned);
       setIsEditingWork(false);
-      onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned   relChipLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  cancelBtnLight: {
-    backgroundColor: '#F1F5F9',
-  },
-  textDark: { color: '#0F172A' },
-});
+      onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Could not save work address.');
@@ -691,22 +650,22 @@ export function ProfileModal({
                     </View>
                   </View>
                   <Text style={[styles.walletAmount, isDark && styles.textWhite]}>₹{walletBalance}</Text>
-                  <Text style={[styles.walletSub, isDark && styles.textMutedDark]}>Razorpay gateway integration in progress</Text>
+                  <Text style={[styles.walletSub, isDark && styles.textMutedDark]}>Tap to add funds via Razorpay / UPI</Text>
                 </View>
               </View>
               <TouchableOpacity
                 style={styles.addMoneyBtn}
                 onPress={() => {
                   Haptics.selectionAsync();
-                  Alert.alert(
-                    'Feature Coming Soon',
-                    `Current Balance: ₹${walletBalance}\n\nOnline wallet recharge via Razorpay / UPI is coming soon! Currently, rides can be paid via Cash or direct UPI upon trip completion.`,
-                    [{ text: 'Got it', style: 'default' }]
-                  );
+                  Alert.alert('Recharge Orange Wallet', 'Select an amount to add via Razorpay Checkout:', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: '₹500', onPress: () => handleRazorpayRecharge(500) },
+                    { text: '₹1000', onPress: () => handleRazorpayRecharge(1000) }
+                  ]);
                 }}
               >
                 <Clock size={13} color="#F97316" />
-                <Text style={styles.addMoneyText}>Coming Soon</Text>
+                <Text style={styles.addMoneyText}>Add Money</Text>
               </TouchableOpacity>
             </View>
 
@@ -2732,8 +2691,7 @@ const styles = StyleSheet.create({
   helplineCardDark: {
     backgroundColor: '#14171F',
     borderColor: '#334155',
-  }
-
+  },
   relChipLight: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
