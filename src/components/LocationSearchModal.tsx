@@ -164,23 +164,46 @@ export function LocationSearchModal({
     }, 280);
   }
 
-  function handleSelectLocation(item: LocationItem) {
+  async function handleSelectLocation(item: LocationItem) {
     Haptics.selectionAsync();
+    let resolvedItem = { ...item };
+
+    // Resolve Google Maps Place ID if lat/lng are 0
+    if (resolvedItem.lat === 0 && resolvedItem.lng === 0 && resolvedItem.id) {
+      setLoading(true);
+      try {
+        const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+        const res = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedItem.id}&fields=geometry,name&key=${GOOGLE_API_KEY}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.result?.geometry?.location) {
+            resolvedItem.lat = data.result.geometry.location.lat;
+            resolvedItem.lng = data.result.geometry.location.lng;
+            if (data.result.name) resolvedItem.name = data.result.name;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to resolve Place Details", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     if (activeField === 'pickup') {
-      setPickupInput(item.name);
+      setPickupInput(resolvedItem.name);
       onSelectPickup({
-        name: item.name,
-        lat: item.lat,
-        lng: item.lng,
-        city: item.city,
+        name: resolvedItem.name,
+        lat: resolvedItem.lat,
+        lng: resolvedItem.lng,
+        city: resolvedItem.city,
       });
       // Switch focus to destination
       setActiveField('drop');
       dropInputRef.current?.focus();
       executeSearch(dropInput, activeCity);
     } else if (activeField === 'stop') {
-      setStopInput(item.name);
-      onSelectStop?.(item);
+      setStopInput(resolvedItem.name);
+      onSelectStop?.(resolvedItem);
       if (!dropLocation) {
         setActiveField('drop');
         dropInputRef.current?.focus();
@@ -188,8 +211,8 @@ export function LocationSearchModal({
         onClose();
       }
     } else {
-      setDropInput(item.name);
-      onSelectDrop(item);
+      setDropInput(resolvedItem.name);
+      onSelectDrop(resolvedItem);
       onClose();
     }
   }

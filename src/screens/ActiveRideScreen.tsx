@@ -5,6 +5,7 @@ import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator,
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Navigation, Car, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet } from 'lucide-react-native';
 import { styles } from '../styles/AppStyles';
+import { supabase } from '../lib/supabase';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
 import { RideMap } from '../components/RideMap';
 import { InRideChatModal } from '../components/InRideChatModal';

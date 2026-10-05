@@ -250,6 +250,9 @@ const [talkToOrangeVisible, setTalkToOrangeVisible] = useState(false);
 const [intermediateStop, setIntermediateStop] = useState<LocationItem | null>(null);
 
 const [searchTarget, setSearchTarget] = useState<'pickup' | 'drop' | 'stop'>('drop');
+  const [distKm, setDistKm] = useState<number>(0);
+  const [durationMin, setDurationMin] = useState<number>(0);
+
 
 const [promoInput, setPromoInput] = useState('');
 
@@ -646,23 +649,7 @@ async function handleHomeMapPress(coords: { lat: number; lng: number }) {
     }
   }
 
-let rawDist = 0;
-
-if (dropLocation) {
-    if (intermediateStop) {
-      const d1 = haversine(pickupCoords.lat, pickupCoords.lng, intermediateStop.lat, intermediateStop.lng);
-      const d2 = haversine(intermediateStop.lat, intermediateStop.lng, dropLocation.lat, dropLocation.lng);
-      rawDist = d1 + d2;
-    } else {
-      rawDist = haversine(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
-    }
-  } else {
-    rawDist = 10;
-  }
-
-const distKm = Math.max(2.5, Math.round(rawDist * 10) / 10);
-
-const durationMin = Math.round(distKm / 0.45) + (intermediateStop ? 8 : 0);
+const rawDist = distKm;
 
 const baseFare = selectedVehicle?.base_fare || 59;
 
