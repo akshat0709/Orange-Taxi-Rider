@@ -359,11 +359,11 @@ export function GuardianSafetyModal({
             <View style={[styles.helplineBox, isDark && styles.helplineBoxDark]}>
               <View>
                 <Text style={[styles.helplineTitle, isDark && styles.textWhite]}>Orange 24x7 Safety Operations</Text>
-                <Text style={styles.helplinePhone}>+91 11 4000 7000</Text>
+                <Text style={styles.helplinePhone}>+91 72940 73222</Text>
               </View>
               <TouchableOpacity
                 style={styles.helplineBtn}
-                onPress={() => Linking.openURL('tel:+911140007000')}
+                onPress={() => Linking.openURL('tel:+917294073222')}
               >
                 <PhoneCall size={14} color="#F56B00" />
                 <Text style={styles.helplineBtnText}>Call Fleet</Text>

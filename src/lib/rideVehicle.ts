@@ -112,7 +112,7 @@ export function getResolvedVehicleDetails(
   const photoUrl = driver?.photo_url || meta?.photo || '';
 
   // 4. Phone
-  const phone = driver?.phone || '+911140007000';
+  const phone = driver?.phone || '+917294073222';
 
   // 5. Rating & Rides
   const rating = driver?.rating ? Number(driver.rating).toFixed(1) : '4.9';

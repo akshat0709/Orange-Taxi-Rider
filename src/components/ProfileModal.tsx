@@ -1292,10 +1292,10 @@ export function ProfileModal({
                 </View>
                 <TouchableOpacity
                   style={[styles.helplineActionBtn, isDark ? {backgroundColor: 'rgba(255,255,255,0.06)'} : {backgroundColor: '#EF44440F', borderWidth: 1, borderColor: '#FCA5A5'}]}
-                  onPress={() => Linking.openURL('tel:+911140007000')}
+                  onPress={() => Linking.openURL('tel:+917294073222')}
                 >
                   <Phone size={12} color="#F97316" />
-                  <Text style={styles.helplineActionText}>+91 11 4000 7000</Text>
+                  <Text style={styles.helplineActionText}>+91 72940 73222</Text>
                 </TouchableOpacity>
               </View>
             </View>

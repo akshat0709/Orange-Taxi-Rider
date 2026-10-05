@@ -537,7 +537,7 @@ export const BookingScreen = ({ navigation }: any) => {
                     if (resolvedVehicle.phone) {
                       Linking.openURL(`tel:${resolvedVehicle.phone}`);
                     } else {
-                      Linking.openURL('tel:1800123456');
+                      Linking.openURL('tel:7294073222');
                     }
                   }}
                 >

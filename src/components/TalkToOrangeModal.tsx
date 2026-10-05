@@ -238,7 +238,7 @@ function getConciergeResponse(input: string, activeCity: string = 'Bengaluru'): 
         'Our chauffeurs conduct an immediate cabin check after every passenger drop.\n\n' +
         'If you left an item behind, please call our 24x7 Fleet Concierge immediately. Provide your ride reference or phone number, and we will coordinate vehicle return.',
       actionButton: {
-        label: '📞 Call Fleet Control (+91 11 4000 7000)',
+        label: '📞 Call Fleet Control (+91 72940 73222)',
         actionType: 'call_concierge',
       },
     };
@@ -394,8 +394,8 @@ export function TalkToOrangeModal({
         onBookRide?.();
         break;
       case 'call_concierge':
-        Linking.openURL('tel:+911140007000').catch(() => {
-          Alert.alert('Call Failed', 'Please dial +91 11 4000 7000 manually.');
+        Linking.openURL('tel:+917294073222').catch(() => {
+          Alert.alert('Call Failed', 'Please dial +91 72940 73222 manually.');
         });
         break;
       case 'call_safety':
@@ -497,7 +497,7 @@ export function TalkToOrangeModal({
           >
             <TouchableOpacity
               style={[styles.channelChip, isDark && styles.channelChipDark]}
-              onPress={() => Linking.openURL('tel:+911140007000')}
+              onPress={() => Linking.openURL('tel:+917294073222')}
             >
               <Phone size={13} color="#F97316" />
               <Text style={[styles.channelChipText, isDark && styles.textWhite]}>Call Fleet Desk</Text>
@@ -507,10 +507,10 @@ export function TalkToOrangeModal({
               style={[styles.channelChip, isDark && styles.channelChipDark]}
               onPress={() => {
                 const url =
-                  'https://wa.me/911140007000?text=' +
+                  'https://wa.me/917294073222?text=' +
                   encodeURIComponent('Hi Orange Concierge, I need assistance with Orange Taxi.');
                 Linking.openURL(url).catch(() => {
-                  Alert.alert('WhatsApp Unavailable', 'Please call +91 11 4000 7000.');
+                  Alert.alert('WhatsApp Unavailable', 'Please call +91 72940 73222.');
                 });
               }}
             >
