@@ -970,7 +970,7 @@ export const BookingScreen = ({ navigation }: any) => {
                     <View style={styles.promoInputRow}>
                       <TextInput
                         style={[styles.promoInput, theme === 'dark' && styles.promoInputDark, theme === 'dark' && styles.textWhite]}
-                        placeholder="Enter promo code (e.g. ORANGE50)"
+                        placeholder="Enter promo code (e.g. FIRST100)"
                         placeholderTextColor={theme === 'dark' ? '#64748B' : '#94A3B8'}
                         value={promoInput}
                         onChangeText={(t) => {
@@ -995,7 +995,7 @@ export const BookingScreen = ({ navigation }: any) => {
 
                     {/* Quick Promo Chips */}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPromosScroll}>
-                      {['ORANGE50', 'FIRST100', 'BE6VIP', 'ELECTRIC'].map((code) => (
+                      {['FIRST100'].map((code) => (
                         <TouchableOpacity
                           key={code}
                           style={[styles.quickPromoChip, theme === 'dark' && styles.quickPromoChipDark]}

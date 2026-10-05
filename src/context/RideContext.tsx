@@ -645,10 +645,7 @@ const discountAmount = appliedPromo ? Math.min(appliedPromo.discount, calculated
 const totalEstimatedFare = Math.max(40, calculatedPreDiscount - discountAmount);
 
 const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: number; minFare: number; desc: string }> = {
-    'ORANGE50': { discountType: 'flat', value: 50, minFare: 120, desc: '₹50 flat off on luxury EV rides' },
     'FIRST100': { discountType: 'flat', value: 100, minFare: 180, desc: '₹100 welcome bonus on Orange fleet' },
-    'BE6VIP': { discountType: 'percent', value: 20, minFare: 150, desc: '20% off up to ₹150 on Mahindra BE.6' },
-    'ELECTRIC': { discountType: 'flat', value: 75, minFare: 140, desc: '₹75 clean mobility subsidy' },
   };
 
   useEffect(() => {
@@ -683,7 +680,7 @@ const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: num
     }
   }, [pickupCoords.lat, pickupCoords.lng, dropLocation?.lat, dropLocation?.lng]);
 
-function handleApplyPromo() {
+async function handleApplyPromo() {
     const code = promoInput.trim().toUpperCase();
     if (!code) {
       setPromoError('Please enter a promo code');
@@ -692,8 +689,17 @@ function handleApplyPromo() {
     const promo = PROMO_CODES[code];
     if (!promo) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setPromoError('Invalid code. Try ORANGE50, FIRST100, or BE6VIP.');
+      setPromoError('Invalid code. Try FIRST100.');
       return;
+    }
+    
+    if (code === 'FIRST100') {
+      const used = await AsyncStorage.getItem(`@orange_promo_used_FIRST100_${user?.id || 'guest'}`);
+      if (used) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setPromoError('You have already used the FIRST100 welcome bonus.');
+        return;
+      }
     }
     if (calculatedPreDiscount < promo.minFare) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
