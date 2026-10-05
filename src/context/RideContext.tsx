@@ -751,6 +751,16 @@ useEffect(() => {
 
     function applyBookingUpdate(newBooking: any) {
       if (!newBooking) return;
+      
+      // If the booking was cancelled (by user or driver), completely clear it
+      if (newBooking.status === 'cancelled') {
+        setActiveBooking(null);
+        setPendingSearchBooking(null);
+        setAssignedDriver(null);
+        setStep(1);
+        return;
+      }
+
       setActiveBooking((prev) => {
         if (!prev) return newBooking;
         const statusChanged = prev.status !== newBooking.status;
@@ -1168,6 +1178,7 @@ async function handleCancelRide() {
             .eq('id', activeBooking.id);
 
           setActiveBooking(null);
+          setPendingSearchBooking(null);
           setAssignedDriver(null);
           setStep(1);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);

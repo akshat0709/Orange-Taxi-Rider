@@ -441,6 +441,13 @@ export const ActiveRideScreen = ({ navigation }: any) => {
                     Broadcasting to nearby Orange EV Chauffeurs...
                   </Text>
                 </View>
+              ) : activeBooking.status === 'cancelled' ? (
+                <View style={styles.searchingFleetRow}>
+                  <X size={20} color="#EF4444" />
+                  <Text style={[styles.searchingFleetText, { color: '#EF4444' }]}>
+                    Ride Cancelled
+                  </Text>
+                </View>
               ) : (
                 <View style={styles.driverProfileMinimalRow}>
                   {/* Driver Avatar */}
