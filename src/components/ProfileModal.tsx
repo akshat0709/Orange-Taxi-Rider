@@ -55,8 +55,7 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { useRideContext } from '../context/RideContext';
-// @ts-ignore
-import RazorpayCheckout from 'react-native-razorpay';
+
 import { RideMap } from './RideMap';
 import { LocationItem, searchPlaces, reverseGeocodeCoordSafe } from '../lib/locationService';
 
@@ -112,6 +111,15 @@ export function ProfileModal({
   const [isEditingGuardian, setIsEditingGuardian] = useState(false);
 
   const handleRazorpayRecharge = (amount: number) => {
+    let RazorpayCheckout;
+    try {
+      // @ts-ignore
+      RazorpayCheckout = require('react-native-razorpay').default;
+    } catch (e) {
+      Alert.alert('Native Module Required', 'Razorpay checkout is only available in the standalone compiled app (EAS Build), not in Expo Go.');
+      return;
+    }
+    
     var options = {
       description: 'Orange Wallet Recharge',
       image: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
