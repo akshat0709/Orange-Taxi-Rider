@@ -9,12 +9,7 @@ import * as Haptics from 'expo-haptics';
 import * as Device from 'expo-device';
 
 import Constants from 'expo-constants';
-let Notifications: any;
-try {
-  if (Constants.appOwnership !== 'expo') {
-    Notifications = require('expo-notifications');
-  }
-} catch(e) {}
+
 
 
 import { supabase } from '../lib/supabase';
@@ -327,7 +322,7 @@ useEffect(() => {
 
 
     // Request push notifications and save token
-    registerForPushNotificationsAsync().then(async (token) => {
+    // registerForPushNotificationsAsync().then(async (token) => {
       if (token && user) {
         try {
           await supabase.from('profiles').update({ push_token: token }).eq('id', user.id);
