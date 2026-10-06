@@ -24,14 +24,7 @@ export const HomeScreen = ({ navigation }: any) => {
   const { height } = Dimensions.get('window');
   const step: number = 1;
   
-  // replace setStep logic with navigation
-  const originalSetStep = context.setStep;
-  const setStep = (newStep: number) => {
-    originalSetStep(newStep);
-    if (newStep === 1) navigation.navigate('Home');
-    if (newStep === 2) navigation.navigate('Booking');
-    if (newStep === 4) navigation.navigate('ActiveRide');
-  };
+const { setStep } = context;
 
   return (
     <View style={[styles.container, theme === 'dark' && styles.containerDark]}>

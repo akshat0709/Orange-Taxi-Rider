@@ -9,6 +9,23 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { BookingScreen } from './src/screens/BookingScreen';
 import { ActiveRideScreen } from './src/screens/ActiveRideScreen';
 
+
+import { useNavigation } from '@react-navigation/native';
+import { useRideContext } from './src/context/RideContext';
+
+function NavigationSync() {
+  const { step } = useRideContext();
+  const navigation = useNavigation<any>();
+
+  React.useEffect(() => {
+    if (step === 1) navigation.navigate('Home');
+    if (step === 2) navigation.navigate('Booking');
+    if (step === 4) navigation.navigate('ActiveRide');
+  }, [step]);
+
+  return null;
+}
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -16,7 +33,8 @@ export default function App() {
     <SafeAreaProvider>
       <RideProvider>
         <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <NavigationSync />
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="Booking" component={BookingScreen} />
             <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
