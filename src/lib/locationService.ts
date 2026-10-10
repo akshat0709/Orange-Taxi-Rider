@@ -441,125 +441,39 @@ export async function searchPlaces(
 ): Promise<LocationItem[]> {
   const cleanQ = query.trim().toLowerCase();
 
-  // 1. If empty, return popular presets for the selected city
   if (!cleanQ) {
     return EXPANDED_PRESETS.filter(
       (p) => activeCityFilter === 'All' || p.city === activeCityFilter
     ).slice(0, 15);
   }
 
-  // 2. Filter local high-quality presets first (instant 0ms)
-  const localMatches = EXPANDED_PRESETS.filter((p) => {
-    const cityMatch = activeCityFilter === 'All' || p.city === activeCityFilter;
-    const textMatch =
-      p.name.toLowerCase().includes(cleanQ) ||
-      p.subtitle.toLowerCase().includes(cleanQ) ||
-      (p.tag && p.tag.toLowerCase().includes(cleanQ)) ||
-      p.city.toLowerCase().includes(cleanQ);
-    return cityMatch && textMatch;
-  });
+  const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!GOOGLE_API_KEY) return [];
 
-  // If we have 5+ strong local matches, return them immediately
-  if (localMatches.length >= 5) {
-    return localMatches.slice(0, 12);
-  }
-
-  // 3. Concurrently trigger live geocoding (combining native expo-location + Photon OSM)
-  const liveResults: LocationItem[] = [];
-
+  const locationParam = userCoords ? `&location=${userCoords.lat},${userCoords.lng}&radius=50000` : '';
+  const searchUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&components=country:in${locationParam}&key=${GOOGLE_API_KEY}`;
+  
   try {
-    // A. Native expo-location geocoding
-    const searchTarget = activeCityFilter === 'All'
-      ? `${cleanQ}, India`
-      : `${cleanQ}, ${activeCityFilter}, India`;
-
-    const geocoded = await Location.geocodeAsync(searchTarget);
-
-    if (geocoded && geocoded.length > 0) {
-      for (let i = 0; i < Math.min(geocoded.length, 4); i++) {
-        const g = geocoded[i];
-        if (isCoordinateInIndia(g.latitude, g.longitude)) {
-          try {
-            const [reverse] = await Location.reverseGeocodeAsync({
-              latitude: g.latitude,
-              longitude: g.longitude,
-            });
-
-            const street = reverse?.street || reverse?.name || cleanQ;
-            const city = reverse?.city || reverse?.subregion || activeCityFilter;
-            const name = reverse?.name ? `${reverse.name}, ${street}` : `${street}, ${city}`;
-
-            liveResults.push({
-              id: `geo-${g.latitude.toFixed(4)}-${g.longitude.toFixed(4)}`,
-              name: name,
-              subtitle: `${reverse?.district || ''} ${reverse?.region || ''} India`.trim(),
-              city: detectCityFromName(city),
-              lat: g.latitude,
-              lng: g.longitude,
-              tag: '📍 Live Map Location',
-            });
-          } catch (e) {
-            liveResults.push({
-              id: `geo-raw-${i}`,
-              name: `${cleanQ.toUpperCase()} Location`,
-              subtitle: `Lat: ${g.latitude.toFixed(4)}, Lng: ${g.longitude.toFixed(4)}`,
-              city: activeCityFilter === 'All' ? 'Delhi NCR' : activeCityFilter,
-              lat: g.latitude,
-              lng: g.longitude,
-              tag: '📍 Geocoded',
-            });
-          }
-        }
-      }
+    const res = await fetch(searchUrl);
+    if (!res.ok) throw new Error('Network response was not ok');
+    const data = await res.json();
+    
+    if (data.status === 'OK' && data.predictions) {
+      // Return un-geocoded place items (the UI will resolve the lat/lng using Place Details API when clicked)
+      return data.predictions.map((p: any) => ({
+        id: p.place_id,
+        name: p.structured_formatting?.main_text || p.description,
+        subtitle: p.structured_formatting?.secondary_text || 'India',
+        city: 'Delhi NCR', // Fallback, doesn't strictly matter for UI
+        lat: 0, // Placeholder, resolved on click
+        lng: 0,
+        tag: '📍 Google Maps',
+      }));
     }
-  } catch (err) {}
-
-  // B. Fast Indian Photon Geocoding fallback (gives instant real places for queries like "Vind")
-  try {
-    const photonTarget = activeCityFilter === 'All' ? `${cleanQ} India` : `${cleanQ} ${activeCityFilter} India`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2200);
-
-    const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(photonTarget)}&limit=5`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.features) {
-        for (const f of data.features) {
-          const [lon, lat] = f.geometry?.coordinates || [];
-          if (lat && lon && isCoordinateInIndia(lat, lon)) {
-            const p = f.properties || {};
-            const placeName = p.name || p.street || cleanQ;
-            const placeCity = p.city || p.district || p.state || activeCityFilter;
-            const placeSub = [p.street, p.district, p.city, p.state].filter(Boolean).join(', ');
-
-            liveResults.push({
-              id: `photon-${lat.toFixed(4)}-${lon.toFixed(4)}`,
-              name: placeName,
-              subtitle: placeSub || `${placeCity}, India`,
-              city: detectCityFromName(placeCity),
-              lat: lat,
-              lng: lon,
-              tag: '📍 Live Place',
-            });
-          }
-        }
-      }
-    }
-  } catch (e) {}
-
-  // Combine and deduplicate
-  const combined = [...localMatches];
-  for (const live of liveResults) {
-    if (!combined.some((c) => Math.abs(c.lat - live.lat) < 0.005 && Math.abs(c.lng - live.lng) < 0.005)) {
-      combined.push(live);
-    }
+  } catch(e) {
+    console.error('Google Maps Autocomplete Error:', e);
   }
-
-  return combined.slice(0, 15);
+  return [];
 }
 
 // ---------------------------------------------------------------------------

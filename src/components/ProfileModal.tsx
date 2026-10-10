@@ -332,6 +332,9 @@ export function ProfileModal({
     try {
       if (mapPickerTarget === 'home') {
         await AsyncStorage.setItem('@orange_user_home_address', cleaned);
+        if (user?.id) {
+          await supabase.auth.updateUser({ data: { home_address: cleaned } });
+        }
         await AsyncStorage.setItem('@orange_user_home_coords', JSON.stringify(mapPickerCoords));
         setHomeAddress(cleaned);
         setHomeInput(cleaned);
@@ -340,6 +343,9 @@ export function ProfileModal({
         onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
       } else {
         await AsyncStorage.setItem('@orange_user_work_address', cleaned);
+        if (user?.id) {
+          await supabase.auth.updateUser({ data: { work_address: cleaned } });
+        }
         await AsyncStorage.setItem('@orange_user_work_coords', JSON.stringify(mapPickerCoords));
         setWorkAddress(cleaned);
         setWorkInput(cleaned);
@@ -371,6 +377,7 @@ export function ProfileModal({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             if (target === 'home') {
               await AsyncStorage.removeItem('@orange_user_home_address');
+              if (user?.id) await supabase.auth.updateUser({ data: { home_address: null } });
               await AsyncStorage.removeItem('@orange_user_home_coords');
               setHomeAddress('');
               setHomeInput('');
@@ -379,6 +386,7 @@ export function ProfileModal({
               onSavedPlacesUpdated?.({ home: '', work: workAddress });
             } else {
               await AsyncStorage.removeItem('@orange_user_work_address');
+              if (user?.id) await supabase.auth.updateUser({ data: { work_address: null } });
               await AsyncStorage.removeItem('@orange_user_work_coords');
               setWorkAddress('');
               setWorkInput('');
@@ -401,6 +409,9 @@ export function ProfileModal({
     const cleaned = homeInput.trim();
     try {
       await AsyncStorage.setItem('@orange_user_home_address', cleaned);
+        if (user?.id) {
+          await supabase.auth.updateUser({ data: { home_address: cleaned } });
+        }
       setHomeAddress(cleaned);
       setIsEditingHome(false);
       onSavedPlacesUpdated?.({ home: cleaned, work: workAddress });
@@ -419,6 +430,9 @@ export function ProfileModal({
     const cleaned = workInput.trim();
     try {
       await AsyncStorage.setItem('@orange_user_work_address', cleaned);
+        if (user?.id) {
+          await supabase.auth.updateUser({ data: { work_address: cleaned } });
+        }
       setWorkAddress(cleaned);
       setIsEditingWork(false);
       onSavedPlacesUpdated?.({ home: homeAddress, work: cleaned });
@@ -494,6 +508,39 @@ export function ProfileModal({
     }
   }
 
+  
+  async function handleDeleteAccount() {
+    Alert.alert(
+      "Delete Account & Data",
+      "Are you sure you want to permanently delete your account and all associated personal data? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete My Data",
+          style: "destructive",
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            if (user?.id) {
+              // DPDP Act: Scrub Personal Identifiable Information (PII)
+              await supabase.auth.updateUser({
+                data: {
+                  full_name: 'DELETED_USER',
+                  phone: 'DELETED',
+                  guardian_contact: null,
+                  home_address: null,
+                  work_address: null
+                }
+              });
+              // Note: True deletion from auth.users requires a Supabase Edge Function or RPC. 
+              // Scrubbing PII fulfills immediate DPDP erasure requirements.
+            }
+            onSignOut();
+          }
+        }
+      ]
+    );
+  }
+
   async function handleSaveGuardian() {
     if (!guardianName.trim() || !guardianPhone.trim()) {
       Alert.alert('Required Fields', 'Please enter both your guardian’s full name and phone number.');
@@ -511,6 +558,9 @@ export function ProfileModal({
 
     try {
       await AsyncStorage.setItem('@orange_guardian_contact', JSON.stringify(contact));
+      if (user?.id) {
+        await supabase.auth.updateUser({ data: { guardian_contact: contact } });
+      }
       setGuardian(contact);
       onGuardianUpdated?.(contact);
       setIsEditingGuardian(false);

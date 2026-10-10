@@ -56,7 +56,7 @@ interface RideHistoryModalProps {
   visible: boolean;
   onClose: () => void;
   user: any;
-  onRepeatTrip?: (pickupName: string, dropName: string) => void;
+  onRepeatTrip?: (trip: Booking) => void;
   onResumeBooking?: (booking: Booking) => void;
   theme?: 'light' | 'dark';
 }
@@ -255,8 +255,8 @@ export function RideHistoryModal({
   function handleRepeat(trip: Booking) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onClose();
-    if (onRepeatTrip && trip.pickup_area && trip.drop_area) {
-      onRepeatTrip(trip.pickup_area, trip.drop_area);
+    if (onRepeatTrip) {
+      onRepeatTrip(trip);
     }
   }
 

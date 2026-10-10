@@ -17,10 +17,11 @@ import { AmenitiesModal } from '../components/AmenitiesModal';
 import { ScheduleModal } from '../components/ScheduleModal';
 import { TalkToOrangeModal } from '../components/TalkToOrangeModal';
 import { WalletModal } from '../components/WalletModal';
+import { RouteDeviationModal } from '../components/RouteDeviationModal';
 
 export const BookingScreen = ({ navigation }: any) => {
   const context = useRideContext();
-  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
+  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
   const { height } = Dimensions.get('window');
   const step: number = 2;
   
@@ -143,42 +144,7 @@ const { setStep } = context;
                 )}
               </TouchableOpacity>
 
-              {/* City Switcher Circular Button */}
-              <TouchableOpacity
-                accessibilityLabel="Select City"
-                accessibilityRole="button"
-                style={[styles.floatingCityBtn, theme === 'dark' && styles.floatingCityBtnDark]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setCityPickerVisible(!cityPickerVisible);
-                }}
-              >
-                <MapPin size={18} color="#F97316" />
-              </TouchableOpacity>
             </View>
-
-            {/* Floating City Dropdown Menu */}
-            {cityPickerVisible && (
-              <View style={[styles.floatingCityMenu, theme === 'dark' && styles.floatingCityMenuDark]}>
-                <Text style={[styles.cityMenuHeader, theme === 'dark' && styles.textMutedDark]}>SELECT CITY</Text>
-                {(['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad'] as const).map((city) => (
-                  <TouchableOpacity
-                    key={city}
-                    style={[styles.cityMenuItem, activeCity === city && styles.cityMenuItemActive]}
-                    onPress={() => {
-                      handleSelectCity(city);
-                      setCityPickerVisible(false);
-                    }}
-                  >
-                    <Text style={[styles.cityMenuItemText, activeCity === city && styles.cityMenuItemTextActive]}>
-                      {city}
-                    </Text>
-                    {activeCity === city && <Check size={14} color="#F97316" />}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
         ) : step === 4 ? (
           /* STEP 4: FLOATING ARRIVING / IN-PROGRESS HEADER */
@@ -1844,7 +1810,15 @@ const { setStep } = context;
         {/* ================================================================= */}
         {/* ORANGE WALLET MODAL                                                */}
         {/* ================================================================= */}
-        <WalletModal
+        
+      <RouteDeviationModal
+        visible={routeDeviationModalVisible}
+        booking={activeBooking}
+        onDismiss={() => setRouteDeviationModalVisible(false)}
+        onSosActivated={() => setSosAlertActive(true)}
+      />
+
+      <WalletModal
           visible={walletModalVisible}
           onClose={() => setWalletModalVisible(false)}
           userId={user?.id}
@@ -1862,6 +1836,7 @@ const { setStep } = context;
             style={styles.modalBackdrop}
           >
             <View style={styles.authModalContent}>
+              <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <View style={styles.authModalHeader}>
                 <Text style={styles.authModalTitle}>
                   {authMode === 'signin' ? 'Sign In to Orange Taxi' : 'Create Orange Account'}
@@ -1942,6 +1917,12 @@ const { setStep } = context;
                 )}
               </TouchableOpacity>
 
+              {authMode === 'signin' && (
+                <TouchableOpacity style={{ alignItems: 'center', marginTop: 15 }} onPress={context.handleForgotPassword}>
+                  <Text style={{ color: '#F97316', fontSize: 14, fontWeight: '600' }}>Forgot Password?</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={styles.authSwitchBtn}
                 onPress={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
@@ -1952,6 +1933,7 @@ const { setStep } = context;
                     : 'Already have an account? Sign In'}
                 </Text>
               </TouchableOpacity>
+              </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </Modal>

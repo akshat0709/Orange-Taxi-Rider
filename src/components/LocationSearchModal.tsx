@@ -11,6 +11,7 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -189,7 +190,14 @@ export function LocationSearchModal({
       }
     }
 
+    
+    if (resolvedItem.lat === 0 && resolvedItem.lng === 0) {
+      Alert.alert('Location Error', 'Unable to resolve the coordinates for this place. Please try another one.');
+      return;
+    }
+
     if (activeField === 'pickup') {
+
       setPickupInput(resolvedItem.name);
       onSelectPickup({
         name: resolvedItem.name,
@@ -419,40 +427,6 @@ export function LocationSearchModal({
           </TouchableOpacity>
         </View>
 
-        {/* City Filter Pills */}
-        <View style={styles.cityPillsContainer}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={['All', 'Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad'] as const}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.cityPill,
-                  isDark && styles.cityPillDark,
-                  activeCity === item && styles.cityPillActive,
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  onChangeCity(item);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.cityPillText,
-                    isDark && styles.textMutedDark,
-                    activeCity === item && styles.cityPillTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-          />
-        </View>
-
         {/* Results / Suggestions Section Header */}
         <View style={styles.resultsHeader}>
           <Text style={[styles.resultsHeaderTitle, isDark && styles.textMutedDark]}>
@@ -460,7 +434,7 @@ export function LocationSearchModal({
               ? 'SEARCHING LIVE LOCATIONS...'
               : currentQuery.trim().length > 0
               ? `RESULTS FOR "${currentQuery}"`
-              : `POPULAR IN ${activeCity.toUpperCase()}`}
+              : `POPULAR DESTINATIONS`}
           </Text>
           {loading && <ActivityIndicator size="small" color="#F56B00" />}
         </View>

@@ -3,6 +3,8 @@ import { GuardianContact } from "../components/ProfileModal";
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert, Platform, StatusBar, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { getDistanceToPolyline, decodePolyline } from '../lib/geomUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -194,6 +196,11 @@ const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
 
 const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
 
+  const [routeDeviationModalVisible, setRouteDeviationModalVisible] = useState(false);
+  const [expectedPolyline, setExpectedPolyline] = useState<{lat: number, lng: number}[]>([]);
+  const [lastDeviationCheck, setLastDeviationCheck] = useState(0);
+
+
 const [talkToOrangeVisible, setTalkToOrangeVisible] = useState(false);
 
 const [intermediateStop, setIntermediateStop] = useState<LocationItem | null>(null);
@@ -263,8 +270,25 @@ useEffect(() => {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null);
-      await checkActiveRide(session?.user?.id);
-      setLoading(false); // Only stop loading after active ride is checked
+      if (session?.user) {
+        await checkActiveRide(session.user.id);
+        
+        // Restore metadata
+        const meta = session.user.user_metadata;
+        if (meta?.guardian_contact) {
+          setGuardianContact(meta.guardian_contact);
+          AsyncStorage.setItem('@orange_guardian_contact', JSON.stringify(meta.guardian_contact));
+        }
+        if (meta?.home_address) {
+          setSavedHomeAddress(meta.home_address);
+          AsyncStorage.setItem('@orange_user_home_address', meta.home_address);
+        }
+        if (meta?.work_address) {
+          setSavedWorkAddress(meta.work_address);
+          AsyncStorage.setItem('@orange_user_work_address', meta.work_address);
+        }
+      }
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -288,6 +312,18 @@ useEffect(() => {
 
     // Load saved guardian contact from local storage
     AsyncStorage.getItem('@orange_guardian_contact').then((stored) => {
+
+    if (user?.id) {
+      const fetchWallet = async () => {
+        try {
+          const { data } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).single();
+          if (data?.wallet_balance != null) {
+            setWalletBalance(Number(data.wallet_balance));
+          }
+        } catch (e) {}
+      };
+      fetchWallet();
+    }
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -696,7 +732,8 @@ useEffect(() => {
   }, [activeBooking?.scheduled_at, activeBooking?.status]);
 
 useEffect(() => {
-    if (!activeBooking?.id) return;
+    const targetBookingId = activeBooking?.id || pendingSearchBooking?.id;
+    if (!targetBookingId) return;
 
     function applyBookingUpdate(newBooking: any) {
       if (!newBooking) return;
@@ -708,6 +745,11 @@ useEffect(() => {
         setAssignedDriver(null);
         setStep(1);
         return;
+      }
+
+      // If driver accepted, it's now an active booking, so clear pending
+      if (['accepted', 'arrived', 'in_progress'].includes(newBooking.status)) {
+         setPendingSearchBooking(null);
       }
 
       setActiveBooking((prev) => {
@@ -766,10 +808,10 @@ useEffect(() => {
     }
 
     const channel = supabase
-      .channel(`booking-auto-${activeBooking.id}`)
+      .channel(`booking-auto-${targetBookingId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${activeBooking.id}` },
+        { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${targetBookingId}` },
         (payload: any) => {
           if (payload.new) {
             applyBookingUpdate(payload.new);
@@ -783,7 +825,7 @@ useEffect(() => {
         const { data } = await supabase
           .from('bookings')
           .select('*')
-          .eq('id', activeBooking.id)
+          .eq('id', targetBookingId)
           .maybeSingle();
 
         if (data) {
@@ -796,7 +838,7 @@ useEffect(() => {
       supabase.removeChannel(channel);
       clearInterval(pollTimer);
     };
-  }, [activeBooking?.id]);
+  }, [activeBooking?.id, pendingSearchBooking?.id]);
 
 async function handlePinRegionChange(coords: { lat: number; lng: number }) {
     setPinCurrentCoords(coords);
@@ -1092,21 +1134,30 @@ async function handleQuickAirport() {
     }
   }
 
-function handleRepeatTrip(pickupName: string, dropName: string) {
+function handleRepeatTrip(trip: any) {
     setHistoryModalVisible(false);
     setActiveTab('home');
-    if (pickupName) {
-      setPickupText(pickupName);
+    
+    if (trip.pickup_area && trip.pickup_address) {
+      setPickupText(trip.pickup_area);
+      const [plat, plng] = trip.pickup_address.split(',').map(Number);
+      if (!isNaN(plat) && !isNaN(plng)) {
+        setPickupCoords({ lat: plat, lng: plng });
+      }
     }
-    if (dropName) {
-      setDropLocation({
-        id: 'repeat_' + Date.now(),
-        name: dropName,
-        subtitle: 'Past Trip Destination',
-        city: (activeCity as any) || 'Bengaluru',
-        lat: pickupCoords.lat + 0.05,
-        lng: pickupCoords.lng + 0.05,
-      });
+    
+    if (trip.drop_area && trip.drop_address) {
+      const [dlat, dlng] = trip.drop_address.split(',').map(Number);
+      if (!isNaN(dlat) && !isNaN(dlng)) {
+        setDropLocation({
+          id: 'repeat_' + Date.now(),
+          name: trip.drop_area,
+          subtitle: 'Past Trip Destination',
+          city: 'Other',
+          lat: dlat,
+          lng: dlng,
+        });
+      }
     }
     setStep(2);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1136,6 +1187,23 @@ async function handleCancelRide() {
     ]);
   }
 
+async function handleForgotPassword() {
+    if (!authEmail.trim()) {
+      Alert.alert('Email Required', 'Please enter your email address to reset your password.');
+      return;
+    }
+    setAuthSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(authEmail.trim());
+      if (error) throw error;
+      Alert.alert('Reset Email Sent', 'Please check your email inbox for password reset instructions.');
+    } catch (e: any) {
+      Alert.alert('Reset Failed', e.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
 async function handleAuthSubmit() {
     if (!authEmail.trim() || !authPassword.trim()) {
       Alert.alert('Required Fields', 'Please enter both your email and password.');
@@ -1147,11 +1215,38 @@ async function handleAuthSubmit() {
 
     try {
       if (authMode === 'signin') {
+        const storedLockout = await AsyncStorage.getItem('@orange_lockout_time');
+        if (storedLockout && parseInt(storedLockout) > Date.now()) {
+          const remainingMinutes = Math.ceil((parseInt(storedLockout) - Date.now()) / 60000);
+          Alert.alert('Account Locked', `Too many failed attempts. Please try again in ${remainingMinutes} minutes.`);
+          setAuthSubmitting(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signInWithPassword({
           email: authEmail.trim(),
           password: authPassword.trim(),
         });
-        if (error) throw error;
+        
+        if (error) {
+          const storedAttempts = await AsyncStorage.getItem('@orange_login_attempts');
+          let attempts = storedAttempts ? parseInt(storedAttempts) : 0;
+          attempts++;
+          
+          if (attempts >= 5) {
+            await AsyncStorage.setItem('@orange_lockout_time', (Date.now() + 15 * 60 * 1000).toString());
+            await AsyncStorage.setItem('@orange_login_attempts', '0');
+            Alert.alert('Account Locked', '5 unsuccessful attempts. Your account is locked for 15 minutes.');
+          } else {
+            await AsyncStorage.setItem('@orange_login_attempts', attempts.toString());
+            Alert.alert('Login Failed', `Incorrect credentials. ${5 - attempts} attempts remaining.`);
+          }
+          throw error;
+        }
+        
+        await AsyncStorage.setItem('@orange_login_attempts', '0');
+        await AsyncStorage.removeItem('@orange_lockout_time');
+        
         setUser(data.user);
         setAuthModalVisible(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1203,6 +1298,50 @@ async function handleSignOut() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }
 
+
+  useEffect(() => {
+    if (activeBooking?.status === 'in_progress' && expectedPolyline.length === 0 && activeBooking.pickup_address && activeBooking.drop_address) {
+      const pick = activeBooking.pickup_address.split(',').map(Number);
+      let dropStr = activeBooking.drop_address;
+      if (dropStr.includes('|')) dropStr = dropStr.split('|')[1].trim();
+      const drop = dropStr.split(',').map(Number);
+      
+      if (pick.length >= 2 && drop.length >= 2 && !isNaN(pick[0]) && !isNaN(drop[0])) {
+        const fetchPolyline = async () => {
+          try {
+            const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${pick[0]},${pick[1]}&destination=${drop[0]},${drop[1]}&key=${GOOGLE_API_KEY}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.routes && data.routes.length > 0) {
+               const points = decodePolyline(data.routes[0].overview_polyline.points);
+               setExpectedPolyline(points);
+            }
+          } catch(e) {}
+        };
+        fetchPolyline();
+      }
+    }
+  }, [activeBooking?.status, activeBooking?.pickup_address, activeBooking?.drop_address, expectedPolyline.length]);
+
+  useEffect(() => {
+    if (activeBooking?.status === 'in_progress' && expectedPolyline.length > 0 && assignedDriver?.current_lat && assignedDriver?.current_lng) {
+       const now = Date.now();
+       if (now - lastDeviationCheck > 10000) {
+         setLastDeviationCheck(now);
+         const dist = getDistanceToPolyline(
+           { lat: Number(assignedDriver.current_lat), lng: Number(assignedDriver.current_lng) }, 
+           expectedPolyline
+         );
+         
+         if (dist > 500 && (activeBooking as any).safety_status !== 'ok' && (activeBooking as any).safety_status !== 'escalated') {
+           setRouteDeviationModalVisible(true);
+           supabase.from('bookings').update({ safety_status: 'alert_triggered' }).eq('id', activeBooking.id).then();
+         }
+       }
+    }
+  }, [assignedDriver?.current_lat, assignedDriver?.current_lng, expectedPolyline, activeBooking, lastDeviationCheck]);
+
 const popularHubs = EXPANDED_PRESETS.filter((p) => p.city === activeCity).slice(0, 4);
 
 const resolvedVehicle = getResolvedVehicleDetails(assignedDriver, activeBooking, activeCity);
@@ -1223,7 +1362,7 @@ const inProgressDistKm = inProgressDistM !== null
     ? (inProgressDistM / 1000).toFixed(1)
     : (activeBooking?.distance_km?.toString() || '12');
 
-  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
+  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
 
   return (
     <RideContext.Provider value={value}>

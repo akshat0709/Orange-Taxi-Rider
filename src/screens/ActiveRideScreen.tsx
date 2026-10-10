@@ -18,14 +18,40 @@ import { AmenitiesModal } from '../components/AmenitiesModal';
 import { ScheduleModal } from '../components/ScheduleModal';
 import { TalkToOrangeModal } from '../components/TalkToOrangeModal';
 import { WalletModal } from '../components/WalletModal';
+import { RouteDeviationModal } from '../components/RouteDeviationModal';
 
 export const ActiveRideScreen = ({ navigation }: any) => {
   const context = useRideContext();
-  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
+  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
   const { height } = Dimensions.get('window');
   const step: number = 4;
   
 const { setStep } = context;
+
+  const [waitingTimeSec, setWaitingTimeSec] = React.useState(0);
+
+  React.useEffect(() => {
+    if (activeBooking?.status === 'arrived' && activeBooking.arrived_at) {
+      const arrivedTime = new Date(activeBooking.arrived_at).getTime();
+      
+      const updateTimer = () => {
+        const now = Date.now();
+        setWaitingTimeSec(Math.floor((now - arrivedTime) / 1000));
+      };
+      
+      updateTimer(); // Initial call
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setWaitingTimeSec(0);
+    }
+  }, [activeBooking?.status, activeBooking?.arrived_at]);
+
+  const formatWaitTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   return (
     <View style={[styles.container, theme === 'dark' && styles.containerDark]}>
@@ -144,42 +170,7 @@ const { setStep } = context;
                 )}
               </TouchableOpacity>
 
-              {/* City Switcher Circular Button */}
-              <TouchableOpacity
-                accessibilityLabel="Select City"
-                accessibilityRole="button"
-                style={[styles.floatingCityBtn, theme === 'dark' && styles.floatingCityBtnDark]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setCityPickerVisible(!cityPickerVisible);
-                }}
-              >
-                <MapPin size={18} color="#F97316" />
-              </TouchableOpacity>
             </View>
-
-            {/* Floating City Dropdown Menu */}
-            {cityPickerVisible && (
-              <View style={[styles.floatingCityMenu, theme === 'dark' && styles.floatingCityMenuDark]}>
-                <Text style={[styles.cityMenuHeader, theme === 'dark' && styles.textMutedDark]}>SELECT CITY</Text>
-                {(['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad'] as const).map((city) => (
-                  <TouchableOpacity
-                    key={city}
-                    style={[styles.cityMenuItem, activeCity === city && styles.cityMenuItemActive]}
-                    onPress={() => {
-                      handleSelectCity(city);
-                      setCityPickerVisible(false);
-                    }}
-                  >
-                    <Text style={[styles.cityMenuItemText, activeCity === city && styles.cityMenuItemTextActive]}>
-                      {city}
-                    </Text>
-                    {activeCity === city && <Check size={14} color="#F97316" />}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
         ) : step === 4 ? (
           /* STEP 4: FLOATING ARRIVING / IN-PROGRESS HEADER */
@@ -339,6 +330,33 @@ const { setStep } = context;
               </TouchableOpacity>
             </View>
           </View>
+        ) : step === 4 && pendingSearchBooking && !activeBooking ? (
+          <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#0B0D11' : '#F8FAFC', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <ActivityIndicator size="large" color="#F97316" style={{ marginBottom: 24, transform: [{ scale: 1.5 }] }} />
+            <Text style={{ color: theme === 'dark' ? '#FFFFFF' : '#0F172A', fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 12 }}>
+              Broadcasting to Fleet
+            </Text>
+            <Text style={{ color: theme === 'dark' ? '#94A3B8' : '#64748B', fontSize: 16, fontWeight: '500', textAlign: 'center', marginBottom: 40, lineHeight: 24 }}>
+              Connecting with nearby chauffeurs...
+            </Text>
+            
+            <View style={{ backgroundColor: theme === 'dark' ? '#1E293B' : '#FFFFFF', padding: 20, borderRadius: 20, width: '100%', shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }}>
+              <Text style={{ color: theme === 'dark' ? '#94A3B8' : '#64748B', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 }}>Dispatching from</Text>
+              <Text style={{ color: theme === 'dark' ? '#FFFFFF' : '#0F172A', fontSize: 18, fontWeight: '700', marginBottom: 4 }} numberOfLines={1}>{pendingSearchBooking.pickup_area}</Text>
+              
+              <View style={{ height: 1, backgroundColor: theme === 'dark' ? '#334155' : '#E2E8F0', marginVertical: 16 }} />
+              
+              <Text style={{ color: theme === 'dark' ? '#94A3B8' : '#64748B', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 }}>Destination</Text>
+              <Text style={{ color: theme === 'dark' ? '#FFFFFF' : '#0F172A', fontSize: 18, fontWeight: '700' }} numberOfLines={1}>{pendingSearchBooking.drop_area}</Text>
+            </View>
+
+            <TouchableOpacity 
+              style={{ marginTop: 40, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 100, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+              onPress={handleCancelRide}
+            >
+              <Text style={{ color: '#EF4444', fontSize: 16, fontWeight: '700' }}>Cancel Request</Text>
+            </TouchableOpacity>
+          </View>
         ) : step === 4 && activeBooking ? (
           /* =============================================================== */
           /* STEP 4: ACTIVE RIDE, LIVE GPS & REAL-TIME DRIVER STATUS         */
@@ -347,7 +365,11 @@ const { setStep } = context;
             {/* Live Interactive Map Tracking */}
             <View style={StyleSheet.absoluteFill}>
               <RideMap
-                pickup={{ lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickup_area }}
+                pickup={{
+                  lat: activeBooking.pickup_address && activeBooking.pickup_address.includes(',') ? Number(activeBooking.pickup_address.split(',')[0]) : pickupCoords.lat,
+                  lng: activeBooking.pickup_address && activeBooking.pickup_address.includes(',') ? Number(activeBooking.pickup_address.split(',')[1]) : pickupCoords.lng,
+                  name: activeBooking.pickup_area
+                }}
                 drop={{
                   lat: dropLocation?.lat ?? (activeBooking.drop_address && activeBooking.drop_address.includes(',') ? Number(activeBooking.drop_address.split(',')[0]) : pickupCoords.lat),
                   lng: dropLocation?.lng ?? (activeBooking.drop_address && activeBooking.drop_address.includes(',') ? Number(activeBooking.drop_address.split(',')[1]) : pickupCoords.lng),
@@ -403,6 +425,8 @@ const { setStep } = context;
                       ? '📅 Confirmed'
                       : activeBooking.status === 'in_progress'
                       ? `⚡ ${inProgressDistKm} km`
+                      : activeBooking.status === 'arrived'
+                      ? `⏳ ${formatWaitTime(waitingTimeSec)}`
                       : activeBooking.status === 'accepted'
                       ? driverDistM !== null && driverDistM < 100
                         ? 'Arriving'
@@ -1859,7 +1883,15 @@ const { setStep } = context;
         {/* ================================================================= */}
         {/* ORANGE WALLET MODAL                                                */}
         {/* ================================================================= */}
-        <WalletModal
+        
+      <RouteDeviationModal
+        visible={routeDeviationModalVisible}
+        booking={activeBooking}
+        onDismiss={() => setRouteDeviationModalVisible(false)}
+        onSosActivated={() => setSosAlertActive(true)}
+      />
+
+      <WalletModal
           visible={walletModalVisible}
           onClose={() => setWalletModalVisible(false)}
           userId={user?.id}
@@ -1877,6 +1909,7 @@ const { setStep } = context;
             style={styles.modalBackdrop}
           >
             <View style={styles.authModalContent}>
+              <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <View style={styles.authModalHeader}>
                 <Text style={styles.authModalTitle}>
                   {authMode === 'signin' ? 'Sign In to Orange Taxi' : 'Create Orange Account'}
@@ -1957,6 +1990,12 @@ const { setStep } = context;
                 )}
               </TouchableOpacity>
 
+              {authMode === 'signin' && (
+                <TouchableOpacity style={{ alignItems: 'center', marginTop: 15 }} onPress={context.handleForgotPassword}>
+                  <Text style={{ color: '#F97316', fontSize: 14, fontWeight: '600' }}>Forgot Password?</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={styles.authSwitchBtn}
                 onPress={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
@@ -1967,6 +2006,7 @@ const { setStep } = context;
                     : 'Already have an account? Sign In'}
                 </Text>
               </TouchableOpacity>
+              </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </Modal>
