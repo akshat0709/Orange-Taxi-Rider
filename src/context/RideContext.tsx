@@ -1217,8 +1217,8 @@ async function handleAuthSubmit() {
       if (authMode === 'signin') {
         const storedLockout = await AsyncStorage.getItem('@orange_lockout_time');
         if (storedLockout && parseInt(storedLockout) > Date.now()) {
-          const remainingMinutes = Math.ceil((parseInt(storedLockout) - Date.now()) / 60000);
-          Alert.alert('Account Locked', `Too many failed attempts. Please try again in ${remainingMinutes} minutes.`);
+          const remainingSeconds = Math.ceil((parseInt(storedLockout) - Date.now()) / 1000);
+          Alert.alert('Account Locked', `Too many failed attempts. Please try again in ${remainingSeconds} second${remainingSeconds === 1 ? '' : 's'}.`);
           setAuthSubmitting(false);
           return;
         }
@@ -1234,12 +1234,12 @@ async function handleAuthSubmit() {
           attempts++;
           
           if (attempts >= 5) {
-            await AsyncStorage.setItem('@orange_lockout_time', (Date.now() + 15 * 60 * 1000).toString());
+            await AsyncStorage.setItem('@orange_lockout_time', (Date.now() + 60 * 1000).toString());
             await AsyncStorage.setItem('@orange_login_attempts', '0');
-            Alert.alert('Account Locked', '5 unsuccessful attempts. Your account is locked for 15 minutes.');
+            Alert.alert('Account Locked', '5 unsuccessful attempts. Please wait 1 minute before trying again.');
           } else {
             await AsyncStorage.setItem('@orange_login_attempts', attempts.toString());
-            Alert.alert('Login Failed', `Incorrect credentials. ${5 - attempts} attempts remaining.`);
+            Alert.alert('Login Failed', `Incorrect credentials. ${5 - attempts} attempt${5 - attempts === 1 ? '' : 's'} remaining.`);
           }
           throw error;
         }
