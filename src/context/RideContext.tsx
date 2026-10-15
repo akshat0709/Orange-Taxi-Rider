@@ -1194,7 +1194,9 @@ async function handleForgotPassword() {
     }
     setAuthSubmitting(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(authEmail.trim());
+      const { error } = await supabase.auth.resetPasswordForEmail(authEmail.trim(), {
+        redirectTo: 'https://orange-taxi.com/login?mode=reset',
+      });
       if (error) throw error;
       Alert.alert('Reset Email Sent', 'Please check your email inbox for password reset instructions.');
     } catch (e: any) {
