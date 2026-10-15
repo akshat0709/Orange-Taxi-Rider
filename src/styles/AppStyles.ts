@@ -2753,6 +2753,51 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
   },
+  uberBannerCarouselContainer: {
+    marginBottom: 20,
+    marginHorizontal: -16,
+  },
+  uberBannerCarouselContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  uberBannerCard: {
+    width: width - 56,
+    borderRadius: 20,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 125,
+    overflow: 'hidden',
+  },
+  uberBannerBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  uberBannerTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  uberBannerBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  uberBannerBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  uberBannerImage: {
+    width: 125,
+    height: 85,
+    borderRadius: 12,
+  },
   uberQualityBanner: {
     backgroundColor: '#FDE047',
     borderRadius: 20,

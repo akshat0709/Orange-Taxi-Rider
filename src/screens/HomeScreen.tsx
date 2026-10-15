@@ -26,6 +26,7 @@ export const HomeScreen = ({ navigation }: any) => {
   const step: number = 1;
   const homeScrollRef = React.useRef<ScrollView>(null);
   const [activeCategory, setActiveCategory] = React.useState<'rides' | 'parcel'>('rides');
+  const [promoPillVisible, setPromoPillVisible] = React.useState<boolean>(true);
   const { setStep } = context;
 
   return (
@@ -1287,28 +1288,115 @@ export const HomeScreen = ({ navigation }: any) => {
                 <ChevronRight size={18} color={theme === 'dark' ? '#64748B' : '#94A3B8'} />
               </TouchableOpacity>
 
-              {/* ── HERO BANNER: "Quality rides, every time" ── */}
-              <View style={[styles.uberQualityBanner, theme === 'dark' && styles.uberQualityBannerDark]}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.uberQualityBannerTitle}>
-                    Quality rides,{'\n'}every time
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.uberQualityBannerBtn}
-                    activeOpacity={0.88}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setStep(2);
-                    }}
-                  >
-                    <Text style={styles.uberQualityBannerBtnText}>Book Intercity</Text>
-                  </TouchableOpacity>
-                </View>
-                <Image
-                  source={require('../../assets/be6-exterior.jpg')}
-                  style={styles.uberQualityBannerImage}
-                  resizeMode="cover"
-                />
+              {/* ── UBER-STYLE SWIPEABLE FEATURE BANNERS CAROUSEL ── */}
+              <View style={styles.uberBannerCarouselContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.uberBannerCarouselContent}
+                  decelerationRate="fast"
+                  snapToInterval={Dimensions.get('window').width - 56 + 12}
+                >
+                  {/* Banner 1: Quality rides, every time (Golden Yellow - Exact Uber Match) */}
+                  <View style={[styles.uberBannerCard, { backgroundColor: '#FDE047' }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.uberBannerTitle, { color: '#0F172A' }]}>
+                        Quality rides,{'\n'}every time
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.uberBannerBtn, { backgroundColor: '#0F172A' }]}
+                        activeOpacity={0.88}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setStep(2);
+                        }}
+                      >
+                        <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Book Intercity</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Image
+                      source={require('../../assets/be6-exterior.jpg')}
+                      style={styles.uberBannerImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+
+                  {/* Banner 2: Zero Surge & Pre-cooled AC (Executive Dark Slate) */}
+                  <View style={[styles.uberBannerCard, { backgroundColor: theme === 'dark' ? '#1E293B' : '#0F172A' }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.uberBannerBadge, { color: '#F97316' }]}>⚡ ZERO SURGE GUARANTEE</Text>
+                      <Text style={[styles.uberBannerTitle, { color: '#FFFFFF' }]}>
+                        Pre-Cooled AC &{'\n'}In-Seat Screens
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.uberBannerBtn, { backgroundColor: '#F97316' }]}
+                        activeOpacity={0.88}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setAmenitiesModalVisible(true);
+                        }}
+                      >
+                        <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Explore Perks</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Image
+                      source={require('../../assets/be6-interior.jpg')}
+                      style={styles.uberBannerImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+
+                  {/* Banner 3: 100% Pure Electric EV (Emerald Green) */}
+                  <View style={[styles.uberBannerCard, { backgroundColor: '#065F46' }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.uberBannerBadge, { color: '#34D399' }]}>🌿 100% PURE ELECTRIC FLEET</Text>
+                      <Text style={[styles.uberBannerTitle, { color: '#FFFFFF' }]}>
+                        Zero Emissions,{'\n'}Corporate GST
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.uberBannerBtn, { backgroundColor: '#10B981' }]}
+                        activeOpacity={0.88}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setStep(2);
+                        }}
+                      >
+                        <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Ride Green</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Image
+                      source={require('../../assets/be6-exterior.jpg')}
+                      style={styles.uberBannerImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+
+                  {/* Banner 4: Airport Concierge (Terminal Blue) */}
+                  <View style={[styles.uberBannerCard, { backgroundColor: '#1E3A8A' }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.uberBannerBadge, { color: '#93C5FD' }]}>✈️ AIRPORT TERMINAL 1 & 2</Text>
+                      <Text style={[styles.uberBannerTitle, { color: '#FFFFFF' }]}>
+                        Terminal Pickup,{'\n'}Zero Wait Time
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.uberBannerBtn, { backgroundColor: '#3B82F6' }]}
+                        activeOpacity={0.88}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          handleQuickAirport();
+                          setStep(2);
+                        }}
+                      >
+                        <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Book Airport</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Image
+                      source={require('../../assets/be6-interior.jpg')}
+                      style={styles.uberBannerImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                </ScrollView>
               </View>
 
               {/* ── "FOR YOU" 8-SERVICE QUICK GRID ── */}
@@ -1681,82 +1769,6 @@ export const HomeScreen = ({ navigation }: any) => {
                 </ScrollView>
               </View>
 
-              {/* ── THE ORANGE STANDARD AMENITIES CTA ── */}
-              <TouchableOpacity
-                style={[styles.homeViewAllPerksBtn, theme === 'dark' && styles.homeViewAllPerksBtnDark]}
-                activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setAmenitiesModalVisible(true);
-                }}
-              >
-                <Sparkles size={14} color="#F97316" />
-                <Text style={styles.homeViewAllPerksBtnText}>View All 10 Orange Signature Perks →</Text>
-              </TouchableOpacity>
-
-              {/* ── THE ORANGE ADVANTAGE (COMPARISON TABLE) ── */}
-              <View style={[styles.homeComparisonTable, theme === 'dark' && styles.homeComparisonTableDark]}>
-                <View style={styles.homeComparisonHeader}>
-                  <Text style={[styles.homeSectionHeading, theme === 'dark' && styles.textWhite, { fontSize: 14 }]}>
-                    The Orange Advantage
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#F97316' }}>Orange Taxi</Text>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#94A3B8' }}>Other Cabs</Text>
-                  </View>
-                </View>
-
-                <View style={styles.homeComparisonRow}>
-                  <Text style={[styles.homeComparisonFeature, theme === 'dark' && styles.textWhite]}>Pre-Cooled AC</Text>
-                  <View style={styles.homeComparisonOrangeCol}>
-                    <Text style={styles.homeComparisonGoodText}>✓ Always 22°C</Text>
-                  </View>
-                  <View style={styles.homeComparisonOtherCol}>
-                    <Text style={styles.homeComparisonBadText}>✗ Often Refused</Text>
-                  </View>
-                </View>
-
-                <View style={styles.homeComparisonRow}>
-                  <Text style={[styles.homeComparisonFeature, theme === 'dark' && styles.textWhite]}>Surge Pricing</Text>
-                  <View style={styles.homeComparisonOrangeCol}>
-                    <Text style={styles.homeComparisonGoodText}>✓ 0% Surge Ever</Text>
-                  </View>
-                  <View style={styles.homeComparisonOtherCol}>
-                    <Text style={styles.homeComparisonBadText}>✗ 2x - 3x Surge</Text>
-                  </View>
-                </View>
-
-                <View style={styles.homeComparisonRow}>
-                  <Text style={[styles.homeComparisonFeature, theme === 'dark' && styles.textWhite]}>In-Seat Screen</Text>
-                  <View style={styles.homeComparisonOrangeCol}>
-                    <Text style={styles.homeComparisonGoodText}>✓ HD Screen</Text>
-                  </View>
-                  <View style={styles.homeComparisonOtherCol}>
-                    <Text style={styles.homeComparisonBadText}>✗ None</Text>
-                  </View>
-                </View>
-
-                <View style={styles.homeComparisonRow}>
-                  <Text style={[styles.homeComparisonFeature, theme === 'dark' && styles.textWhite]}>Water & Papers</Text>
-                  <View style={styles.homeComparisonOrangeCol}>
-                    <Text style={styles.homeComparisonGoodText}>✓ Free Onboard</Text>
-                  </View>
-                  <View style={styles.homeComparisonOtherCol}>
-                    <Text style={styles.homeComparisonBadText}>✗ None</Text>
-                  </View>
-                </View>
-
-                <View style={styles.homeComparisonRow}>
-                  <Text style={[styles.homeComparisonFeature, theme === 'dark' && styles.textWhite]}>100% Electric</Text>
-                  <View style={styles.homeComparisonOrangeCol}>
-                    <Text style={styles.homeComparisonGoodText}>✓ Zero Emissions</Text>
-                  </View>
-                  <View style={styles.homeComparisonOtherCol}>
-                    <Text style={styles.homeComparisonBadText}>✗ Aging ICE Cabs</Text>
-                  </View>
-                </View>
-              </View>
-
               {/* ── FLEET SHOWCASE ── */}
               <View style={{ marginBottom: 16 }}>
                 <Text style={[styles.homeSectionHeading, theme === 'dark' && styles.textWhite]}>
@@ -1833,6 +1845,53 @@ export const HomeScreen = ({ navigation }: any) => {
                 <Text style={styles.homeTrustText}>24x7 Support & Chauffeur Hotline: +91 72940 73222</Text>
               </View>
             </ScrollView>
+
+            {/* ── UBER-STYLE FLOATING PROMO PILL ── */}
+            {promoPillVisible && (
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: Math.max(insets.bottom, 12) + 68,
+                  alignSelf: 'center',
+                  backgroundColor: theme === 'dark' ? '#27272A' : '#18181B',
+                  borderRadius: 24,
+                  paddingLeft: 14,
+                  paddingRight: 10,
+                  paddingVertical: 7,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 6,
+                  elevation: 6,
+                  zIndex: 40,
+                }}
+              >
+                <Text style={{ fontSize: 13 }}>⚡</Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setAmenitiesModalVisible(true);
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                    0% Surge Guaranteed · 100% Electric EV ⓘ
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setPromoPillVisible(false);
+                  }}
+                  style={{ padding: 4 }}
+                >
+                  <X size={13} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Floating Bottom Navigation Dock with Elevated Taxi FAB (Option B) */}
             <View
