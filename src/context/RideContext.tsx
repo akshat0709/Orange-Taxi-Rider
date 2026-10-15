@@ -607,11 +607,11 @@ async function handleHomeMapPress(coords: { lat: number; lng: number }) {
 
 const rawDist = distKm;
 
-const baseFare = selectedVehicle?.base_fare || 59;
+const baseFare = selectedVehicle?.base_fare || 99;
 
-const perKm = selectedVehicle?.per_km || 15;
+const perKm = selectedVehicle?.per_km || 18;
 
-const minFare = selectedVehicle?.minimum_fare || 129;
+const minFare = selectedVehicle?.minimum_fare || 149;
 
 const distanceFare = Math.round(perKm * distKm);
 
@@ -625,9 +625,9 @@ const platformFee = 0;
 
 const calculatedPreDiscount = preTax + taxAmount + platformFee;
 
-const discountAmount = appliedPromo ? Math.min(appliedPromo.discount, calculatedPreDiscount - 40) : 0;
+const discountAmount = appliedPromo ? Math.min(appliedPromo.discount, calculatedPreDiscount - minFare) : 0;
 
-const totalEstimatedFare = Math.max(40, calculatedPreDiscount - discountAmount);
+const totalEstimatedFare = Math.max(minFare, calculatedPreDiscount - discountAmount);
 
 const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: number; minFare: number; desc: string }> = {
     'FIRST100': { discountType: 'flat', value: 100, minFare: 180, desc: '₹100 welcome bonus on Orange fleet' },

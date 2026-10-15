@@ -1,9 +1,9 @@
 
 import React from 'react';
 import * as Haptics from 'expo-haptics';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Zap, Droplets, Newspaper, MonitorPlay, Music2, Leaf } from 'lucide-react-native';
+import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Zap, Droplets, Newspaper, MonitorPlay, Music2, Leaf, Bell, Package, Plane, Briefcase } from 'lucide-react-native';
 import { styles } from '../styles/AppStyles';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
 import { RideMap } from '../components/RideMap';
@@ -25,8 +25,8 @@ export const HomeScreen = ({ navigation }: any) => {
   const { height } = Dimensions.get('window');
   const step: number = 1;
   const homeScrollRef = React.useRef<ScrollView>(null);
-  
-const { setStep } = context;
+  const [activeCategory, setActiveCategory] = React.useState<'rides' | 'parcel'>('rides');
+  const { setStep } = context;
 
   return (
     <View style={[styles.container, theme === 'dark' && styles.containerDark]}>
@@ -90,61 +90,54 @@ const { setStep } = context;
         )}
 
         {pinPickerActive ? null : step === 1 ? (
-          /* STEP 1: FLOATING ISLAND HEADER */
-          <View style={[styles.floatingIslandHeader, { top: topSafeOffset }]}>
-            {/* User Profile Avatar Circle */}
+          /* STEP 1: UBER-STYLE TOP BAR HEADER */
+          <View style={[styles.uberTopHeader, { top: topSafeOffset, backgroundColor: theme === 'dark' ? '#0B0F19' : '#F8FAFC' }]}>
+            {/* Left: Blue Dot + Location selector (Current location ⌄) */}
             <TouchableOpacity
-              accessibilityLabel="Profile"
-              accessibilityRole="button"
-              style={[styles.floatingAvatarBtn, theme === 'dark' && styles.floatingAvatarBtnDark]}
-              activeOpacity={0.85}
+              style={styles.uberLocationBtn}
+              activeOpacity={0.8}
               onPress={() => {
                 Haptics.selectionAsync();
-                setProfileModalVisible(true);
+                setCityPickerVisible(true);
               }}
             >
-              {user ? (
-                <View style={styles.avatarInner}>
-                  <Text style={styles.avatarChar}>
-                    {(user.user_metadata?.full_name?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase()}
-                  </Text>
-                </View>
-              ) : (
-                <UserIcon size={19} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
-              )}
+              <View style={styles.uberBlueDot} />
+              <Text style={[styles.uberLocationText, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
+                {activeCity?.name || 'Current location'}
+              </Text>
+              <ChevronDown size={14} color={theme === 'dark' ? '#94A3B8' : '#64748B'} />
             </TouchableOpacity>
 
-            {/* Floating Wallet Pill */}
-            <TouchableOpacity
-              accessibilityLabel="Wallet"
-              accessibilityRole="button"
-              style={[styles.floatingWalletPill, theme === 'dark' && styles.floatingWalletPillDark]}
-              activeOpacity={0.85}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setWalletModalVisible(true);
-              }}
-            >
-              <CreditCard size={15} color={theme === 'dark' ? '#F97316' : '#18181B'} />
-              <Text style={[styles.floatingWalletText, theme === 'dark' && styles.textWhite]}>₹ {walletBalance}</Text>
-            </TouchableOpacity>
-
-            {/* Right Action Cluster: Theme Switcher & City Selector */}
+            {/* Right: Theme Toggle + Bell Inbox */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {/* Quick Theme Switcher Button (☀️ Light Default / 🌙 Dark Mode) */}
+              {/* Quick Theme Switcher Button */}
               <TouchableOpacity
-                style={[styles.floatingThemeBtn, theme === 'dark' && styles.floatingThemeBtnDark]}
+                style={[styles.uberThemeToggle, theme === 'dark' && styles.uberThemeToggleDark]}
                 activeOpacity={0.85}
                 onPress={() => handleToggleTheme()}
                 accessibilityLabel={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {theme === 'dark' ? (
-                  <Sun size={17} color="#F97316" />
+                  <Sun size={16} color="#F97316" />
                 ) : (
-                  <Moon size={17} color="#475569" />
+                  <Moon size={16} color="#475569" />
                 )}
               </TouchableOpacity>
 
+              {/* Uber Inbox Button */}
+              <TouchableOpacity
+                accessibilityLabel="Inbox"
+                accessibilityRole="button"
+                style={[styles.uberInboxBtn, theme === 'dark' && styles.uberInboxBtnDark]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setTalkToOrangeVisible(true);
+                }}
+              >
+                <Bell size={15} color={theme === 'dark' ? '#F8FAFC' : '#0F172A'} />
+                <Text style={[styles.uberInboxText, theme === 'dark' && styles.textWhite]}>Inbox</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ) : step === 4 ? (
@@ -1209,285 +1202,497 @@ const { setStep } = context;
                 </TouchableOpacity>
               )}
 
-              {/* ── HERO BRAND BANNER & 1-TAP BOOKING CTA ── */}
-              <View style={[styles.homeHeroCard, theme === 'dark' && styles.homeHeroCardDark]}>
-                <View style={styles.homeHeroTopRow}>
-                  <View style={styles.homeHeroTag}>
-                    <Text style={styles.homeHeroTagText}>⚡ 100% PURE ELECTRIC FLEET</Text>
-                  </View>
-                  <Text style={styles.homeHeroSubTag}>Zero Surge Pricing</Text>
-                </View>
-
-                <Text style={[styles.homeHeroTitle, theme === 'dark' && styles.textWhite]}>
-                  Experience The Orange Standard
-                </Text>
-                <Text style={[styles.homeHeroSub, theme === 'dark' && styles.textMutedDark]}>
-                  India's first executive EV taxi network. Every single ride includes pre-cooled AC, in-seat entertainment screen, studio sound, sealed mineral water, fresh dailies, and zero peak surge multipliers.
-                </Text>
-
-                {/* Quick Destination Search Trigger */}
+              {/* ── UBER-STYLE TOP CATEGORY SELECTOR (RIDES / PARCEL) ── */}
+              <View style={styles.uberCategoryNav}>
                 <TouchableOpacity
-                  style={[styles.homeQuickWhereCard, theme === 'dark' && styles.homeQuickWhereCardDark]}
-                  activeOpacity={0.85}
+                  style={[styles.uberCategoryTab, activeCategory === 'rides' && (theme === 'dark' ? styles.uberCategoryTabActiveDark : styles.uberCategoryTabActive)]}
+                  activeOpacity={0.8}
+                  onPress={() => setActiveCategory('rides')}
+                >
+                  <Car size={18} color={activeCategory === 'rides' ? (theme === 'dark' ? '#FFFFFF' : '#0F172A') : (theme === 'dark' ? '#94A3B8' : '#64748B')} />
+                  <Text style={[styles.uberCategoryTabText, activeCategory === 'rides' ? (theme === 'dark' ? styles.textWhite : { color: '#0F172A' }) : { color: theme === 'dark' ? '#94A3B8' : '#64748B' }]}>
+                    Rides
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.uberCategoryTab, activeCategory === 'parcel' && (theme === 'dark' ? styles.uberCategoryTabActiveDark : styles.uberCategoryTabActive)]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setActiveCategory('parcel');
+                    Alert.alert('Orange Courier / Parcel', '100% Electric, direct door-to-door parcel delivery is launching shortly in your city.');
+                    setTimeout(() => setActiveCategory('rides'), 2500);
+                  }}
+                >
+                  <Package size={18} color={activeCategory === 'parcel' ? (theme === 'dark' ? '#FFFFFF' : '#0F172A') : (theme === 'dark' ? '#94A3B8' : '#64748B')} />
+                  <Text style={[styles.uberCategoryTabText, activeCategory === 'parcel' ? (theme === 'dark' ? styles.textWhite : { color: '#0F172A' }) : { color: theme === 'dark' ? '#94A3B8' : '#64748B' }]}>
+                    Parcel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* ── UBER SIGNATURE "WHERE TO?" BAR WITH INTEGRATED [📅 LATER] PILL ── */}
+              <View style={[styles.uberWhereToContainer, theme === 'dark' && styles.uberWhereToContainerDark]}>
+                <TouchableOpacity
+                  style={styles.uberWhereToLeft}
+                  activeOpacity={0.88}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setStep(2);
                     setSearchModalVisible(true);
                   }}
                 >
-                  <Search size={18} color="#F97316" />
-                  <Text style={[styles.homeQuickWhereText, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
-                    {dropLocation ? dropLocation.name : 'Where you want to go?'}
+                  <Search size={22} color={theme === 'dark' ? '#FFFFFF' : '#0F172A'} />
+                  <Text style={[styles.uberWhereToPlaceholder, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
+                    {dropLocation ? dropLocation.name : 'Where to?'}
                   </Text>
-                  <View style={{ backgroundColor: '#F97316', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Search</Text>
-                  </View>
                 </TouchableOpacity>
 
-                {/* Quick destination chips */}
-                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
+                <TouchableOpacity
+                  style={[styles.uberLaterBtn, theme === 'dark' && styles.uberLaterBtnDark]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setScheduleModalVisible(true);
+                  }}
+                >
+                  <Calendar size={15} color={theme === 'dark' ? '#F8FAFC' : '#0F172A'} />
+                  <Text style={[styles.uberLaterBtnText, theme === 'dark' && styles.textWhite]}>
+                    {scheduledDate ? formatScheduleShort(scheduledDate) : 'Later'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* ── RECENT / QUICK AIRPORT DESTINATION SHORTCUT (UBER STYLE) ── */}
+              <TouchableOpacity
+                style={[styles.uberRecentCard, theme === 'dark' && styles.uberRecentCardDark]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleQuickAirport();
+                  setStep(2);
+                }}
+              >
+                <View style={[styles.uberRecentClockCircle, theme === 'dark' && styles.uberRecentClockCircleDark]}>
+                  <Clock size={16} color={theme === 'dark' ? '#F8FAFC' : '#0F172A'} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.uberRecentTitle, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
+                    Kempegowda International Airport (BLR)
+                  </Text>
+                  <Text style={[styles.uberRecentSubtitle, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
+                    Terminal 1 & Terminal 2 Pickups · 0% Surge Fixed Fare
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={theme === 'dark' ? '#64748B' : '#94A3B8'} />
+              </TouchableOpacity>
+
+              {/* ── HERO BANNER: "Quality rides, every time" ── */}
+              <View style={[styles.uberQualityBanner, theme === 'dark' && styles.uberQualityBannerDark]}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.uberQualityBannerTitle}>
+                    Quality rides,{'\n'}every time
+                  </Text>
                   <TouchableOpacity
-                    style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { flex: 1, alignItems: 'center' }]}
+                    style={styles.uberQualityBannerBtn}
+                    activeOpacity={0.88}
                     onPress={() => {
-                      handleQuickHome();
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setStep(2);
                     }}
                   >
-                    <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]}>🏠 Home</Text>
+                    <Text style={styles.uberQualityBannerBtnText}>Book Intercity</Text>
                   </TouchableOpacity>
+                </View>
+                <Image
+                  source={require('../../assets/be6-exterior.jpg')}
+                  style={styles.uberQualityBannerImage}
+                  resizeMode="cover"
+                />
+              </View>
+
+              {/* ── "FOR YOU" 8-SERVICE QUICK GRID ── */}
+              <View style={{ marginBottom: 20 }}>
+                <TouchableOpacity
+                  style={styles.uberSectionHeaderRow}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setStep(2);
+                  }}
+                >
+                  <Text style={[styles.uberSectionTitle, theme === 'dark' && styles.textWhite]}>For you</Text>
+                  <ChevronRight size={18} color={theme === 'dark' ? '#94A3B8' : '#64748B'} />
+                </TouchableOpacity>
+
+                <View style={styles.uberForYouGrid}>
+                  {/* 1. Trip */}
                   <TouchableOpacity
-                    style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { flex: 1, alignItems: 'center' }]}
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
                     onPress={() => {
-                      handleQuickWork();
+                      Haptics.selectionAsync();
                       setStep(2);
                     }}
                   >
-                    <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]}>💼 Work</Text>
+                    <View style={styles.uberGridBadgeContainer}>
+                      <Text style={styles.uberGridBadgeText}>0% Surge</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Car size={26} color="#F97316" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Trip</Text>
                   </TouchableOpacity>
+
+                  {/* 2. Auto */}
                   <TouchableOpacity
-                    style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { flex: 1, alignItems: 'center' }]}
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
                     onPress={() => {
+                      Haptics.selectionAsync();
+                      setStep(2);
+                    }}
+                  >
+                    <View style={styles.uberGridBadgeContainer}>
+                      <Text style={styles.uberGridBadgeText}>Instant</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Zap size={24} color="#10B981" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Auto</Text>
+                  </TouchableOpacity>
+
+                  {/* 3. Bike Saver */}
+                  <TouchableOpacity
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setStep(2);
+                    }}
+                  >
+                    <View style={styles.uberGridBadgeContainer}>
+                      <Text style={styles.uberGridBadgeText}>Eco</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Leaf size={24} color="#06B6D4" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Bike Saver</Text>
+                  </TouchableOpacity>
+
+                  {/* 4. Intercity */}
+                  <TouchableOpacity
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setStep(2);
+                    }}
+                  >
+                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#EF4444' }]}>
+                      <Text style={styles.uberGridBadgeText}>Outstation</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Navigation size={24} color="#8B5CF6" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Intercity</Text>
+                  </TouchableOpacity>
+
+                  {/* 5. Rentals */}
+                  <TouchableOpacity
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setScheduleModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Clock size={24} color="#F59E0B" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Rentals</Text>
+                  </TouchableOpacity>
+
+                  {/* 6. Airport */}
+                  <TouchableOpacity
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Haptics.selectionAsync();
                       handleQuickAirport();
                       setStep(2);
                     }}
                   >
-                    <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]}>✈️ Airport</Text>
+                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#3B82F6' }]}>
+                      <Text style={styles.uberGridBadgeText}>Terminal</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Plane size={24} color="#3B82F6" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Airport</Text>
                   </TouchableOpacity>
+
+                  {/* 7. Reserve */}
                   <TouchableOpacity
-                    style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { flex: 1, alignItems: 'center' }]}
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
                     onPress={() => {
+                      Haptics.selectionAsync();
                       setScheduleModalVisible(true);
                     }}
                   >
-                    <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]}>📅 Later</Text>
+                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#10B981' }]}>
+                      <Text style={styles.uberGridBadgeText}>Up to 7D</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Calendar size={24} color="#10B981" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Reserve</Text>
+                  </TouchableOpacity>
+
+                  {/* 8. Corporate */}
+                  <TouchableOpacity
+                    style={styles.uberGridItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setHistoryModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#6366F1' }]}>
+                      <Text style={styles.uberGridBadgeText}>GST</Text>
+                    </View>
+                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
+                      <Briefcase size={24} color="#6366F1" />
+                    </View>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Corporate</Text>
                   </TouchableOpacity>
                 </View>
-
-                {/* Main Hero Booking CTA */}
-                <TouchableOpacity
-                  style={styles.homeHeroBookBtn}
-                  activeOpacity={0.88}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                    setStep(2);
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Car size={22} color="#FFFFFF" />
-                    <Text style={styles.homeHeroBookBtnText}>Book an Orange Ride</Text>
-                  </View>
-                  <ArrowRight size={18} color="#FFFFFF" />
-                </TouchableOpacity>
               </View>
 
-              {/* ── SIGNATURE PERKS & FEATURES SHOWCASE ── */}
-              <View style={{ marginTop: 6, marginBottom: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Sparkles size={16} color="#F97316" />
-                  <Text style={[styles.homeSectionHeading, theme === 'dark' && styles.textWhite]}>
-                    The Orange Standard · Every Ride
-                  </Text>
-                </View>
-                <Text style={[styles.homeSectionSubheading, theme === 'dark' && styles.textMutedDark]}>
-                  Premium amenities delivered unconditionally on every journey
+              {/* ── SECTION 1: "RIDE AS YOU LIKE IT" (HORIZONTAL CARDS CAROUSEL) ── */}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={[styles.uberSectionTitle, theme === 'dark' && styles.textWhite, { marginBottom: 14 }]}>
+                  Ride as you like it
                 </Text>
-
-                {/* 10 Signature Perk Cards Grid */}
-                <View style={styles.homePerksGrid}>
-                  {/* Perk 1: In-Seat Screen */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <MonitorPlay size={20} color="#3B82F6" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>Signature</Text>
-                      </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+                  {/* Card 1: Book Intercity */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStep(2);
+                    }}
+                  >
+                    <View style={styles.uberCarouselCardImgBox}>
+                      <Image
+                        source={require('../../assets/be6-exterior.jpg')}
+                        style={styles.uberCarouselCardImg}
+                        resizeMode="cover"
+                      />
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>In-Seat Touchscreens</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Rear HD displays for movies, flight status, and route navigation.
-                    </Text>
-                  </View>
-
-                  {/* Perk 2: Studio Audio */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Music2 size={20} color="#F97316" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>Acoustics</Text>
-                      </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Book Intercity
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Travel outstation with ease
+                      </Text>
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Studio Acoustics</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Acoustically tuned multi-speaker surround audio & Bluetooth.
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
 
-                  {/* Perk 3: Bottled Water */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Droplets size={20} color="#38BDF8" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>Free</Text>
-                      </View>
+                  {/* Card 2: Try Orange Black */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      const vip = vehicles.find((v: any) => v.code === 'ORANGE_VIP') || vehicles[0];
+                      if (vip) setSelectedVehicle(vip);
+                      setStep(2);
+                    }}
+                  >
+                    <View style={styles.uberCarouselCardImgBox}>
+                      <Image
+                        source={require('../../assets/be6-interior.jpg')}
+                        style={styles.uberCarouselCardImg}
+                        resizeMode="cover"
+                      />
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Bottled Mineral Water</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Fresh sealed mineral water waiting in cup holders for every rider.
-                    </Text>
-                  </View>
-
-                  {/* Perk 4: Daily Papers */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Newspaper size={20} color="#10B981" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>Daily</Text>
-                      </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Try Orange Black
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Elevated rides with top drivers
+                      </Text>
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Fresh Daily Papers</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Mint, The Economic Times & The Hindu in rear pockets every day.
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
 
-                  {/* Perk 5: Pre-Cooled AC */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Snowflake size={20} color="#06B6D4" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>22°C</Text>
-                      </View>
+                  {/* Card 3: Airport Concierge */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      handleQuickAirport();
+                      setStep(2);
+                    }}
+                  >
+                    <View style={styles.uberCarouselCardImgBox}>
+                      <Image
+                        source={require('../../assets/be6-exterior.jpg')}
+                        style={styles.uberCarouselCardImg}
+                        resizeMode="cover"
+                      />
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Pre-Cooled Cabin AC</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Chauffeur cools cabin to 22°C before arrival — never step into heat.
-                    </Text>
-                  </View>
-
-                  {/* Perk 6: Zero Surge Pricing */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <ShieldCheck size={20} color="#10B981" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>0% Surge</Text>
-                      </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Airport Concierge
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Terminal pickup with zero wait time
+                      </Text>
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Zero Surge Guarantee</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Strictly 0% surge. Fair, flat pricing 24/7 without rain or rush multipliers.
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
 
-                  {/* Perk 7: 100% Electric EV */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Zap size={20} color="#EAB308" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>EV Fleet</Text>
-                      </View>
+                  {/* Card 4: Hourly Rentals */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setScheduleModalVisible(true);
+                    }}
+                  >
+                    <View style={styles.uberCarouselCardImgBox}>
+                      <Image
+                        source={require('../../assets/be6-interior.jpg')}
+                        style={styles.uberCarouselCardImg}
+                        resizeMode="cover"
+                      />
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Mahindra BE.6 Luxury</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      100% pure electric vehicles with zero tailpipe emissions and smooth ride.
-                    </Text>
-                  </View>
-
-                  {/* Perk 8: Type-C 65W Chargers */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Zap size={20} color="#8B5CF6" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>65W</Text>
-                      </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Hourly Chauffeur
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Chauffeur at your disposal for hours
+                      </Text>
                     </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>In-Seat Fast Chargers</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      High-speed Type-C charging ports for MacBooks, iPads & smartphones.
-                    </Text>
-                  </View>
-
-                  {/* Perk 9: Orange Guardian Safety */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <Shield size={20} color="#EF4444" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>24x7</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Orange Guardian Safety</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Realtime route deviation tracking, 1-tap SOS to emergency contacts & police.
-                    </Text>
-                  </View>
-
-                  {/* Perk 10: Whisper Quiet Cabins */}
-                  <View style={[styles.homePerkCard, theme === 'dark' && styles.homePerkCardDark]}>
-                    <View style={styles.homePerkCardTop}>
-                      <View style={[styles.homePerkIconBox, theme === 'dark' && styles.homePerkIconBoxDark]}>
-                        <VolumeX size={20} color="#6366F1" />
-                      </View>
-                      <View style={styles.homePerkBadge}>
-                        <Text style={styles.homePerkBadgeText}>Zen</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.homePerkTitle, theme === 'dark' && styles.textWhite]}>Whisper Quiet Cabins</Text>
-                    <Text style={[styles.homePerkDesc, theme === 'dark' && styles.textMutedDark]}>
-                      Double-laminated acoustic glass with near-silent electric drive.
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Explore all perks button */}
-                <TouchableOpacity
-                  style={[styles.homeViewAllPerksBtn, theme === 'dark' && styles.homeViewAllPerksBtnDark]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setAmenitiesModalVisible(true);
-                  }}
-                >
-                  <Sparkles size={14} color="#F97316" />
-                  <Text style={styles.homeViewAllPerksBtnText}>View Full Perks & Detailed Comparison →</Text>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </ScrollView>
               </View>
+
+              {/* ── SECTION 2: "MORE WAYS TO USE ORANGE TAXI" (HORIZONTAL CARDS CAROUSEL) ── */}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={[styles.uberSectionTitle, theme === 'dark' && styles.textWhite, { marginBottom: 14 }]}>
+                  More ways to use Orange Taxi
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+                  {/* Card 1: Schedule in Advance */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setScheduleModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.uberCarouselCardImgBox, { backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Calendar size={48} color="#F97316" />
+                    </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Schedule in Advance
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Lock in rides up to 7 days ahead with 0% surge
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Card 2: Corporate & Business */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setHistoryModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.uberCarouselCardImgBox, { backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Briefcase size={48} color="#3B82F6" />
+                    </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Corporate & Business
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Automated GST tax invoices for company travel
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Card 3: 100% Zero-Emission EV */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setAmenitiesModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.uberCarouselCardImgBox, { backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Leaf size={48} color="#10B981" />
+                    </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        100% Zero-Emission EV
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Track your carbon savings with clean energy
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Card 4: Orange Guardian 24/7 */}
+                  <TouchableOpacity
+                    style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setGuardianModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.uberCarouselCardImgBox, { backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center' }]}>
+                      <ShieldCheck size={48} color="#EF4444" />
+                    </View>
+                    <View style={styles.uberCarouselCardBody}>
+                      <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
+                        Orange Guardian 24/7
+                      </Text>
+                      <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
+                        Realtime route deviation tracking & SOS
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+
+              {/* ── THE ORANGE STANDARD AMENITIES CTA ── */}
+              <TouchableOpacity
+                style={[styles.homeViewAllPerksBtn, theme === 'dark' && styles.homeViewAllPerksBtnDark]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAmenitiesModalVisible(true);
+                }}
+              >
+                <Sparkles size={14} color="#F97316" />
+                <Text style={styles.homeViewAllPerksBtnText}>View All 10 Orange Signature Perks →</Text>
+              </TouchableOpacity>
 
               {/* ── THE ORANGE ADVANTAGE (COMPARISON TABLE) ── */}
               <View style={[styles.homeComparisonTable, theme === 'dark' && styles.homeComparisonTableDark]}>
