@@ -510,11 +510,18 @@ const { setStep } = context;
                   activeOpacity={0.85}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    if (resolvedVehicle.phone) {
-                      Linking.openURL(`tel:${resolvedVehicle.phone}`);
-                    } else {
-                      Linking.openURL('tel:7294073222');
-                    }
+                    const phoneToCall = resolvedVehicle.phone || '7294073222';
+                    Alert.alert(
+                      'Chauffeur Voice Relay',
+                      'Connecting through Orange Privacy Voice Relay. Your mobile number remains masked and protected under the DPDP Act, 2023.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Call Chauffeur',
+                          onPress: () => Linking.openURL(`tel:${phoneToCall}`),
+                        },
+                      ]
+                    );
                   }}
                 >
                   <Phone size={20} color="#FFFFFF" />

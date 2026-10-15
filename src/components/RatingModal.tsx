@@ -52,6 +52,7 @@ export function RatingModal({
   const isDark = theme === 'dark';
   const [rating, setRating] = useState<number>(5);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
+  const [selectedTip, setSelectedTip] = useState<number>(0);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -68,9 +69,11 @@ export function RatingModal({
     setSubmitting(true);
 
     try {
+      const tipText = selectedTip > 0 ? `Chauffeur Tip: ₹${selectedTip}` : '';
       const fullReview = [
         ...selectedChips,
         reviewText.trim(),
+        tipText,
       ].filter(Boolean).join(' · ');
 
       // 1. Update Supabase bookings table with rating and review
@@ -223,6 +226,48 @@ export function RatingModal({
                     </TouchableOpacity>
                   );
                 })}
+              </View>
+
+              {/* Chauffeur Appreciation Tip */}
+              <View style={{ marginTop: 14, marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={[styles.chipHeader, { marginBottom: 0 }, isDark && styles.textMutedDark]}>
+                    ADD CHAUFFEUR APPRECIATION TIP
+                  </Text>
+                  <Text style={{ fontSize: 10, color: '#10B981', fontWeight: '700' }}>100% directly to Driver</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'space-between' }}>
+                  {[
+                    { label: 'None', value: 0 },
+                    { label: '₹20', value: 20 },
+                    { label: '₹50', value: 50 },
+                    { label: '₹100', value: 100 },
+                    { label: '₹200', value: 200 },
+                  ].map((tip) => (
+                    <TouchableOpacity
+                      key={tip.value}
+                      style={[
+                        styles.tipChip,
+                        isDark && styles.tipChipDark,
+                        selectedTip === tip.value && styles.tipChipActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedTip(tip.value);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.tipChipText,
+                          isDark && styles.textMutedDark,
+                          selectedTip === tip.value && styles.tipChipTextActive,
+                        ]}
+                      >
+                        {tip.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               {/* Optional Text Review */}
@@ -382,6 +427,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F1218',
     borderColor: '#232936',
     color: '#F8FAFC',
+  },
+  tipChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipChipDark: {
+    borderColor: '#232936',
+    backgroundColor: '#0F1218',
+  },
+  tipChipActive: {
+    borderColor: '#F97316',
+    backgroundColor: '#FFF7ED',
+  },
+  tipChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tipChipTextActive: {
+    color: '#F97316',
+    fontWeight: '900',
   },
   submitBtn: {
     backgroundColor: '#F97316',
