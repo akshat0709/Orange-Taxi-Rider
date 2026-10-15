@@ -743,12 +743,12 @@ export function ProfileModal({
                   <View style={styles.savedPlaceIconWrap}>
                     <Home size={18} color="#EA580C" />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Home</Text>
                       {homeCoords && (
                         <View style={styles.geoVerifiedBadge}>
-                          <Sparkles size={10} color="#16A34A" />
+                          <Sparkles size={9} color="#16A34A" />
                           <Text style={styles.geoVerifiedText}>GPS Pinned</Text>
                         </View>
                       )}
@@ -801,7 +801,8 @@ export function ProfileModal({
                             homeAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
                             isDark && (homeAddress ? styles.textMutedDark : styles.placeholderDark),
                           ]}
-                          numberOfLines={2}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
                         >
                           {homeAddress || 'Tap to load map and pinpoint home'}
                         </Text>
@@ -811,7 +812,7 @@ export function ProfileModal({
                 </View>
 
                 {!isEditingHome && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <TouchableOpacity
                       style={[styles.mapPlaceActionBtn, { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFF7ED', borderColor: '#EA580C' }]}
                       onPress={() => openMapPicker('home')}
@@ -848,12 +849,12 @@ export function ProfileModal({
                   <View style={[styles.savedPlaceIconWrap, { backgroundColor: '#EFF6FF' }]}>
                     <Briefcase size={18} color="#2563EB" />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={[styles.savedPlaceLabel, isDark && styles.textWhite]}>Work / Office</Text>
                       {workCoords && (
                         <View style={[styles.geoVerifiedBadge, { backgroundColor: 'rgba(37, 99, 235, 0.12)', borderColor: 'rgba(37, 99, 235, 0.3)' }]}>
-                          <Sparkles size={10} color="#2563EB" />
+                          <Sparkles size={9} color="#2563EB" />
                           <Text style={[styles.geoVerifiedText, { color: '#2563EB' }]}>GPS Pinned</Text>
                         </View>
                       )}
@@ -906,7 +907,8 @@ export function ProfileModal({
                             workAddress ? styles.savedPlaceValue : styles.savedPlacePlaceholder,
                             isDark && (workAddress ? styles.textMutedDark : styles.placeholderDark),
                           ]}
-                          numberOfLines={2}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
                         >
                           {workAddress || 'Tap to load map and pinpoint office'}
                         </Text>
@@ -916,7 +918,7 @@ export function ProfileModal({
                 </View>
 
                 {!isEditingWork && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <TouchableOpacity
                       style={[styles.mapPlaceActionBtn, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', borderColor: '#2563EB' }]}
                       onPress={() => openMapPicker('work')}
@@ -989,21 +991,23 @@ export function ProfileModal({
                 <View style={styles.amenitiesIconWrap}>
                   <Sparkles size={20} color="#F97316" />
                 </View>
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[styles.amenitiesTitle, isDark && styles.textWhite]}>The Orange Experience</Text>
-                    <View style={styles.amenitiesIncludedBadge}>
-                      <Text style={styles.amenitiesIncludedText}>INCLUDED</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.amenitiesSub, isDark && styles.textMutedDark]}>
+                <View style={{ marginLeft: 12, flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.amenitiesTitle, isDark && styles.textWhite]} numberOfLines={1}>
+                    The Orange Experience
+                  </Text>
+                  <Text style={[styles.amenitiesSub, isDark && styles.textMutedDark]} numberOfLines={2}>
                     LED screens · Studio audio · Daily papers · Bottled water
                   </Text>
                 </View>
               </View>
-              <View style={styles.amenitiesActionRight}>
-                <Text style={styles.amenitiesActionText}>Explore</Text>
-                <ChevronRight size={16} color="#F97316" />
+              <View style={styles.amenitiesRightCol}>
+                <View style={styles.amenitiesIncludedBadge}>
+                  <Text style={styles.amenitiesIncludedText}>INCLUDED</Text>
+                </View>
+                <View style={styles.amenitiesActionRight}>
+                  <Text style={styles.amenitiesActionText}>Explore</Text>
+                  <ChevronRight size={14} color="#F97316" />
+                </View>
               </View>
             </TouchableOpacity>
 
@@ -1185,22 +1189,22 @@ export function ProfileModal({
                   </Text>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>GUARDIAN FULL NAME</Text>
+                    <Text style={[styles.inputLabel, isDark && styles.textMutedDark]}>GUARDIAN FULL NAME</Text>
                     <TextInput
-                      style={styles.inputField}
+                      style={[styles.inputField, isDark && styles.inputFieldDark]}
                       placeholder="e.g. Rahul Sharma"
-                      placeholderTextColor="#6B7280"
+                      placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                       value={guardianName}
                       onChangeText={setGuardianName}
                     />
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>GUARDIAN PHONE NUMBER</Text>
+                    <Text style={[styles.inputLabel, isDark && styles.textMutedDark]}>GUARDIAN PHONE NUMBER</Text>
                     <TextInput
-                      style={styles.inputField}
+                      style={[styles.inputField, isDark && styles.inputFieldDark]}
                       placeholder="e.g. +91 98765 43210"
-                      placeholderTextColor="#6B7280"
+                      placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                       keyboardType="phone-pad"
                       value={guardianPhone}
                       onChangeText={setGuardianPhone}
@@ -1840,9 +1844,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(249, 115, 22, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(249, 115, 22, 0.35)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-end',
   },
   amenitiesIncludedText: {
     fontSize: 9,
@@ -1855,13 +1860,20 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 2,
   },
+  amenitiesRightCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 6,
+    flexShrink: 0,
+    marginLeft: 8,
+  },
   amenitiesActionRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: 'rgba(249, 115, 22, 0.12)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   amenitiesActionText: {
@@ -2062,6 +2074,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
+  },
+  inputFieldDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+    color: '#FFFFFF',
   },
   chipRow: {
     flexDirection: 'row',
@@ -2391,8 +2408,10 @@ const styles = StyleSheet.create({
   },
   savedPlaceLeft: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   savedPlaceIconWrap: {
     width: 34,
@@ -2401,7 +2420,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   savedPlaceLabel: {
     fontSize: 13,
@@ -2436,7 +2454,7 @@ const styles = StyleSheet.create({
   savedPlaceInputDark: {
     backgroundColor: '#1E293B',
     borderColor: '#475569',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   savePlaceBtn: {
     backgroundColor: '#F97316',
@@ -2476,7 +2494,6 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
   editPlaceBtnDark: {
     backgroundColor: '#1E293B',
