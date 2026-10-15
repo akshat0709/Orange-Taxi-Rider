@@ -3,7 +3,7 @@ import React from 'react';
 import * as Haptics from 'expo-haptics';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Navigation, Car, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet } from 'lucide-react-native';
+import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet } from 'lucide-react-native';
 import { styles } from '../styles/AppStyles';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
 import { RideMap } from '../components/RideMap';
@@ -208,7 +208,17 @@ const { setStep } = context;
               </View>
             </View>
 
-            <View style={{ width: 44 }} />
+            <TouchableOpacity
+              style={[styles.step2BackCircleBtn, theme === 'dark' && styles.step2BackCircleBtnDark]}
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setStep(1);
+              }}
+              accessibilityLabel="Home"
+            >
+              <Home size={18} color="#F97316" />
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -600,7 +610,7 @@ const { setStep } = context;
 
               <ScrollView
                 style={[styles.sheetScroll, theme === 'dark' && styles.sheetScrollDark]}
-                contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
+                contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 84 }}
                 showsVerticalScrollIndicator={false}
               >
               {/* Pickup -> Destination Bar (Tap to re-edit anytime) */}
@@ -636,6 +646,63 @@ const { setStep } = context;
                   <Text style={styles.sheetEditText}>Edit</Text>
                 </View>
               </TouchableOpacity>
+
+              {/* Quick Destination Shortcut Chips */}
+              <View style={[styles.minimalChipsRow, theme === 'dark' && styles.minimalChipsRowDark, { marginTop: 8, marginBottom: 8 }]}>
+                <TouchableOpacity
+                  style={[styles.minimalChip, intermediateStop && styles.minimalChipActiveStop, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSearchTarget('stop');
+                    setSearchModalVisible(true);
+                  }}
+                >
+                  <Text style={[styles.minimalChipText, intermediateStop && { color: '#7C3AED' }, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    {intermediateStop ? '📍 Stop 1 Set' : '➕ Add Stop'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={handleQuickHome}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    🏠 Home
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={handleQuickWork}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    💼 Work
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={handleQuickAirport}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    ✈️ Airport
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  activeOpacity={0.75}
+                  onPress={() => setScheduleModalVisible(true)}
+                >
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
+                    📅 {scheduledDate ? formatScheduleShort(scheduledDate) : 'Schedule'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               {/* Optional Airport / Metro Pickup Gate Note */}
               <View style={[styles.gateNoteBox, theme === 'dark' && styles.gateNoteBoxDark]}>
@@ -1066,505 +1133,72 @@ const { setStep } = context;
               <View style={{ height: 36 }} />
             </ScrollView>
           </View>
-        </View>
-        ) : (
-          /* =============================================================== */
-          /* STEP 1: UBER / OLA MAP-FIRST HOME SCREEN                        */
-          /* =============================================================== */
-          <View style={{ flex: 1, position: 'relative' }}>
-            {/* Full Screen Interactive Minimalist Map */}
-            <View style={StyleSheet.absoluteFill}>
-              <RideMap
-                pickup={pickupCoords}
-                drop={dropLocation ? { lat: dropLocation.lat, lng: dropLocation.lng, name: dropLocation.name } : undefined}
-                waypoint={intermediateStop ? { lat: intermediateStop.lat, lng: intermediateStop.lng, name: intermediateStop.name } : null}
-                interactive={true}
-                height="100%"
-                onMapPress={handleHomeMapPress}
-                onRecenterPress={() => refreshLocation(activeCity)}
-                theme={theme}
-              />
-            </View>
 
-            {/* Floating Minimal Two-Stop Destination Card (Option B) */}
-            <View
-              style={[
-                styles.minimalDestCard,
-                theme === 'dark' && styles.minimalDestCardDark,
-                { bottom: Math.max(insets.bottom, 12) + 72 },
-              ]}
+          {/* Floating Bottom Navigation Dock on Booking Screen */}
+          <View
+            style={[
+              styles.floatingNavDock,
+              theme === 'dark' && styles.floatingNavDockDark,
+              { bottom: Math.max(insets.bottom, 12) },
+            ]}
+          >
+            {/* Home Tab - Pressing it takes rider back to Home */}
+            <TouchableOpacity
+              style={styles.navDockItem}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setStep(1);
+              }}
             >
-              {/* ── RATE YOUR LAST RIDE PROMPT ── */}
-              {rateNowBooking && (
-                <TouchableOpacity
-                  style={[styles.rateNowCard, theme === 'dark' && styles.rateNowCardDark]}
-                  activeOpacity={0.88}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setRatingModalVisible(true);
-                  }}
-                >
-                  <View style={styles.rateNowLeft}>
-                    <View style={styles.rateNowIconBadge}>
-                      <Star size={18} color="#F59E0B" fill="#F59E0B" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={[styles.rateNowTitle, theme === 'dark' && styles.textWhite]}>
-                        Rate Your Last Ride
-                      </Text>
-                      <Text style={[styles.rateNowSubtitle, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
-                        How was your ride with {rateNowBooking.driver_name || 'your chauffeur'}?
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.rateNowActionBtn}>
-                    <Text style={styles.rateNowActionText}>Rate →</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
+              <Home size={22} color={theme === 'dark' ? '#64748B' : '#9CA3AF'} />
+            </TouchableOpacity>
 
-              {/* ── UPCOMING SCHEDULED RIDE BANNER ── */}
-              {activeScheduledBooking && (
-                <TouchableOpacity
-                  style={[styles.scheduledHomeCard, theme === 'dark' && styles.scheduledHomeCardDark]}
-                  activeOpacity={0.88}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setHistoryModalVisible(true);
-                  }}
-                >
-                  <View style={styles.scheduledHomeLeft}>
-                    <View style={styles.scheduledCalendarIconBadge}>
-                      <Calendar size={18} color="#9333EA" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={[styles.scheduledHomeTitle, theme === 'dark' && styles.textWhite]}>
-                          Upcoming Chauffeur
-                        </Text>
-                        <View style={styles.scheduledBadgePill}>
-                          <Text style={styles.scheduledBadgeText}>Guaranteed</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.scheduledHomeTimeText} numberOfLines={1}>
-                        {activeScheduledBooking.scheduled_at
-                          ? new Date(activeScheduledBooking.scheduled_at).toLocaleDateString('en-IN', {
-                              weekday: 'short',
-                              day: 'numeric',
-                              month: 'short',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true,
-                            })
-                          : 'Advance Booking'}
-                      </Text>
-                      <Text
-                        style={[styles.scheduledHomeRouteText, theme === 'dark' && styles.textMutedDark]}
-                        numberOfLines={1}
-                      >
-                        {activeScheduledBooking.pickup_area || 'Pickup'} → {activeScheduledBooking.drop_area || 'Destination'}
-                      </Text>
-                      {dispatchStatus && (
-                        <Text style={[
-                          styles.scheduledHomeRouteText,
-                          { marginTop: 4, fontWeight: '700',
-                            color: dispatchStatus.urgency === 'active' ? '#EF4444' : dispatchStatus.urgency === 'soon' ? '#D97706' : '#7C3AED'
-                          }
-                        ]}>
-                          {dispatchStatus.label}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.scheduledHomeActionBtn}>
-                    <Text style={styles.scheduledHomeActionText}>Manage →</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* ── ACTIVE / SEARCHING RIDE RESUME BANNER ── */}
-              {currentResumableBooking && (
-                <TouchableOpacity
-                  style={[styles.resumeRideHomeCard, theme === 'dark' && styles.resumeRideHomeCardDark]}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setActiveBooking(currentResumableBooking);
-                    setPendingSearchBooking(null);
-                    setStep(4);
-                  }}
-                >
-                  <View style={styles.resumeRideLeft}>
-                    <View style={styles.resumeRidePulseContainer}>
-                      <View style={styles.resumeRidePulseRing} />
-                      <View style={styles.resumeRidePulseDot} />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={[styles.resumeRideTitle, theme === 'dark' && styles.textWhite]}>
-                        {currentResumableBooking.status === 'searching'
-                          ? 'Searching for EV Chauffeur…'
-                          : 'Ride in Progress'}
-                      </Text>
-                      <Text
-                        style={[styles.resumeRideSubtitle, theme === 'dark' && styles.textMutedDark]}
-                        numberOfLines={1}
-                      >
-                        {currentResumableBooking.pickup_area || 'Pickup'} → {currentResumableBooking.drop_area || 'Destination'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.resumeRideActionBtn}>
-                    <Text style={styles.resumeRideActionText}>
-                      {currentResumableBooking.status === 'searching' ? 'Resume Booking →' : 'Track Ride →'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Pickup Row: "Where are you?" */}
-              <TouchableOpacity
-                style={styles.destStopRow}
-                activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSearchModalVisible(true);
-                }}
-              >
-                <View style={[styles.destOrangeHollowRing, theme === 'dark' && styles.destOrangeHollowRingDark]} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.destMicroLabel, theme === 'dark' && styles.textMutedDark]}>Where are you?</Text>
-                  <Text style={[styles.destPrimaryAddress, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
-                    {pickupText}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.destPinIconBtn, theme === 'dark' && styles.destPinIconBtnDark]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setPinPickerTarget('pickup');
-                    setPinCurrentCoords(pickupCoords);
-                    setPinAddressText(pickupText);
-                    setPinPickerActive(true);
-                  }}
-                >
-                  <MapIcon size={16} color={theme === 'dark' ? '#94A3B8' : '#9CA3AF'} />
-                </TouchableOpacity>
-              </TouchableOpacity>
-
-              {/* Vertical connector line */}
-              <View style={[styles.destConnectorLine, theme === 'dark' && styles.destConnectorLineDark]} />
-
-              {/* Intermediate Stop Row (if set) */}
-              {intermediateStop && (
-                <>
-                  <TouchableOpacity
-                    style={styles.destStopRow}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSearchTarget('stop');
-                      setSearchModalVisible(true);
-                    }}
-                  >
-                    <View style={styles.stopWaypointBox}>
-                      <Text style={styles.stopWaypointText}>1</Text>
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={[styles.destMicroLabel, { color: '#7C3AED' }]}>Stop 1 (Waypoint)</Text>
-                      <Text style={[styles.destPrimaryAddress, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
-                        {intermediateStop.name}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setIntermediateStop(null);
-                      }}
-                      style={{ padding: 6 }}
-                    >
-                      <X size={15} color="#EF4444" />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                  <View style={[styles.destConnectorLine, theme === 'dark' && styles.destConnectorLineDark]} />
-                </>
-              )}
-
-              {/* Destination Row: "Where you want to go?" */}
-              <TouchableOpacity
-                style={styles.destStopRow}
-                activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSearchTarget('drop');
-                  setSearchModalVisible(true);
-                }}
-              >
-                <View style={[styles.destCarIconBox, theme === 'dark' && styles.destCarIconBoxDark]}>
-                  <Car size={16} color={theme === 'dark' ? '#F97316' : '#18181B'} />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.destMicroLabel, theme === 'dark' && styles.textMutedDark]}>Drop Off</Text>
-                  <Text
-                    style={[
-                      dropLocation ? styles.destPrimaryAddress : styles.destPlaceholderText,
-                      theme === 'dark' && (dropLocation ? styles.textWhite : styles.destPlaceholderTextDark),
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {dropLocation ? dropLocation.name : 'Where you want to go?'}
-                  </Text>
-                </View>
-
-                {/* Schedule Ride Quick Action Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.destScheduleBtn,
-                    scheduledDate && styles.destScheduleBtnActive,
-                    theme === 'dark' && styles.destScheduleBtnDark,
-                  ]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setScheduleModalVisible(true);
-                  }}
-                >
-                  <Calendar size={13} color={scheduledDate ? '#FFFFFF' : '#F97316'} />
-                  <Text
-                    style={[
-                      styles.destScheduleBtnText,
-                      scheduledDate && styles.destScheduleBtnTextActive,
-                      theme === 'dark' && !scheduledDate && styles.textWhite,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {scheduledDate ? formatScheduleShort(scheduledDate) : 'Schedule'}
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.destSearchCircle, theme === 'dark' && styles.destSearchCircleDark]}>
-                  <Search size={15} color="#F97316" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Quick Filter Chips: Home, Work, Airport, Add Stop */}
-              <View style={[styles.minimalChipsRow, theme === 'dark' && styles.minimalChipsRowDark]}>
-                <TouchableOpacity
-                  style={[styles.minimalChip, intermediateStop && styles.minimalChipActiveStop, theme === 'dark' && styles.minimalChipDark]}
-                  activeOpacity={0.75}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSearchTarget('stop');
-                    setSearchModalVisible(true);
-                  }}
-                >
-                  <Text style={[styles.minimalChipText, intermediateStop && { color: '#7C3AED' }, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
-                    {intermediateStop ? '📍 Stop 1 Set' : '➕ Add Stop'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
-                  activeOpacity={0.75}
-                  onPress={handleQuickHome}
-                >
-                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
-                    🏠 Home
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
-                  activeOpacity={0.75}
-                  onPress={handleQuickWork}
-                >
-                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
-                    💼 Work
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
-                  activeOpacity={0.75}
-                  onPress={handleQuickAirport}
-                >
-                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
-                    ✈️ Airport
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* TALK TO ORANGE CONCIERGE QUICK BAR */}
-              <TouchableOpacity
-                style={[styles.homeTalkBanner, theme === 'dark' && styles.homeTalkBannerDark]}
-                activeOpacity={0.88}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setTalkToOrangeVisible(true);
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
-                  <View style={styles.homeTalkIconWrap}>
-                    <Sparkles size={14} color="#FFFFFF" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[styles.homeTalkTitle, theme === 'dark' && styles.textWhite]}>Talk to Orange</Text>
-                      <View style={styles.homeTalkBadge}>
-                        <Text style={styles.homeTalkBadgeText}>24x7 AI</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.homeTalkSub, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
-                      Ask fares, airport rules, EV features or chat live
-                    </Text>
-                  </View>
-                </View>
-                <ChevronRight size={15} color="#F97316" />
-              </TouchableOpacity>
-
-              {/* INSIDE EVERY ORANGE - AMENITIES SHOWCASE BANNER */}
-              <View style={[styles.homeAmenitiesBanner, theme === 'dark' && styles.homeAmenitiesBannerDark]}>
-                <View style={styles.homeAmenitiesHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Sparkles size={13} color="#F97316" />
-                    <Text style={[styles.homeAmenitiesTitle, theme === 'dark' && styles.textWhite]}>Inside Every Orange Ride</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 2, paddingHorizontal: 4 }}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setAmenitiesModalVisible(true);
-                    }}
-                  >
-                    <Text style={styles.homeAmenitiesViewAll}>Perks</Text>
-                    <ChevronRight size={13} color="#F97316" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  nestedScrollEnabled={true}
-                  contentContainerStyle={styles.homeAmenitiesScroll}
-                >
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>📺 In-Seat HD Screen</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🎵 Studio Acoustics</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>💧 Bottled Water</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>📰 Daily Papers</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>❄️ Pre-Cooled AC</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>⚡ BE.6 Luxury EV</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🔌 Type-C Chargers</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🛡️ Zero Surge Pricing</Text>
-                  </View>
-                  <View style={[styles.homeAmenityPill, theme === 'dark' && styles.homeAmenityPillDark]}>
-                    <Text style={[styles.homeAmenityPillText, theme === 'dark' && styles.homeAmenityPillTextDark]}>🌿 100% Electric</Text>
-                  </View>
-                </ScrollView>
-              </View>
-            </View>
-
-            {/* Floating Bottom Navigation Dock with Elevated Taxi FAB (Option B) */}
-            <View
-              style={[
-                styles.floatingNavDock,
-                theme === 'dark' && styles.floatingNavDockDark,
-                { bottom: Math.max(insets.bottom, 12) },
-              ]}
+            {/* History Tab */}
+            <TouchableOpacity
+              style={styles.navDockItem}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setHistoryModalVisible(true);
+              }}
             >
-              {/* Home Tab */}
-              <TouchableOpacity
-                style={styles.navDockItem}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActiveTab('home');
-                }}
-              >
-                <Navigation size={22} color={activeTab === 'home' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
-                {activeTab === 'home' && <View style={styles.activeTabIndicator} />}
-              </TouchableOpacity>
+              <Clock size={22} color={theme === 'dark' ? '#64748B' : '#9CA3AF'} />
+            </TouchableOpacity>
 
-              {/* History Tab */}
-              <TouchableOpacity
-                style={styles.navDockItem}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActiveTab('history');
-                  setHistoryModalVisible(true);
-                }}
-              >
-                <Clock size={22} color={activeTab === 'history' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
-                {activeTab === 'history' && <View style={styles.activeTabIndicator} />}
-                {activeScheduledBooking && activeTab !== 'history' && (
-                  <View style={styles.navDockScheduledDot} />
-                )}
-              </TouchableOpacity>
+            {/* Elevated Center Taxi FAB - Active on Booking */}
+            <TouchableOpacity
+              style={[styles.navDockCenterFab, theme === 'dark' && styles.navDockCenterFabDark]}
+              activeOpacity={0.88}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Car size={26} color="#FFFFFF" />
+            </TouchableOpacity>
 
-              {/* Elevated Center Taxi FAB */}
-              <TouchableOpacity
-                style={[styles.navDockCenterFab, theme === 'dark' && styles.navDockCenterFabDark]}
-                activeOpacity={0.88}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                  if (currentResumableBooking) {
-                    setActiveBooking(currentResumableBooking);
-                    setPendingSearchBooking(null);
-                    setStep(4);
-                  } else if (dropLocation && dropLocation.name) {
-                    setStep(2);
-                  } else {
-                    setSearchModalVisible(true);
-                  }
-                }}
-              >
-                <Car size={26} color="#FFFFFF" />
-                {currentResumableBooking && <View style={styles.navDockActiveDot} />}
-              </TouchableOpacity>
+            {/* Talk to Orange / Concierge Tab */}
+            <TouchableOpacity
+              style={styles.navDockItem}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setTalkToOrangeVisible(true);
+              }}
+            >
+              <MessageSquare size={22} color={theme === 'dark' ? '#64748B' : '#9CA3AF'} />
+            </TouchableOpacity>
 
-              {/* Talk to Orange / Concierge Tab */}
-              <TouchableOpacity
-                style={styles.navDockItem}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActiveTab('chat');
-                  setTalkToOrangeVisible(true);
-                }}
-              >
-                <MessageSquare size={22} color={activeTab === 'chat' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
-                {activeTab === 'chat' && <View style={styles.activeTabIndicator} />}
-              </TouchableOpacity>
-
-              {/* Settings / Profile Tab */}
-              <TouchableOpacity
-                style={styles.navDockItem}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActiveTab('profile');
-                  setProfileModalVisible(true);
-                }}
-              >
-                <UserIcon size={22} color={activeTab === 'profile' ? '#F97316' : (theme === 'dark' ? '#64748B' : '#9CA3AF')} />
-                {activeTab === 'profile' && <View style={styles.activeTabIndicator} />}
-              </TouchableOpacity>
-            </View>
+            {/* Settings / Profile Tab */}
+            <TouchableOpacity
+              style={styles.navDockItem}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setProfileModalVisible(true);
+              }}
+            >
+              <UserIcon size={22} color={theme === 'dark' ? '#64748B' : '#9CA3AF'} />
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
+        ) : null}
 
         {/* ================================================================= */}
         {/* DEDICATED LOCATION SEARCH MODAL (UBER / OLA STYLE)                */}
