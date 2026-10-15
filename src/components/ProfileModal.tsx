@@ -135,10 +135,19 @@ export function ProfileModal({
       theme: { color: '#F97316' }
     };
 
-    RazorpayCheckout.open(options).then((data: any) => {
+    RazorpayCheckout.open(options).then(async (data: any) => {
       // success
       Alert.alert('Recharge Successful', `Successfully added ₹${amount} to your Orange Wallet!\nPayment ID: ${data.razorpay_payment_id}`);
       setWalletBalance((prev: number) => prev + amount);
+      if (user?.id) {
+        try {
+          const { data: prof } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).maybeSingle();
+          const current = Number(prof?.wallet_balance) || 0;
+          await supabase.from('profiles').update({ wallet_balance: current + amount }).eq('id', user.id);
+        } catch (e) {
+          console.warn('Could not sync wallet balance to database:', e);
+        }
+      }
     }).catch((error: any) => {
       // error
       Alert.alert('Payment Failed', `Transaction was cancelled or failed.\nError: ${error.code} | ${error.description}`);
@@ -594,6 +603,43 @@ export function ProfileModal({
         },
       },
     ]);
+  }
+
+  async function confirmDeleteAccount() {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Permanently Delete Account?',
+      'Under Section 12 of the Digital Personal Data Protection (DPDP) Act, 2023 (Right to Erasure), your personal profile, addresses, and credentials will be permanently erased. All active rides must be completed first.\n\nAre you sure you want to proceed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Erase My Data & Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              const { data, error } = await (supabase as any).rpc('delete_user_account');
+              if (error) {
+                Alert.alert(
+                  'Account Deletion Notice',
+                  error.message || 'Could not delete account. Please complete any active rides and try again, or contact privacy@orange-taxi.com'
+                );
+                return;
+              }
+              try {
+                await AsyncStorage.clear();
+              } catch {}
+              await supabase.auth.signOut();
+              onDismiss();
+              onSignOut();
+              Alert.alert('Account Erased', data?.message || 'Your account and personal data have been permanently erased in compliance with the DPDP Act, 2023.');
+            } catch (err: any) {
+              Alert.alert('Notice', err.message || 'Failed to complete erasure request.');
+            }
+          },
+        },
+      ]
+    );
   }
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Rider';
@@ -1323,10 +1369,23 @@ export function ProfileModal({
 
             {/* SIGN OUT OR SIGN IN BUTTON */}
             {user ? (
-              <TouchableOpacity style={styles.signOutCard} onPress={confirmSignOut}>
-                <LogOut size={16} color="#EF4444" />
-                <Text style={styles.signOutText}>Sign Out of Orange Taxi</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity style={styles.signOutCard} onPress={confirmSignOut}>
+                  <LogOut size={16} color="#EF4444" />
+                  <Text style={styles.signOutText}>Sign Out of Orange Taxi</Text>
+                </TouchableOpacity>
+
+                {/* DPDP Act Self-Service Account & Data Erasure */}
+                <TouchableOpacity
+                  style={[styles.deleteAccountCard, isDark && styles.deleteAccountCardDark]}
+                  onPress={confirmDeleteAccount}
+                >
+                  <Trash2 size={15} color="#94A3B8" />
+                  <Text style={[styles.deleteAccountText, isDark && styles.deleteAccountTextDark]}>
+                    Delete Account & Personal Data (DPDP Act)
+                  </Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <TouchableOpacity
                 style={styles.signInCard}
@@ -2243,6 +2302,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#EF4444',
+  },
+  deleteAccountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingVertical: 13,
+  },
+  deleteAccountCardDark: {
+    backgroundColor: '#0F1218',
+    borderColor: '#232936',
+  },
+  deleteAccountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  deleteAccountTextDark: {
+    color: '#94A3B8',
   },
   signInCard: {
     flexDirection: 'row',

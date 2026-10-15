@@ -578,6 +578,18 @@ export function RideHistoryModal({
                         </TouchableOpacity>
                       ) : null}
 
+                      {trip.status === 'completed' && (
+                        <TouchableOpacity
+                          style={[styles.invoiceActionBtn, isDark && styles.invoiceActionBtnDark]}
+                          onPress={() => handleViewInvoice(trip)}
+                        >
+                          <Receipt size={14} color={isDark ? '#34D399' : '#059669'} />
+                          <Text style={[styles.invoiceActionText, isDark && styles.invoiceActionTextDark]}>
+                            GST Tax Invoice
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
                       {!isScheduled && (
                         <TouchableOpacity
                           style={[styles.repeatActionBtn, isDark && styles.repeatActionBtnDark]}
