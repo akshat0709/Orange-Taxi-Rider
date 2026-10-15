@@ -205,10 +205,14 @@ export function LocationSearchModal({
         lng: resolvedItem.lng,
         city: resolvedItem.city,
       });
-      // Switch focus to destination
-      setActiveField('drop');
-      dropInputRef.current?.focus();
-      executeSearch(dropInput, activeCity);
+      // If dropoff is already selected, close modal so user can proceed to booking
+      if (dropLocation && dropLocation.name) {
+        onClose();
+      } else {
+        setActiveField('drop');
+        dropInputRef.current?.focus();
+        executeSearch(dropInput, activeCity);
+      }
     } else if (activeField === 'stop') {
       setStopInput(resolvedItem.name);
       onSelectStop?.(resolvedItem);

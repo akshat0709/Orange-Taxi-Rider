@@ -189,6 +189,30 @@ export function detectCityFromName(cityNameStr?: string): 'Delhi NCR' | 'Bengalu
   return detectCityFromCoordsAndName(12.9784, 77.6408, cityNameStr);
 }
 
+export function getAirportForCityOrCoords(
+  city?: string,
+  coords?: { lat: number; lng: number }
+): LocationItem {
+  const airportPresets = EXPANDED_PRESETS.filter((p) => p.isAirport);
+  if (coords && coords.lat && coords.lng && !isNaN(coords.lat) && !isNaN(coords.lng)) {
+    let closest = airportPresets[0];
+    let minDist = Infinity;
+    for (const a of airportPresets) {
+      const d = haversineDistance(coords.lat, coords.lng, a.lat, a.lng);
+      if (d < minDist) {
+        minDist = d;
+        closest = a;
+      }
+    }
+    if (closest) return closest;
+  }
+
+  const cityMatch = airportPresets.find((p) => p.city === city);
+  if (cityMatch) return cityMatch;
+
+  return airportPresets[0]; // default IGI Airport T3
+}
+
 // ---------------------------------------------------------------------------
 // ROBUST CROSS-PLATFORM REVERSE GEOCODING (Native + BigDataCloud + OSM)
 // ---------------------------------------------------------------------------

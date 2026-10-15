@@ -18,6 +18,7 @@ import { ScheduleModal } from '../components/ScheduleModal';
 import { TalkToOrangeModal } from '../components/TalkToOrangeModal';
 import { WalletModal } from '../components/WalletModal';
 import { RouteDeviationModal } from '../components/RouteDeviationModal';
+import { useFocusEffect } from '@react-navigation/native';
 
 export const HomeScreen = ({ navigation }: any) => {
   const context = useRideContext();
@@ -27,6 +28,12 @@ export const HomeScreen = ({ navigation }: any) => {
   const homeScrollRef = React.useRef<ScrollView>(null);
   const [promoPillVisible, setPromoPillVisible] = React.useState<boolean>(true);
   const { setStep } = context;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setStep(1);
+    }, [setStep])
+  );
 
   return (
     <View style={[styles.container, theme === 'dark' && styles.containerDark]}>
@@ -1238,10 +1245,11 @@ export const HomeScreen = ({ navigation }: any) => {
               <TouchableOpacity
                 style={[styles.uberRecentCard, theme === 'dark' && styles.uberRecentCardDark]}
                 activeOpacity={0.85}
-                onPress={() => {
+                onPress={async () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleQuickAirport();
+                  await handleQuickAirport();
                   setStep(2);
+                  navigation?.navigate('Booking');
                 }}
               >
                 <View style={[styles.uberRecentClockCircle, theme === 'dark' && styles.uberRecentClockCircleDark]}>
@@ -1352,10 +1360,11 @@ export const HomeScreen = ({ navigation }: any) => {
                       <TouchableOpacity
                         style={[styles.uberBannerBtn, { backgroundColor: '#3B82F6' }]}
                         activeOpacity={0.88}
-                        onPress={() => {
+                        onPress={async () => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          handleQuickAirport();
+                          await handleQuickAirport();
                           setStep(2);
+                          navigation?.navigate('Booking');
                         }}
                       >
                         <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Book Airport</Text>
@@ -1391,7 +1400,13 @@ export const HomeScreen = ({ navigation }: any) => {
                     activeOpacity={0.85}
                     onPress={() => {
                       Haptics.selectionAsync();
-                      setStep(2);
+                      if (!dropLocation) {
+                        setSearchTarget('drop');
+                        setSearchModalVisible(true);
+                      } else {
+                        setStep(2);
+                        navigation?.navigate('Booking');
+                      }
                     }}
                   >
                     <View style={styles.uberGridBadgeContainer}>
@@ -1407,10 +1422,11 @@ export const HomeScreen = ({ navigation }: any) => {
                   <TouchableOpacity
                     style={styles.uberGridItem}
                     activeOpacity={0.85}
-                    onPress={() => {
+                    onPress={async () => {
                       Haptics.selectionAsync();
-                      handleQuickAirport();
+                      await handleQuickAirport();
                       setStep(2);
+                      navigation?.navigate('Booking');
                     }}
                   >
                     <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#3B82F6' }]}>
@@ -1496,10 +1512,11 @@ export const HomeScreen = ({ navigation }: any) => {
                   <TouchableOpacity
                     style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
                     activeOpacity={0.88}
-                    onPress={() => {
+                    onPress={async () => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      handleQuickAirport();
+                      await handleQuickAirport();
                       setStep(2);
+                      navigation?.navigate('Booking');
                     }}
                   >
                     <View style={styles.uberCarouselCardImgBox}>
@@ -1840,8 +1857,13 @@ export const HomeScreen = ({ navigation }: any) => {
                     setActiveBooking(currentResumableBooking);
                     setPendingSearchBooking(null);
                     setStep(4);
+                    navigation?.navigate('ActiveRide');
+                  } else if (!dropLocation) {
+                    setSearchTarget('drop');
+                    setSearchModalVisible(true);
                   } else {
                     setStep(2);
+                    navigation?.navigate('Booking');
                   }
                 }}
               >

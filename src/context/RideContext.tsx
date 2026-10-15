@@ -26,6 +26,7 @@ import {
   searchPlaces,
   isCoordinateInIndia,
   reverseGeocodeCoordSafe,
+  getAirportForCityOrCoords,
 } from '../lib/locationService';
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -858,6 +859,8 @@ function handleConfirmPinPicker() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (isBookingPinConfirm) {
+      setPinPickerActive(false);
+      setIsBookingPinConfirm(false);
       setPickupCoords(pinCurrentCoords);
       setPickupText(pinAddressText);
       executeBookingSubmission(pinCurrentCoords, pinAddressText);
@@ -867,6 +870,10 @@ function handleConfirmPinPicker() {
     if (pinPickerTarget === 'pickup') {
       setPickupCoords(pinCurrentCoords);
       setPickupText(pinAddressText);
+      setPinPickerActive(false);
+      if (dropLocation) {
+        setStep(2); // Return smoothly to booking screen with updated pickup
+      }
     } else {
       setDropLocation({
         id: `custom-pin-${Date.now()}`,
@@ -877,9 +884,9 @@ function handleConfirmPinPicker() {
         lng: pinCurrentCoords.lng,
         tag: '📍 Custom Pin',
       });
+      setPinPickerActive(false);
       setStep(2); // Proceed to ride selection
     }
-    setPinPickerActive(false);
   }
 
 async function handleConfirmBooking() {
@@ -896,7 +903,6 @@ async function handleConfirmBooking() {
       return;
     }
 
-
     if (paymentMethod === 'wallet' && walletBalance < totalEstimatedFare) {
       Alert.alert(
         'Insufficient Wallet Balance',
@@ -906,17 +912,9 @@ async function handleConfirmBooking() {
       return;
     }
 
-    // Direct the user to drop the pin at their exact pickup location!
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPinPickerTarget('pickup');
-    setPinCurrentCoords(pickupCoords);
-    setPinAddressText(pickupText);
-    setIsBookingPinConfirm(true);
-    setPinPickerActive(true);
-    
-    // IMPORTANT: Since we use React Navigation, we MUST explicitly return to the Home screen (step 1)
-    // where the Pin Picker overlay is physically rendered over the map!
-    setStep(1);
+    // Direct booking execution with selected pickup & drop locations
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    await executeBookingSubmission(pickupCoords, pickupText);
   }
 
 async function executeBookingSubmission(finalCoords?: { lat: number; lng: number }, finalAddress?: string) {
@@ -1125,11 +1123,12 @@ async function handleQuickWork() {
 
 async function handleQuickAirport() {
     Haptics.selectionAsync();
-    const matches = await searchPlaces('Airport', activeCity, pickupCoords);
-    if (matches.length > 0) {
-      setDropLocation(matches[0]);
+    const airport = getAirportForCityOrCoords(activeCity, pickupCoords);
+    if (airport) {
+      setDropLocation(airport);
       setStep(2);
     } else {
+      setSearchTarget('drop');
       setSearchModalVisible(true);
     }
   }

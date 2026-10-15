@@ -193,6 +193,7 @@ const { setStep } = context;
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setStep(1);
+                navigation?.navigate('Home');
               }}
             >
               <ArrowLeft size={19} color={theme === 'dark' ? '#F8FAFC' : '#18181B'} />
@@ -214,6 +215,7 @@ const { setStep } = context;
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setStep(1);
+                navigation?.navigate('Home');
               }}
               accessibilityLabel="Home"
             >
@@ -1111,7 +1113,10 @@ const { setStep } = context;
               <View style={styles.bookCtaRow}>
                 <TouchableOpacity
                   style={[styles.secondaryBackBtn, theme === 'dark' && styles.secondaryBackBtnDark]}
-                  onPress={() => setStep(1)}
+                  onPress={() => {
+                    setStep(1);
+                    navigation?.navigate('Home');
+                  }}
                 >
                   <ArrowLeft size={18} color="#9CA3AF" />
                 </TouchableOpacity>
@@ -1155,6 +1160,7 @@ const { setStep } = context;
               onPress={() => {
                 Haptics.selectionAsync();
                 setStep(1);
+                navigation?.navigate('Home');
               }}
             >
               <Home size={22} color={theme === 'dark' ? '#64748B' : '#9CA3AF'} />
@@ -1177,6 +1183,15 @@ const { setStep } = context;
               activeOpacity={0.88}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (currentResumableBooking) {
+                  setActiveBooking(currentResumableBooking);
+                  setPendingSearchBooking(null);
+                  setStep(4);
+                  navigation?.navigate('ActiveRide');
+                } else if (!dropLocation) {
+                  setSearchTarget('drop');
+                  setSearchModalVisible(true);
+                }
               }}
             >
               <Car size={26} color="#FFFFFF" />
