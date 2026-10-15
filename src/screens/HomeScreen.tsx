@@ -25,7 +25,6 @@ export const HomeScreen = ({ navigation }: any) => {
   const { height } = Dimensions.get('window');
   const step: number = 1;
   const homeScrollRef = React.useRef<ScrollView>(null);
-  const [activeCategory, setActiveCategory] = React.useState<'rides' | 'parcel'>('rides');
   const [promoPillVisible, setPromoPillVisible] = React.useState<boolean>(true);
   const { setStep } = context;
 
@@ -1203,35 +1202,6 @@ export const HomeScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               )}
 
-              {/* ── UBER-STYLE TOP CATEGORY SELECTOR (RIDES / PARCEL) ── */}
-              <View style={styles.uberCategoryNav}>
-                <TouchableOpacity
-                  style={[styles.uberCategoryTab, activeCategory === 'rides' && (theme === 'dark' ? styles.uberCategoryTabActiveDark : styles.uberCategoryTabActive)]}
-                  activeOpacity={0.8}
-                  onPress={() => setActiveCategory('rides')}
-                >
-                  <Car size={18} color={activeCategory === 'rides' ? (theme === 'dark' ? '#FFFFFF' : '#0F172A') : (theme === 'dark' ? '#94A3B8' : '#64748B')} />
-                  <Text style={[styles.uberCategoryTabText, activeCategory === 'rides' ? (theme === 'dark' ? styles.textWhite : { color: '#0F172A' }) : { color: theme === 'dark' ? '#94A3B8' : '#64748B' }]}>
-                    Rides
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.uberCategoryTab, activeCategory === 'parcel' && (theme === 'dark' ? styles.uberCategoryTabActiveDark : styles.uberCategoryTabActive)]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setActiveCategory('parcel');
-                    Alert.alert('Orange Courier / Parcel', '100% Electric, direct door-to-door parcel delivery is launching shortly in your city.');
-                    setTimeout(() => setActiveCategory('rides'), 2500);
-                  }}
-                >
-                  <Package size={18} color={activeCategory === 'parcel' ? (theme === 'dark' ? '#FFFFFF' : '#0F172A') : (theme === 'dark' ? '#94A3B8' : '#64748B')} />
-                  <Text style={[styles.uberCategoryTabText, activeCategory === 'parcel' ? (theme === 'dark' ? styles.textWhite : { color: '#0F172A' }) : { color: theme === 'dark' ? '#94A3B8' : '#64748B' }]}>
-                    Parcel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
               {/* ── UBER SIGNATURE "WHERE TO?" BAR WITH INTEGRATED [📅 LATER] PILL ── */}
               <View style={[styles.uberWhereToContainer, theme === 'dark' && styles.uberWhereToContainerDark]}>
                 <TouchableOpacity
@@ -1288,7 +1258,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 <ChevronRight size={18} color={theme === 'dark' ? '#64748B' : '#94A3B8'} />
               </TouchableOpacity>
 
-              {/* ── UBER-STYLE SWIPEABLE FEATURE BANNERS CAROUSEL ── */}
+              {/* ── UBER-STYLE SWIPEABLE FEATURE BANNERS CAROUSEL (MAHINDRA BE.6 SIGNATURE) ── */}
               <View style={styles.uberBannerCarouselContainer}>
                 <ScrollView
                   horizontal
@@ -1297,11 +1267,12 @@ export const HomeScreen = ({ navigation }: any) => {
                   decelerationRate="fast"
                   snapToInterval={Dimensions.get('window').width - 56 + 12}
                 >
-                  {/* Banner 1: Quality rides, every time (Golden Yellow - Exact Uber Match) */}
+                  {/* Banner 1: Mahindra BE.6 Signature EV Flagship (Golden Yellow) */}
                   <View style={[styles.uberBannerCard, { backgroundColor: '#FDE047' }]}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.uberBannerBadge, { color: '#0F172A' }]}>⚡ 100% PURE ELECTRIC FLAGSHIP</Text>
                       <Text style={[styles.uberBannerTitle, { color: '#0F172A' }]}>
-                        Quality rides,{'\n'}every time
+                        Mahindra BE.6{'\n'}Signature EV
                       </Text>
                       <TouchableOpacity
                         style={[styles.uberBannerBtn, { backgroundColor: '#0F172A' }]}
@@ -1311,7 +1282,7 @@ export const HomeScreen = ({ navigation }: any) => {
                           setStep(2);
                         }}
                       >
-                        <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Book Intercity</Text>
+                        <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Book Signature Ride</Text>
                       </TouchableOpacity>
                     </View>
                     <Image
@@ -1349,9 +1320,9 @@ export const HomeScreen = ({ navigation }: any) => {
                   {/* Banner 3: 100% Pure Electric EV (Emerald Green) */}
                   <View style={[styles.uberBannerCard, { backgroundColor: '#065F46' }]}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
-                      <Text style={[styles.uberBannerBadge, { color: '#34D399' }]}>🌿 100% PURE ELECTRIC FLEET</Text>
+                      <Text style={[styles.uberBannerBadge, { color: '#34D399' }]}>🌿 ZERO EMISSIONS</Text>
                       <Text style={[styles.uberBannerTitle, { color: '#FFFFFF' }]}>
-                        Zero Emissions,{'\n'}Corporate GST
+                        Spotless EV Cab,{'\n'}Corporate GST
                       </Text>
                       <TouchableOpacity
                         style={[styles.uberBannerBtn, { backgroundColor: '#10B981' }]}
@@ -1399,7 +1370,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 </ScrollView>
               </View>
 
-              {/* ── "FOR YOU" 8-SERVICE QUICK GRID ── */}
+              {/* ── "FOR YOU" 4 CORE CAB SERVICES (MAHINDRA BE.6 EXCLUSIVE) ── */}
               <View style={{ marginBottom: 20 }}>
                 <TouchableOpacity
                   style={styles.uberSectionHeaderRow}
@@ -1409,12 +1380,12 @@ export const HomeScreen = ({ navigation }: any) => {
                     setStep(2);
                   }}
                 >
-                  <Text style={[styles.uberSectionTitle, theme === 'dark' && styles.textWhite]}>For you</Text>
+                  <Text style={[styles.uberSectionTitle, theme === 'dark' && styles.textWhite]}>Mahindra BE.6 Services</Text>
                   <ChevronRight size={18} color={theme === 'dark' ? '#94A3B8' : '#64748B'} />
                 </TouchableOpacity>
 
                 <View style={styles.uberForYouGrid}>
-                  {/* 1. Trip */}
+                  {/* 1. Daily Cab */}
                   <TouchableOpacity
                     style={styles.uberGridItem}
                     activeOpacity={0.85}
@@ -1424,84 +1395,15 @@ export const HomeScreen = ({ navigation }: any) => {
                     }}
                   >
                     <View style={styles.uberGridBadgeContainer}>
-                      <Text style={styles.uberGridBadgeText}>0% Surge</Text>
+                      <Text style={styles.uberGridBadgeText}>BE.6 EV</Text>
                     </View>
                     <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
                       <Car size={26} color="#F97316" />
                     </View>
-                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Trip</Text>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Daily Cab</Text>
                   </TouchableOpacity>
 
-                  {/* 2. Auto */}
-                  <TouchableOpacity
-                    style={styles.uberGridItem}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setStep(2);
-                    }}
-                  >
-                    <View style={styles.uberGridBadgeContainer}>
-                      <Text style={styles.uberGridBadgeText}>Instant</Text>
-                    </View>
-                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
-                      <Zap size={24} color="#10B981" />
-                    </View>
-                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Auto</Text>
-                  </TouchableOpacity>
-
-                  {/* 3. Bike Saver */}
-                  <TouchableOpacity
-                    style={styles.uberGridItem}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setStep(2);
-                    }}
-                  >
-                    <View style={styles.uberGridBadgeContainer}>
-                      <Text style={styles.uberGridBadgeText}>Eco</Text>
-                    </View>
-                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
-                      <Leaf size={24} color="#06B6D4" />
-                    </View>
-                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Bike Saver</Text>
-                  </TouchableOpacity>
-
-                  {/* 4. Intercity */}
-                  <TouchableOpacity
-                    style={styles.uberGridItem}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setStep(2);
-                    }}
-                  >
-                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#EF4444' }]}>
-                      <Text style={styles.uberGridBadgeText}>Outstation</Text>
-                    </View>
-                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
-                      <Navigation size={24} color="#8B5CF6" />
-                    </View>
-                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Intercity</Text>
-                  </TouchableOpacity>
-
-                  {/* 5. Rentals */}
-                  <TouchableOpacity
-                    style={styles.uberGridItem}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setScheduleModalVisible(true);
-                    }}
-                  >
-                    <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
-                      <Clock size={24} color="#F59E0B" />
-                    </View>
-                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Rentals</Text>
-                  </TouchableOpacity>
-
-                  {/* 6. Airport */}
+                  {/* 2. Airport */}
                   <TouchableOpacity
                     style={styles.uberGridItem}
                     activeOpacity={0.85}
@@ -1520,7 +1422,7 @@ export const HomeScreen = ({ navigation }: any) => {
                     <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Airport</Text>
                   </TouchableOpacity>
 
-                  {/* 7. Reserve */}
+                  {/* 3. Reserve Up to 7 Days */}
                   <TouchableOpacity
                     style={styles.uberGridItem}
                     activeOpacity={0.85}
@@ -1538,33 +1440,33 @@ export const HomeScreen = ({ navigation }: any) => {
                     <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Reserve</Text>
                   </TouchableOpacity>
 
-                  {/* 8. Corporate */}
+                  {/* 4. Hourly Rental */}
                   <TouchableOpacity
                     style={styles.uberGridItem}
                     activeOpacity={0.85}
                     onPress={() => {
                       Haptics.selectionAsync();
-                      setHistoryModalVisible(true);
+                      setScheduleModalVisible(true);
                     }}
                   >
-                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#6366F1' }]}>
-                      <Text style={styles.uberGridBadgeText}>GST</Text>
+                    <View style={[styles.uberGridBadgeContainer, { backgroundColor: '#8B5CF6' }]}>
+                      <Text style={styles.uberGridBadgeText}>Hourly</Text>
                     </View>
                     <View style={[styles.uberGridIconCircle, theme === 'dark' && styles.uberGridIconCircleDark]}>
-                      <Briefcase size={24} color="#6366F1" />
+                      <Clock size={24} color="#8B5CF6" />
                     </View>
-                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Corporate</Text>
+                    <Text style={[styles.uberGridLabel, theme === 'dark' && styles.textWhite]}>Hourly</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* ── SECTION 1: "RIDE AS YOU LIKE IT" (HORIZONTAL CARDS CAROUSEL) ── */}
+              {/* ── SECTION 1: "RIDE AS YOU LIKE IT" (MAHINDRA BE.6 CAROUSEL) ── */}
               <View style={{ marginBottom: 24 }}>
                 <Text style={[styles.uberSectionTitle, theme === 'dark' && styles.textWhite, { marginBottom: 14 }]}>
                   Ride as you like it
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
-                  {/* Card 1: Book Intercity */}
+                  {/* Card 1: Mahindra BE.6 Signature */}
                   <TouchableOpacity
                     style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
                     activeOpacity={0.88}
@@ -1582,22 +1484,21 @@ export const HomeScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.uberCarouselCardBody}>
                       <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
-                        Book Intercity
+                        Mahindra BE.6 Signature
                       </Text>
                       <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
-                        Travel outstation with ease
+                        Spotless executive EV with pre-cooled AC
                       </Text>
                     </View>
                   </TouchableOpacity>
 
-                  {/* Card 2: Try Orange Black */}
+                  {/* Card 2: Airport Concierge */}
                   <TouchableOpacity
                     style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
                     activeOpacity={0.88}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      const vip = vehicles.find((v: any) => v.code === 'ORANGE_VIP') || vehicles[0];
-                      if (vip) setSelectedVehicle(vip);
+                      handleQuickAirport();
                       setStep(2);
                     }}
                   >
@@ -1610,22 +1511,21 @@ export const HomeScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.uberCarouselCardBody}>
                       <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
-                        Try Orange Black
+                        Airport Concierge
                       </Text>
                       <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
-                        Elevated rides with top drivers
+                        Terminal 1 & 2 meet & greet in BE.6
                       </Text>
                     </View>
                   </TouchableOpacity>
 
-                  {/* Card 3: Airport Concierge */}
+                  {/* Card 3: Advance Reservation */}
                   <TouchableOpacity
                     style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
                     activeOpacity={0.88}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      handleQuickAirport();
-                      setStep(2);
+                      setScheduleModalVisible(true);
                     }}
                   >
                     <View style={styles.uberCarouselCardImgBox}>
@@ -1637,15 +1537,15 @@ export const HomeScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.uberCarouselCardBody}>
                       <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
-                        Airport Concierge
+                        Advance Reservation
                       </Text>
                       <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
-                        Terminal pickup with zero wait time
+                        Guaranteed BE.6 chauffeur arrives 10m early
                       </Text>
                     </View>
                   </TouchableOpacity>
 
-                  {/* Card 4: Hourly Rentals */}
+                  {/* Card 4: Hourly Rental */}
                   <TouchableOpacity
                     style={[styles.uberCarouselCard, theme === 'dark' && styles.uberCarouselCardDark]}
                     activeOpacity={0.88}
@@ -1666,7 +1566,7 @@ export const HomeScreen = ({ navigation }: any) => {
                         Hourly Chauffeur
                       </Text>
                       <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
-                        Chauffeur at your disposal for hours
+                        Mahindra BE.6 at your disposal for hours
                       </Text>
                     </View>
                   </TouchableOpacity>

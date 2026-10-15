@@ -65,13 +65,13 @@ export function extractPlateFromVehicleName(vehicleName?: string | null): string
  * "Orange Signature [KA 01 EV 4421]" -> "Orange Signature"
  */
 export function cleanVehicleModelName(vehicleName?: string | null): string {
-  if (!vehicleName) return 'Mahindra BE.6 Luxury EV';
+  if (!vehicleName) return 'Mahindra BE 6 Signature';
   const cleaned = vehicleName
     .split('·')[0]
     .split('[')[0]
     .split('(')[0]
     .trim();
-  return cleaned || 'Mahindra BE.6 Luxury EV';
+  return cleaned || 'Mahindra BE 6 Signature';
 }
 
 /**
@@ -180,16 +180,12 @@ export function getResolvedVehicleDetails(
 
   // d) Fallback model
   if (!model) {
-    model = isPartner ? 'Tata Nexon EV Max' : 'Mahindra BE.6 Luxury EV';
+    model = 'Mahindra BE 6 Signature';
   }
 
-  // If model is just "Orange Signature", append luxury EV subtitle for premium clarity
-  if (model.toLowerCase() === 'orange sedan') {
-    model = 'Mahindra BE.6 Luxury EV';
-  } else if (model.toLowerCase() === 'orange go') {
-    model = 'Tata Tiago EV';
-  } else if (model.toLowerCase() === 'orange xl') {
-    model = 'BYD e6 Executive EV';
+  // Ensure consistent branding for launch
+  if (['orange sedan', 'orange go', 'orange xl', 'orange signature'].includes(model.toLowerCase())) {
+    model = 'Mahindra BE 6 Signature';
   }
 
   return {

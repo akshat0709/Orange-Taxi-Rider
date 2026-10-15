@@ -555,9 +555,9 @@ async function checkActiveRide(userId?: string) {
 
 async function initApp() {
     try {
-      // 1. Hardcode single vehicle category (Orange Signature)
+      // 1. Hardcode single vehicle category (Mahindra BE 6 Signature)
       const defaults: VehicleCategory[] = [
-        { id: '1', code: 'ORANGE_SIGNATURE', name: 'Orange Signature', tagline: 'Spotless, Pre-Cooled Mahindra BE 6 EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 }
+        { id: '1', code: 'ORANGE_SIGNATURE', name: 'Mahindra BE 6 Signature', tagline: 'Spotless, Pre-Cooled Mahindra BE 6 EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 }
       ];
       setVehicles(defaults);
       setSelectedVehicle(defaults[0]);
@@ -955,8 +955,8 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
           drop_address: effectiveDropAddress,
           distance_km: distKm,
           duration_min: durationMin,
-          vehicle_code: selectedVehicle?.code || 'ORANGE_SEDAN',
-          vehicle_name: selectedVehicle?.name || 'Orange Signature',
+          vehicle_code: selectedVehicle?.code || 'ORANGE_SIGNATURE',
+          vehicle_name: selectedVehicle?.name || 'Mahindra BE 6 Signature',
           base_fare: baseFare,
           distance_fare: distanceFare,
           tax_amount: taxAmount,
