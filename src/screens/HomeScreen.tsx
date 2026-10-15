@@ -2074,6 +2074,25 @@ const { setStep } = context;
                     : 'Already have an account? Sign In'}
                 </Text>
               </TouchableOpacity>
+
+              <View style={{ marginTop: 16, marginBottom: 8, paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: 11, color: theme === 'light' ? '#64748B' : '#94A3B8', textAlign: 'center', lineHeight: 16 }}>
+                  By continuing, you agree to Orange Taxi&apos;s{' '}
+                  <Text
+                    style={{ color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}
+                    onPress={() => Linking.openURL('https://orange-taxi.com/privacy')}
+                  >
+                    Privacy Policy
+                  </Text>{' '}
+                  and{' '}
+                  <Text
+                    style={{ color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}
+                    onPress={() => Linking.openURL('https://orange-taxi.com/terms')}
+                  >
+                    Terms of Service
+                  </Text>.
+                </Text>
+              </View>
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
