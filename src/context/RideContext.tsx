@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 
 
 import { supabase } from '../lib/supabase';
-import { VehicleCategory, Booking, Driver } from '../types';
+import { VehicleCategory, Booking, Driver, CustomSavedPlace } from '../types';
 import { getResolvedVehicleDetails } from '../lib/rideVehicle';
 import { haversineMeters } from '../components/RideMap';
 import { HourlyPackage } from '../components/HourlyRentalModal';
@@ -230,6 +230,12 @@ const [savedHomeAddress, setSavedHomeAddress] = useState('');
 
 const [savedWorkAddress, setSavedWorkAddress] = useState('');
 
+const [hasToll, setHasToll] = useState<boolean>(false);
+const [tollFare, setTollFare] = useState<number>(0);
+const [tollDetails, setTollDetails] = useState<string>('');
+
+const [customSavedPlaces, setCustomSavedPlaces] = useState<CustomSavedPlace[]>([]);
+
 const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
 useEffect(() => {
@@ -343,6 +349,14 @@ useEffect(() => {
     }).catch(() => {});
     AsyncStorage.getItem('@orange_user_work_address').then((stored) => {
       if (stored) setSavedWorkAddress(stored);
+    }).catch(() => {});
+    AsyncStorage.getItem('@orange_custom_saved_places').then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setCustomSavedPlaces(parsed);
+        } catch {}
+      }
     }).catch(() => {});
 
     initApp();
@@ -620,7 +634,7 @@ const distanceFare = Math.round(perKm * distKm);
 
 const stopFare = intermediateStop ? 35 : 0;
 
-const preTax = Math.max(minFare, baseFare + distanceFare + stopFare);
+const preTax = Math.max(minFare, baseFare + distanceFare + stopFare + tollFare);
 
 const taxAmount = Math.round(preTax * 0.05);
 
@@ -643,28 +657,71 @@ const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: num
           const origin = `${pickupCoords.lat},${pickupCoords.lng}`;
           const dest = `${dropLocation.lat},${dropLocation.lng}`;
           const API_KEY = "AIzaSyD-IOH9cMppWtKjw_zn-m7XOE3ut62HVX8";
-          const res = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${dest}&key=${API_KEY}`);
-          const json = await res.json();
-          if (json.rows?.[0]?.elements?.[0]?.status === 'OK') {
-            const meters = json.rows[0].elements[0].distance.value;
-            const seconds = json.rows[0].elements[0].duration.value;
+          
+          // Google Directions API for exact route distance, duration and toll detection
+          const dirRes = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&key=${API_KEY}`);
+          const dirJson = await dirRes.json();
+
+          if (dirJson.status === 'OK' && dirJson.routes && dirJson.routes.length > 0) {
+            const route = dirJson.routes[0];
+            const leg = route.legs?.[0];
+            const meters = leg ? leg.distance.value : 0;
+            const seconds = leg ? leg.duration.value : 0;
             setDistKm(meters / 1000);
             setDurationMin(Math.round(seconds / 60));
+
+            const warningsStr = (route.warnings || []).join(' ').toLowerCase();
+            const summaryStr = (route.summary || '').toLowerCase();
+            const dropStr = ((dropLocation.name || '') + ' ' + (dropLocation.subtitle || '')).toLowerCase();
+            const pickStr = (pickupText || '').toLowerCase();
+
+            const isAirport = dropStr.includes('airport') || dropStr.includes('kempegowda') || dropStr.includes('kia') || pickStr.includes('airport') || pickStr.includes('kempegowda') || pickStr.includes('kia');
+            const isNiceRoad = summaryStr.includes('nice') || warningsStr.includes('nice') || dropStr.includes('nice') || pickStr.includes('nice');
+            const hasTollWarning = warningsStr.includes('toll') || isAirport || isNiceRoad;
+
+            if (hasTollWarning) {
+              setHasToll(true);
+              const tollAmt = isAirport ? 115 : isNiceRoad ? 95 : 110;
+              setTollFare(tollAmt);
+              setTollDetails(isAirport ? 'Airport Expressway Toll Included' : 'Highway / Expressway Toll Included');
+            } else {
+              setHasToll(false);
+              setTollFare(0);
+              setTollDetails('');
+            }
           } else {
-            const hDist = haversineMeters(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
-            setDistKm(Math.max(1, (hDist / 1000) * 1.4));
-            setDurationMin(Math.max(3, Math.round((hDist / 1000) * 1.4 / 0.4)));
+            const res = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${dest}&key=${API_KEY}`);
+            const json = await res.json();
+            if (json.rows?.[0]?.elements?.[0]?.status === 'OK') {
+              const meters = json.rows[0].elements[0].distance.value;
+              const seconds = json.rows[0].elements[0].duration.value;
+              setDistKm(meters / 1000);
+              setDurationMin(Math.round(seconds / 60));
+            } else {
+              const hDist = haversineMeters(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
+              setDistKm(Math.max(1, (hDist / 1000) * 1.4));
+              setDurationMin(Math.max(3, Math.round((hDist / 1000) * 1.4 / 0.4)));
+            }
+            setHasToll(false);
+            setTollFare(0);
+            setTollDetails('');
           }
         } catch (e) {
           const hDist = haversineMeters(pickupCoords.lat, pickupCoords.lng, dropLocation.lat, dropLocation.lng);
           setDistKm(Math.max(1, (hDist / 1000) * 1.4));
           setDurationMin(Math.max(3, Math.round((hDist / 1000) * 1.4 / 0.4)));
+          setHasToll(false);
+          setTollFare(0);
+          setTollDetails('');
         }
       };
       fetchDistance();
     } else {
       setDistKm(0);
       setDurationMin(0);
+      setHasToll(false);
+      setTollFare(0);
+      setTollDetails('');
     }
   }, [pickupCoords.lat, pickupCoords.lng, dropLocation?.lat, dropLocation?.lng]);
 
@@ -1212,6 +1269,37 @@ async function handleQuickAirport() {
     }
   }
 
+  async function saveCustomPlace(place: { label: string; address: string; lat: number; lng: number }) {
+    const newPlace: CustomSavedPlace = {
+      ...place,
+      id: 'place_' + Date.now(),
+    };
+    const updated = [...customSavedPlaces, newPlace];
+    setCustomSavedPlaces(updated);
+    await AsyncStorage.setItem('@orange_custom_saved_places', JSON.stringify(updated));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  async function deleteCustomPlace(id: string) {
+    const updated = customSavedPlaces.filter((p) => p.id !== id);
+    setCustomSavedPlaces(updated);
+    await AsyncStorage.setItem('@orange_custom_saved_places', JSON.stringify(updated));
+    Haptics.selectionAsync();
+  }
+
+  function handleQuickCustomPlace(place: CustomSavedPlace) {
+    Haptics.selectionAsync();
+    setDropLocation({
+      id: place.id,
+      name: place.label,
+      subtitle: place.address,
+      city: (activeCity as any) || 'Bengaluru',
+      lat: place.lat,
+      lng: place.lng,
+    });
+    setStep(2);
+  }
+
 function handleRepeatTrip(trip: any) {
     setHistoryModalVisible(false);
     setActiveTab('home');
@@ -1442,7 +1530,7 @@ const inProgressDistKm = inProgressDistM !== null
     ? (inProgressDistM / 1000).toFixed(1)
     : (activeBooking?.distance_km?.toString() || '12');
 
-  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
+  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
 
   return (
     <RideContext.Provider value={value}>

@@ -62,3 +62,11 @@ export interface Driver {
   current_lat?: number;
   current_lng?: number;
 }
+
+export interface CustomSavedPlace {
+  id: string;
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+}

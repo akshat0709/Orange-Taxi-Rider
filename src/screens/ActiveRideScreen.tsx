@@ -1,9 +1,9 @@
 
 import React from 'react';
 import * as Haptics from 'expo-haptics';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet, Share } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Navigation, Car, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet } from 'lucide-react-native';
+import { MapPin, Navigation, Car, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Share2, FileText } from 'lucide-react-native';
 import { styles } from '../styles/AppStyles';
 import { supabase } from '../lib/supabase';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
@@ -19,6 +19,7 @@ import { ScheduleModal } from '../components/ScheduleModal';
 import { TalkToOrangeModal } from '../components/TalkToOrangeModal';
 import { WalletModal } from '../components/WalletModal';
 import { RouteDeviationModal } from '../components/RouteDeviationModal';
+import { TaxInvoiceModal } from '../components/TaxInvoiceModal';
 
 export const ActiveRideScreen = ({ navigation }: any) => {
   const context = useRideContext();
@@ -29,6 +30,7 @@ export const ActiveRideScreen = ({ navigation }: any) => {
 const { setStep } = context;
 
   const [waitingTimeSec, setWaitingTimeSec] = React.useState(0);
+  const [taxInvoiceVisible, setTaxInvoiceVisible] = React.useState(false);
 
   React.useEffect(() => {
     if (activeBooking?.status === 'arrived' && activeBooking.arrived_at) {
@@ -589,6 +591,27 @@ const { setStep } = context;
                   <Text style={{color: 'white', fontWeight: 'bold', fontSize: 12}}>SOS</Text>
                 </TouchableOpacity>
 
+                {/* Share Live Trip Button */}
+                <TouchableOpacity
+                  style={[styles.circularActionCall, { backgroundColor: '#25D366', marginLeft: 8 }]}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Share Live Trip via WhatsApp"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    const trackUrl = `https://orange-taxi.com/track?ref=${activeBooking.reference}`;
+                    const msg = encodeURIComponent(`Hi! I'm riding in an Orange Electric Cab (${resolvedVehicle.modelName} · ${resolvedVehicle.plateNumber}). Track my live trip: ${trackUrl}`);
+                    Linking.openURL(`whatsapp://send?text=${msg}`).catch(() => {
+                      Share.share({
+                        message: `Hi! I'm riding in an Orange Electric Cab (${resolvedVehicle.modelName} · ${resolvedVehicle.plateNumber}). Track my live trip: ${trackUrl}`,
+                        url: trackUrl,
+                      });
+                    });
+                  }}
+                >
+                  <Share2 size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+
               </View>
 
               {/* Ride Start OTP Pill (Revealed only after driver accepts) */}
@@ -633,6 +656,82 @@ const { setStep } = context;
                   <Text style={styles.onboardAmenitiesViewText}>Perks</Text>
                   <ChevronRight size={12} color="#F97316" />
                 </View>
+              </TouchableOpacity>
+
+              {/* Live WhatsApp Trip Tracking Banner */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: theme === 'dark' ? '#064E3B' : '#ECFDF5',
+                  borderColor: '#10B981',
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  marginTop: 8,
+                  marginBottom: 6,
+                }}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  const trackUrl = `https://orange-taxi.com/track?ref=${activeBooking.reference}`;
+                  const msg = encodeURIComponent(`Hi! I'm riding in an Orange Electric Cab (${resolvedVehicle.modelName} · ${resolvedVehicle.plateNumber}). Track my live trip: ${trackUrl}`);
+                  Linking.openURL(`whatsapp://send?text=${msg}`).catch(() => {
+                    Share.share({
+                      message: `Hi! I'm riding in an Orange Electric Cab (${resolvedVehicle.modelName} · ${resolvedVehicle.plateNumber}). Track my live trip: ${trackUrl}`,
+                      url: trackUrl,
+                    });
+                  });
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <Share2 size={16} color="#10B981" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme === 'dark' ? '#A7F3D0' : '#065F46' }}>
+                      Share Live Trip via WhatsApp
+                    </Text>
+                    <Text style={{ fontSize: 10, color: theme === 'dark' ? '#6EE7B7' : '#047857' }} numberOfLines={1}>
+                      Share live route link ({activeBooking.reference}) with family
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={14} color="#10B981" />
+              </TouchableOpacity>
+
+              {/* Official GST Ride Receipt / Invoice Button */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: theme === 'dark' ? '#1E293B' : '#F8FAFC',
+                  borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  marginBottom: 8,
+                }}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setTaxInvoiceVisible(true);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <FileText size={16} color="#F97316" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme === 'dark' ? '#F8FAFC' : '#0F172A' }}>
+                      Official GST Ride Receipt & Tax Invoice
+                    </Text>
+                    <Text style={{ fontSize: 10, color: theme === 'dark' ? '#94A3B8' : '#64748B' }} numberOfLines={1}>
+                      Download or share SAC 9964 official GST invoice PDF
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={14} color="#F97316" />
               </TouchableOpacity>
 
               {/* Safety & SOS Strip */}
@@ -1904,6 +2003,14 @@ const { setStep } = context;
           userId={user?.id}
           currentBalance={walletBalance}
           onBalanceUpdated={(newBal) => setWalletBalance(newBal)}
+          theme={theme}
+        />
+
+        <TaxInvoiceModal
+          visible={taxInvoiceVisible}
+          onClose={() => setTaxInvoiceVisible(false)}
+          trip={activeBooking}
+          user={user}
           theme={theme}
         />
 

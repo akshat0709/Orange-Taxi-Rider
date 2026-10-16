@@ -87,6 +87,13 @@ export function calculateBearing(startLat: number, startLng: number, endLat: num
   return (brng + 360) % 360;
 }
 
+export function interpolateHeading(startAngle: number, targetAngle: number, progress: number): number {
+  let diff = (targetAngle - startAngle) % 360;
+  if (diff < -180) diff += 360;
+  if (diff > 180) diff -= 360;
+  return (startAngle + diff * progress + 360) % 360;
+}
+
 export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -158,6 +165,7 @@ export function RideMap({
     driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null
   );
   const [carBearing, setCarBearing] = React.useState<number>(0);
+  const currentBearingRef = useRef<number>(0);
   const currentPosRef = useRef<{ lat: number; lng: number } | null>(
     driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null
   );
@@ -184,8 +192,8 @@ export function RideMap({
     if (distM < 0.5) return;
 
     // Calculate heading / bearing angle for vehicle rotation
-    const bearing = calculateBearing(startLat, startLng, endLat, endLng);
-    setCarBearing(bearing);
+    const startBearing = currentBearingRef.current;
+    const targetBearing = calculateBearing(startLat, startLng, endLat, endLng);
 
     // Cancel running animation frame to prevent jitter
     if (animFrameRef.current) {
@@ -203,15 +211,20 @@ export function RideMap({
       // Smooth linear glide
       const currentLat = startLat + (endLat - startLat) * progress;
       const currentLng = startLng + (endLng - startLng) * progress;
+      const currentHeading = interpolateHeading(startBearing, targetBearing, progress);
 
       currentPosRef.current = { lat: currentLat, lng: currentLng };
+      currentBearingRef.current = currentHeading;
       setSmoothCarCoord({ lat: currentLat, lng: currentLng });
+      setCarBearing(currentHeading);
 
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(animateStep);
       } else {
         currentPosRef.current = { lat: endLat, lng: endLng };
+        currentBearingRef.current = targetBearing;
         setSmoothCarCoord({ lat: endLat, lng: endLng });
+        setCarBearing(targetBearing);
         animFrameRef.current = null;
       }
     }

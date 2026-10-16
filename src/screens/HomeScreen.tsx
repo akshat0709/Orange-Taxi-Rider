@@ -3,7 +3,8 @@ import React from 'react';
 import * as Haptics from 'expo-haptics';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Zap, Droplets, Newspaper, MonitorPlay, Music2, Leaf, Bell, Package, Plane, Briefcase } from 'lucide-react-native';
+import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Zap, Droplets, Newspaper, MonitorPlay, Music2, Leaf, Bell, Package, Plane, Briefcase, Plus, Trash2 } from 'lucide-react-native';
+import { searchPlaces } from '../lib/locationService';
 import { styles } from '../styles/AppStyles';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
 import { RideMap } from '../components/RideMap';
@@ -25,12 +26,16 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export const HomeScreen = ({ navigation }: any) => {
   const context = useRideContext();
-  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, handleConfirmHourlyRental, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
+  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, handleConfirmHourlyRental, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
   const { height } = Dimensions.get('window');
   const step: number = 1;
   const homeScrollRef = React.useRef<ScrollView>(null);
   const [promoPillVisible, setPromoPillVisible] = React.useState<boolean>(true);
   const [showSplash, setShowSplash] = React.useState<boolean>(true);
+  const [newPlaceModalVisible, setNewPlaceModalVisible] = React.useState(false);
+  const [newPlaceLabel, setNewPlaceLabel] = React.useState('');
+  const [newPlaceAddress, setNewPlaceAddress] = React.useState('');
+  const [newPlaceSaving, setNewPlaceSaving] = React.useState(false);
   const { setStep } = context;
 
   const handleSplashFinish = () => {
@@ -1252,6 +1257,107 @@ export const HomeScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               </View>
 
+              {/* ── SAVED PLACES SHORTCUTS ROW (HOME, WORK, CUSTOM PLACES) ── */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, paddingVertical: 4 }}
+                style={{ marginBottom: 12 }}
+              >
+                {/* Home */}
+                <TouchableOpacity
+                  style={[
+                    styles.minimalChip,
+                    theme === 'dark' && styles.minimalChipDark,
+                    { minWidth: 80, paddingHorizontal: 12, height: 36, borderRadius: 18 }
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    await handleQuickHome();
+                    setStep(2);
+                    navigation?.navigate('Booking');
+                  }}
+                >
+                  <Home size={14} color="#F97316" />
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark, { marginLeft: 4 }]} numberOfLines={1}>
+                    {savedHomeAddress ? 'Home' : 'Add Home'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Work */}
+                <TouchableOpacity
+                  style={[
+                    styles.minimalChip,
+                    theme === 'dark' && styles.minimalChipDark,
+                    { minWidth: 80, paddingHorizontal: 12, height: 36, borderRadius: 18 }
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    await handleQuickWork();
+                    setStep(2);
+                    navigation?.navigate('Booking');
+                  }}
+                >
+                  <Briefcase size={14} color="#3B82F6" />
+                  <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark, { marginLeft: 4 }]} numberOfLines={1}>
+                    {savedWorkAddress ? 'Work' : 'Add Work'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Custom Saved Places */}
+                {customSavedPlaces && customSavedPlaces.map((place: any) => (
+                  <TouchableOpacity
+                    key={place.id}
+                    style={[
+                      styles.minimalChip,
+                      theme === 'dark' && styles.minimalChipDark,
+                      { minWidth: 80, paddingHorizontal: 12, height: 36, borderRadius: 18, borderColor: 'rgba(249, 115, 22, 0.3)' }
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      handleQuickCustomPlace(place);
+                      setStep(2);
+                      navigation?.navigate('Booking');
+                    }}
+                    onLongPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      Alert.alert(
+                        'Saved Place',
+                        `Remove "${place.label}" from saved places?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => deleteCustomPlace(place.id) },
+                        ]
+                      );
+                    }}
+                  >
+                    <MapPin size={13} color="#10B981" />
+                    <Text style={[styles.minimalChipText, theme === 'dark' && styles.minimalChipTextDark, { marginLeft: 4 }]} numberOfLines={1}>
+                      {place.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* ➕ Add Custom Place Chip */}
+                <TouchableOpacity
+                  style={[
+                    styles.minimalChip,
+                    theme === 'dark' && styles.minimalChipDark,
+                    { paddingHorizontal: 12, height: 36, borderRadius: 18, borderStyle: 'dashed' }
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setNewPlaceModalVisible(true);
+                  }}
+                >
+                  <Plus size={14} color="#F97316" />
+                  <Text style={[styles.minimalChipText, { color: '#F97316', marginLeft: 4 }]}>
+                    Add Place
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+
               {/* ── RECENT / QUICK AIRPORT DESTINATION SHORTCUT (UBER STYLE) ── */}
               <TouchableOpacity
                 style={[styles.uberRecentCard, theme === 'dark' && styles.uberRecentCardDark]}
@@ -2381,6 +2487,96 @@ export const HomeScreen = ({ navigation }: any) => {
           loading={bookingLoading}
           theme={theme}
         />
+        {/* ================================================================= */}
+        {/* ADD CUSTOM SAVED PLACE MODAL                                      */}
+        {/* ================================================================= */}
+        <Modal visible={newPlaceModalVisible} animationType="slide" transparent={true}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalBackdrop}
+          >
+            <View style={[styles.authModalContent, theme === 'dark' && { backgroundColor: '#1E293B' }]}>
+              <View style={styles.authModalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MapPin size={20} color="#F97316" />
+                  <Text style={[styles.authModalTitle, theme === 'dark' && styles.textWhite]}>
+                    Save Favorite Place
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setNewPlaceModalVisible(false)}>
+                  <X size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.authModalSub, theme === 'dark' && styles.textMutedDark]}>
+                Save frequent destinations (e.g. Gym, Parents, Tech Park) for instant 1-tap booking.
+              </Text>
+
+              <View style={styles.authField}>
+                <Text style={[styles.authLabel, theme === 'dark' && styles.textMutedDark]}>Place Name / Label</Text>
+                <TextInput
+                  style={[styles.authInput, theme === 'dark' && { backgroundColor: '#0F172A', borderColor: '#334155' }, theme === 'dark' && styles.textWhite]}
+                  placeholder="e.g. Cult.fit Gym, Parents, WeWork"
+                  placeholderTextColor="#94A3B8"
+                  value={newPlaceLabel}
+                  onChangeText={setNewPlaceLabel}
+                />
+              </View>
+
+              <View style={styles.authField}>
+                <Text style={[styles.authLabel, theme === 'dark' && styles.textMutedDark]}>Address / Area / Landmark</Text>
+                <TextInput
+                  style={[styles.authInput, theme === 'dark' && { backgroundColor: '#0F172A', borderColor: '#334155' }, theme === 'dark' && styles.textWhite]}
+                  placeholder="e.g. Indiranagar 100ft Road, Bengaluru"
+                  placeholderTextColor="#94A3B8"
+                  value={newPlaceAddress}
+                  onChangeText={setNewPlaceAddress}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.authSubmitBtn, newPlaceSaving && { opacity: 0.7 }]}
+                disabled={newPlaceSaving}
+                onPress={async () => {
+                  if (!newPlaceLabel.trim() || !newPlaceAddress.trim()) {
+                    Alert.alert('Required', 'Please enter a name and address.');
+                    return;
+                  }
+                  setNewPlaceSaving(true);
+                  try {
+                    const matches = await searchPlaces(newPlaceAddress, activeCity, pickupCoords);
+                    const coords = matches.length > 0
+                      ? { lat: matches[0].lat, lng: matches[0].lng }
+                      : { lat: pickupCoords.lat + 0.03, lng: pickupCoords.lng + 0.03 };
+                    const addressStr = matches.length > 0
+                      ? (matches[0].name + (matches[0].subtitle ? ', ' + matches[0].subtitle : ''))
+                      : newPlaceAddress.trim();
+                    await saveCustomPlace({
+                      label: newPlaceLabel.trim(),
+                      address: addressStr,
+                      lat: coords.lat,
+                      lng: coords.lng,
+                    });
+                    setNewPlaceModalVisible(false);
+                    setNewPlaceLabel('');
+                    setNewPlaceAddress('');
+                  } catch (e) {
+                    Alert.alert('Error', 'Could not locate address. Please check spelling.');
+                  } finally {
+                    setNewPlaceSaving(false);
+                  }
+                }}
+              >
+                {newPlaceSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.authSubmitText}>Save Place</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
         {/* ================================================================= */}
         {/* HIGH-SPEED COOL CAR ANIMATION SPLASH OVERLAY                      */}
         {/* ================================================================= */}
