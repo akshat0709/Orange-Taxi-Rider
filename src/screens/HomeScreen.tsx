@@ -18,6 +18,7 @@ import { ScheduleModal } from '../components/ScheduleModal';
 import { TalkToOrangeModal } from '../components/TalkToOrangeModal';
 import { WalletModal } from '../components/WalletModal';
 import { RouteDeviationModal } from '../components/RouteDeviationModal';
+import { CityPickerModal } from '../components/CityPickerModal';
 import { useFocusEffect } from '@react-navigation/native';
 
 export const HomeScreen = ({ navigation }: any) => {
@@ -96,58 +97,7 @@ export const HomeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         )}
 
-        {pinPickerActive ? null : step === 1 ? (
-          /* STEP 1: UBER-STYLE TOP BAR HEADER */
-          <View style={[styles.uberTopHeader, { top: topSafeOffset, backgroundColor: theme === 'dark' ? '#0B0F19' : '#F8FAFC' }]}>
-            {/* Left: Blue Dot + Location selector (Current location ⌄) */}
-            <TouchableOpacity
-              style={styles.uberLocationBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setCityPickerVisible(true);
-              }}
-            >
-              <View style={styles.uberBlueDot} />
-              <Text style={[styles.uberLocationText, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
-                {activeCity?.name || 'Current location'}
-              </Text>
-              <ChevronDown size={14} color={theme === 'dark' ? '#94A3B8' : '#64748B'} />
-            </TouchableOpacity>
-
-            {/* Right: Theme Toggle + Bell Inbox */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {/* Quick Theme Switcher Button */}
-              <TouchableOpacity
-                style={[styles.uberThemeToggle, theme === 'dark' && styles.uberThemeToggleDark]}
-                activeOpacity={0.85}
-                onPress={() => handleToggleTheme()}
-                accessibilityLabel={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {theme === 'dark' ? (
-                  <Sun size={16} color="#F97316" />
-                ) : (
-                  <Moon size={16} color="#475569" />
-                )}
-              </TouchableOpacity>
-
-              {/* Uber Inbox Button */}
-              <TouchableOpacity
-                accessibilityLabel="Inbox"
-                accessibilityRole="button"
-                style={[styles.uberInboxBtn, theme === 'dark' && styles.uberInboxBtnDark]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setTalkToOrangeVisible(true);
-                }}
-              >
-                <Bell size={15} color={theme === 'dark' ? '#F8FAFC' : '#0F172A'} />
-                <Text style={[styles.uberInboxText, theme === 'dark' && styles.textWhite]}>Inbox</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : step === 4 ? (
+        {pinPickerActive ? null : step === 4 ? (
           /* STEP 4: FLOATING ARRIVING / IN-PROGRESS HEADER */
           <View style={[styles.arrivingTopHeader, theme === 'dark' && styles.arrivingTopHeaderDark, { top: topSafeOffset }]}>
             <TouchableOpacity
@@ -1088,10 +1038,60 @@ export const HomeScreen = ({ navigation }: any) => {
               style={{ flex: 1 }}
               contentContainerStyle={[
                 styles.homeScrollContent,
-                { paddingTop: topSafeOffset + 54 },
+                { paddingTop: topSafeOffset + 6 },
               ]}
               showsVerticalScrollIndicator={false}
             >
+              {/* ── TOP LOCATION & UTILITY HEADER (SCROLLS NATURALLY WITH CONTENT) ── */}
+              <View style={styles.uberTopHeaderScrollable}>
+                {/* Left: Blue Dot + Location selector (Current location ⌄) */}
+                <TouchableOpacity
+                  style={styles.uberLocationBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setCityPickerVisible(true);
+                  }}
+                >
+                  <View style={styles.uberBlueDot} />
+                  <Text style={[styles.uberLocationText, theme === 'dark' && styles.textWhite]} numberOfLines={1}>
+                    {activeCity || 'Current location'}
+                  </Text>
+                  <ChevronDown size={14} color={theme === 'dark' ? '#94A3B8' : '#64748B'} />
+                </TouchableOpacity>
+
+                {/* Right: Theme Toggle + Bell Inbox */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {/* Quick Theme Switcher Button */}
+                  <TouchableOpacity
+                    style={[styles.uberThemeToggle, theme === 'dark' && styles.uberThemeToggleDark]}
+                    activeOpacity={0.85}
+                    onPress={() => handleToggleTheme()}
+                    accessibilityLabel={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                  >
+                    {theme === 'dark' ? (
+                      <Sun size={16} color="#F97316" />
+                    ) : (
+                      <Moon size={16} color="#475569" />
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Uber Inbox Button */}
+                  <TouchableOpacity
+                    accessibilityLabel="Inbox"
+                    accessibilityRole="button"
+                    style={[styles.uberInboxBtn, theme === 'dark' && styles.uberInboxBtnDark]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTalkToOrangeVisible(true);
+                    }}
+                  >
+                    <Bell size={15} color={theme === 'dark' ? '#F8FAFC' : '#0F172A'} />
+                    <Text style={[styles.uberInboxText, theme === 'dark' && styles.textWhite]}>Inbox</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               {/* ── RATE YOUR LAST RIDE PROMPT ── */}
               {rateNowBooking && (
                 <TouchableOpacity
@@ -2290,6 +2290,20 @@ export const HomeScreen = ({ navigation }: any) => {
             </View>
           </KeyboardAvoidingView>
         </Modal>
+
+        {/* ================================================================= */}
+        {/* CITY & GPS LOCATION PICKER MODAL                                 */}
+        {/* ================================================================= */}
+        <CityPickerModal
+          visible={cityPickerVisible}
+          onClose={() => setCityPickerVisible(false)}
+          activeCity={activeCity}
+          onSelectCity={handleSelectCity}
+          onUseCurrentLocation={async () => {
+            await refreshLocation(activeCity || 'Bengaluru');
+          }}
+          theme={theme}
+        />
     </View>
 
   );
