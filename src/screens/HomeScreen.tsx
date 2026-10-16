@@ -1216,7 +1216,7 @@ export const HomeScreen = ({ navigation }: any) => {
                   activeOpacity={0.88}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setStep(2);
+                    setSearchTarget('drop');
                     setSearchModalVisible(true);
                   }}
                 >
@@ -1287,7 +1287,13 @@ export const HomeScreen = ({ navigation }: any) => {
                         activeOpacity={0.88}
                         onPress={() => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          setStep(2);
+                          if (!dropLocation) {
+                            setSearchTarget('drop');
+                            setSearchModalVisible(true);
+                          } else {
+                            setStep(2);
+                            navigation?.navigate('Booking');
+                          }
                         }}
                       >
                         <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Book Signature Ride</Text>
@@ -1337,7 +1343,13 @@ export const HomeScreen = ({ navigation }: any) => {
                         activeOpacity={0.88}
                         onPress={() => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          setStep(2);
+                          if (!dropLocation) {
+                            setSearchTarget('drop');
+                            setSearchModalVisible(true);
+                          } else {
+                            setStep(2);
+                            navigation?.navigate('Booking');
+                          }
                         }}
                       >
                         <Text style={[styles.uberBannerBtnText, { color: '#FFFFFF' }]}>Ride Green</Text>
@@ -1488,7 +1500,13 @@ export const HomeScreen = ({ navigation }: any) => {
                     activeOpacity={0.88}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setStep(2);
+                      if (!dropLocation) {
+                        setSearchTarget('drop');
+                        setSearchModalVisible(true);
+                      } else {
+                        setStep(2);
+                        navigation?.navigate('Booking');
+                      }
                     }}
                   >
                     <View style={styles.uberCarouselCardImgBox}>
@@ -1704,7 +1722,13 @@ export const HomeScreen = ({ navigation }: any) => {
                       onPress={() => {
                         Haptics.selectionAsync();
                         setSelectedVehicle(v);
-                        setStep(2);
+                        if (!dropLocation) {
+                          setSearchTarget('drop');
+                          setSearchModalVisible(true);
+                        } else {
+                          setStep(2);
+                          navigation?.navigate('Booking');
+                        }
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -1920,6 +1944,7 @@ export const HomeScreen = ({ navigation }: any) => {
             setDropLocation(loc);
             setSearchModalVisible(false);
             setStep(2); // Jump directly to ride & vehicle selection
+            navigation?.navigate('Booking');
           }}
           onSelectStop={(loc) => {
             setIntermediateStop(loc);
@@ -2064,7 +2089,9 @@ export const HomeScreen = ({ navigation }: any) => {
           onBookNow={() => {
             if (dropLocation && dropLocation.name) {
               setStep(2);
+              navigation?.navigate('Booking');
             } else {
+              setSearchTarget('drop');
               setSearchModalVisible(true);
             }
           }}
@@ -2078,9 +2105,28 @@ export const HomeScreen = ({ navigation }: any) => {
           visible={scheduleModalVisible}
           onClose={() => setScheduleModalVisible(false)}
           currentSchedule={scheduledDate}
+          pickupText={pickupText}
+          dropLocation={dropLocation}
+          onChangePickup={() => {
+            setScheduleModalVisible(false);
+            setSearchTarget('pickup');
+            setSearchModalVisible(true);
+          }}
+          onChangeDrop={() => {
+            setScheduleModalVisible(false);
+            setSearchTarget('drop');
+            setSearchModalVisible(true);
+          }}
           onConfirmSchedule={(date) => {
             setScheduledDate(date);
             setScheduleModalVisible(false);
+            if (!dropLocation) {
+              setSearchTarget('drop');
+              setSearchModalVisible(true);
+            } else {
+              setStep(2);
+              navigation?.navigate('Booking');
+            }
           }}
           onClearSchedule={() => {
             setScheduledDate(null);
@@ -2133,9 +2179,12 @@ export const HomeScreen = ({ navigation }: any) => {
                 tag: '📍 Selected Place',
               });
               setStep(2);
+              navigation?.navigate('Booking');
             } else if (dropLocation && dropLocation.name) {
               setStep(2);
+              navigation?.navigate('Booking');
             } else {
+              setSearchTarget('drop');
               setSearchModalVisible(true);
             }
           }}

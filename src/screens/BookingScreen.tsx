@@ -1400,6 +1400,18 @@ const { setStep } = context;
           visible={scheduleModalVisible}
           onClose={() => setScheduleModalVisible(false)}
           currentSchedule={scheduledDate}
+          pickupText={pickupText}
+          dropLocation={dropLocation}
+          onChangePickup={() => {
+            setScheduleModalVisible(false);
+            setSearchTarget('pickup');
+            setSearchModalVisible(true);
+          }}
+          onChangeDrop={() => {
+            setScheduleModalVisible(false);
+            setSearchTarget('drop');
+            setSearchModalVisible(true);
+          }}
           onConfirmSchedule={(date) => {
             setScheduledDate(date);
             setScheduleModalVisible(false);

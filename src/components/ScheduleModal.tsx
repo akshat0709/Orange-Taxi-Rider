@@ -27,6 +27,10 @@ interface ScheduleModalProps {
   onConfirmSchedule: (date: Date) => void;
   onClearSchedule?: () => void;
   currentSchedule?: Date | null;
+  pickupText?: string;
+  dropLocation?: { name: string; lat: number; lng: number } | null;
+  onChangePickup?: () => void;
+  onChangeDrop?: () => void;
   theme?: 'light' | 'dark';
 }
 
@@ -43,6 +47,10 @@ export function ScheduleModal({
   onConfirmSchedule,
   onClearSchedule,
   currentSchedule,
+  pickupText,
+  dropLocation,
+  onChangePickup,
+  onChangeDrop,
   theme = 'light',
 }: ScheduleModalProps) {
   const isDark = theme === 'dark';
@@ -171,6 +179,71 @@ export function ScheduleModal({
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+            {/* ROUTE / PICKUP & DESTINATION PREVIEW */}
+            <View style={[styles.routeCard, isDark && styles.routeCardDark]}>
+              <View style={styles.routeHeaderRow}>
+                <Text style={[styles.routeCardTitle, isDark && styles.textMutedDark]}>
+                  SCHEDULED ROUTE
+                </Text>
+                {!dropLocation && (
+                  <View style={styles.destNeededBadge}>
+                    <Text style={styles.destNeededBadgeText}>Destination Required</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Pickup Point */}
+              <TouchableOpacity
+                style={styles.routeRow}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onClose();
+                  onChangePickup?.();
+                }}
+              >
+                <View style={styles.routeDotGreen} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.routeLabel, isDark && styles.textMutedDark]}>Pickup Spot</Text>
+                  <Text style={[styles.routeValue, isDark && styles.textWhite]} numberOfLines={1}>
+                    {pickupText || 'Auto-detecting current location...'}
+                  </Text>
+                </View>
+                <Text style={styles.changeActionText}>Edit</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.routeDivider, isDark && styles.routeDividerDark]} />
+
+              {/* Destination Point */}
+              <TouchableOpacity
+                style={styles.routeRow}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onClose();
+                  onChangeDrop?.();
+                }}
+              >
+                <View style={[styles.routeDotOrange, !dropLocation && styles.routeDotEmpty]} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.routeLabel, isDark && styles.textMutedDark]}>Destination</Text>
+                  <Text
+                    style={[
+                      styles.routeValue,
+                      isDark && styles.textWhite,
+                      !dropLocation && { color: '#F97316', fontWeight: '700' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {dropLocation ? dropLocation.name : 'Tap to select destination →'}
+                  </Text>
+                </View>
+                <Text style={[styles.changeActionText, !dropLocation && { color: '#F97316', fontWeight: '700' }]}>
+                  {dropLocation ? 'Edit' : 'Add'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* 1. DATE PICKER PILLS */}
             <Text style={[styles.sectionTitle, isDark && styles.textMutedDark]}>
               SELECT PICKUP DATE
@@ -333,7 +406,9 @@ export function ScheduleModal({
             >
               <Calendar size={16} color="#FFFFFF" />
               <Text style={styles.confirmBtnText} numberOfLines={1}>
-                Schedule for {dateFormattedSummary}
+                {dropLocation
+                  ? `Confirm Ride for ${dateFormattedSummary}`
+                  : `Set Time & Choose Destination ➔`}
               </Text>
             </TouchableOpacity>
 
@@ -620,5 +695,87 @@ const styles = StyleSheet.create({
   },
   textMutedDark: {
     color: '#94A3B8',
+  },
+  routeCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  routeCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  routeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  routeCardTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.8,
+  },
+  destNeededBadge: {
+    backgroundColor: '#FFEDD5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  destNeededBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  routeDotGreen: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
+  },
+  routeDotOrange: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F97316',
+  },
+  routeDotEmpty: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#F97316',
+  },
+  routeLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  routeValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  changeActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3B82F6',
+    marginLeft: 8,
+  },
+  routeDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 8,
+    marginLeft: 20,
+  },
+  routeDividerDark: {
+    backgroundColor: '#334155',
   },
 });
