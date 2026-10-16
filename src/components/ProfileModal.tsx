@@ -231,7 +231,6 @@ export function ProfileModal({
     setMapSearchQuery('');
     setMapSearchResults([]);
     setIsSearchingMap(false);
-    setMapPickerLoading(true);
 
     const existingCoords = target === 'home' ? homeCoords : workCoords;
     const existingAddress = target === 'home' ? homeAddress : workAddress;
@@ -244,36 +243,48 @@ export function ProfileModal({
       return;
     }
 
-    // Try current GPS
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (loc?.coords?.latitude && loc?.coords?.longitude) {
-          const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-          setMapPickerCoords(coords);
-          const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
-          setMapPickerAddress(resolved.displayText);
-          setMapPickerCity(resolved.cityName);
-          setMapPickerLoading(false);
-          setMapPickerVisible(true);
-          return;
-        }
-      }
-    } catch (e) {}
-
-    // Default fallback (Bengaluru center)
+    // Immediately open map with fallback coordinates so page transition is instant
     const fallback = { lat: 12.9719, lng: 77.5937 };
     setMapPickerCoords(fallback);
-    try {
-      const resolved = await reverseGeocodeCoordSafe(fallback.lat, fallback.lng);
-      setMapPickerAddress(resolved.displayText);
-      setMapPickerCity(resolved.cityName);
-    } catch (e) {
-      setMapPickerAddress('Selected Location');
-    }
-    setMapPickerLoading(false);
+    setMapPickerAddress('Locating on map...');
+    setMapPickerLoading(true);
     setMapPickerVisible(true);
+
+    // Resolve accurate device GPS in background without blocking UI transition
+    (async () => {
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (lastKnown?.coords?.latitude && lastKnown?.coords?.longitude) {
+          const coords = { lat: lastKnown.coords.latitude, lng: lastKnown.coords.longitude };
+          setMapPickerCoords(coords);
+          const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+          if (resolved?.displayText) {
+            setMapPickerAddress(resolved.displayText);
+            setMapPickerCity(resolved.cityName);
+          }
+          setMapPickerLoading(false);
+          return;
+        }
+
+        const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }));
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null);
+          if (loc?.coords?.latitude && loc?.coords?.longitude) {
+            const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+            setMapPickerCoords(coords);
+            const resolved = await reverseGeocodeCoordSafe(coords.lat, coords.lng);
+            if (resolved?.displayText) {
+              setMapPickerAddress(resolved.displayText);
+              setMapPickerCity(resolved.cityName);
+            }
+          }
+        }
+      } catch (e) {
+        // Fallback is already displayed
+      } finally {
+        setMapPickerLoading(false);
+      }
+    })();
   }
 
   async function handleMapPickerRegionChange(coords: { lat: number; lng: number }) {
@@ -860,12 +871,12 @@ export function ProfileModal({
                 {!isEditingHome && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <TouchableOpacity
-                      style={[styles.mapPlaceActionBtn, { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFF7ED', borderColor: '#EA580C' }]}
+                      style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
                       onPress={() => openMapPicker('home')}
                       activeOpacity={0.8}
+                      accessibilityLabel="Pinpoint Home on Map"
                     >
-                      <MapIcon size={13} color="#EA580C" />
-                      <Text style={[styles.mapPlaceActionText, { color: '#EA580C' }]}>Map</Text>
+                      <MapPin size={14} color="#EA580C" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
@@ -966,12 +977,12 @@ export function ProfileModal({
                 {!isEditingWork && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <TouchableOpacity
-                      style={[styles.mapPlaceActionBtn, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', borderColor: '#2563EB' }]}
+                      style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
                       onPress={() => openMapPicker('work')}
                       activeOpacity={0.8}
+                      accessibilityLabel="Pinpoint Work on Map"
                     >
-                      <MapIcon size={13} color="#2563EB" />
-                      <Text style={[styles.mapPlaceActionText, { color: '#2563EB' }]}>Map</Text>
+                      <MapPin size={14} color="#2563EB" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.editPlaceBtn, isDark && styles.editPlaceBtnDark]}
@@ -2613,6 +2624,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
+    flexShrink: 1,
   },
   geoVerifiedText: {
     fontSize: 9,
