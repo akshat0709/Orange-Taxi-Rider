@@ -39,76 +39,76 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '1h',
     hours: 1,
     distanceKm: 10,
-    uberPrice: 310,
-    orangePrice: 279,
-    tagline: 'Quick errands & short meetings',
+    uberPrice: 400,
+    orangePrice: 360,
+    tagline: 'Quick errands, meetings & single appointments',
   },
   {
     id: '2h',
     hours: 2,
     distanceKm: 20,
-    uberPrice: 570,
-    orangePrice: 519,
-    tagline: 'Doctor visits & shopping trips',
+    uberPrice: 720,
+    orangePrice: 649,
+    tagline: 'Doctor visits, shopping & quick city tasks',
   },
   {
     id: '3h',
     hours: 3,
     distanceKm: 30,
-    uberPrice: 820,
-    orangePrice: 739,
-    tagline: 'Multiple errands across town',
+    uberPrice: 1050,
+    orangePrice: 945,
+    tagline: 'Multiple errands across town with stops',
   },
   {
     id: '4h',
     hours: 4,
     distanceKm: 40,
-    uberPrice: 1080,
-    orangePrice: 969,
+    uberPrice: 1380,
+    orangePrice: 1240,
     badge: 'MOST POPULAR',
-    tagline: 'Half-day city tour or business client meetings',
+    tagline: 'Half-day business meetings & client visits',
   },
   {
     id: '5h',
     hours: 5,
     distanceKm: 50,
-    uberPrice: 1330,
-    orangePrice: 1199,
+    uberPrice: 1700,
+    orangePrice: 1530,
     tagline: 'Extended half-day with flexible stops',
   },
   {
     id: '6h',
     hours: 6,
     distanceKm: 60,
-    uberPrice: 1580,
-    orangePrice: 1419,
-    tagline: 'Multi-location corporate visits',
+    uberPrice: 2020,
+    orangePrice: 1819,
+    tagline: 'Multi-location corporate visits & shopping',
   },
   {
     id: '8h',
     hours: 8,
     distanceKm: 80,
-    uberPrice: 2080,
-    orangePrice: 1869,
+    uberPrice: 2680,
+    orangePrice: 2410,
     badge: 'BEST VALUE',
-    tagline: 'Full-day executive disposal (8 hours / 80 km)',
+    tagline: 'Full-day city disposal (8 hours / 80 km)',
   },
   {
     id: '10h',
     hours: 10,
     distanceKm: 100,
-    uberPrice: 2580,
-    orangePrice: 2319,
-    tagline: 'Full-day comprehensive travel',
+    uberPrice: 3350,
+    orangePrice: 3015,
+    tagline: 'Full-day comprehensive travel & events',
   },
   {
     id: '12h',
     hours: 12,
     distanceKm: 120,
-    uberPrice: 3080,
-    orangePrice: 2769,
+    uberPrice: 4000,
+    orangePrice: 3600,
     badge: 'MAX DISPOSAL',
-    tagline: 'Full day outstation / city VIP chauffeuring',
+    tagline: 'Full-day VIP disposal for weddings & outstation',
   },
 ];
 
@@ -116,6 +116,7 @@ interface HourlyRentalModalProps {
   visible: boolean;
   onClose: () => void;
   pickupText: string;
+  onChangePickup?: () => void;
   onConfirmRental: (pkg: HourlyPackage) => Promise<void> | void;
   loading?: boolean;
   theme?: 'light' | 'dark';
@@ -125,6 +126,7 @@ export function HourlyRentalModal({
   visible,
   onClose,
   pickupText,
+  onChangePickup,
   onConfirmRental,
   loading = false,
   theme = 'light',
@@ -305,16 +307,30 @@ export function HourlyRentalModal({
               </Text>
             </View>
 
-            {/* 4. COMPACT PICKUP ROW */}
-            <View style={[styles.pickupCard, isDark && styles.pickupCardDark]}>
-              <MapPin size={16} color="#F97316" />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={[styles.pickupLabel, isDark && styles.textMutedDark]}>PICKUP SPOT</Text>
+            {/* 4. COMPACT PICKUP ROW (ONLY PICKUP REQUIRED) */}
+            <TouchableOpacity
+              style={[styles.pickupCard, isDark && styles.pickupCardDark]}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (onChangePickup) {
+                  Haptics.selectionAsync();
+                  onChangePickup();
+                }
+              }}
+            >
+              <View style={styles.pickupDot} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={[styles.pickupLabel, isDark && styles.textMutedDark]}>
+                  CHAUFFEUR PICKUP (NO DROP-OFF DESTINATION NEEDED)
+                </Text>
                 <Text style={[styles.pickupValue, isDark && styles.textWhite]} numberOfLines={1}>
                   {pickupText || 'Indiranagar, Bengaluru'}
                 </Text>
               </View>
-            </View>
+              {onChangePickup && (
+                <Text style={styles.changePickupBtn}>Change</Text>
+              )}
+            </TouchableOpacity>
 
             <View style={{ height: 16 }} />
           </ScrollView>
@@ -654,6 +670,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderColor: '#334155',
   },
+  pickupDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
   pickupLabel: {
     fontSize: 9,
     fontWeight: '800',
@@ -665,6 +687,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 1,
+  },
+  changePickupBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F97316',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   footer: {
     flexDirection: 'row',

@@ -2362,6 +2362,11 @@ export const HomeScreen = ({ navigation }: any) => {
           visible={hourlyModalVisible}
           onClose={() => setHourlyModalVisible(false)}
           pickupText={pickupText}
+          onChangePickup={() => {
+            setHourlyModalVisible(false);
+            setSearchTarget('pickup');
+            setSearchModalVisible(true);
+          }}
           onConfirmRental={handleConfirmHourlyRental}
           loading={bookingLoading}
           theme={theme}
