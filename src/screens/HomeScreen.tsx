@@ -20,6 +20,7 @@ import { WalletModal } from '../components/WalletModal';
 import { RouteDeviationModal } from '../components/RouteDeviationModal';
 import { CityPickerModal } from '../components/CityPickerModal';
 import { HourlyRentalModal } from '../components/HourlyRentalModal';
+import { CoolCarSplashScreen } from '../components/CoolCarSplashScreen';
 import { useFocusEffect } from '@react-navigation/native';
 
 export const HomeScreen = ({ navigation }: any) => {
@@ -29,7 +30,16 @@ export const HomeScreen = ({ navigation }: any) => {
   const step: number = 1;
   const homeScrollRef = React.useRef<ScrollView>(null);
   const [promoPillVisible, setPromoPillVisible] = React.useState<boolean>(true);
+  const [showSplash, setShowSplash] = React.useState<boolean>(true);
   const { setStep } = context;
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+    if (!user) {
+      setAuthMode('signin');
+      setAuthModalVisible(true);
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -2371,6 +2381,15 @@ export const HomeScreen = ({ navigation }: any) => {
           loading={bookingLoading}
           theme={theme}
         />
+        {/* ================================================================= */}
+        {/* HIGH-SPEED COOL CAR ANIMATION SPLASH OVERLAY                      */}
+        {/* ================================================================= */}
+        {showSplash && (
+          <CoolCarSplashScreen
+            appType="rider"
+            onFinish={handleSplashFinish}
+          />
+        )}
     </View>
 
   );
