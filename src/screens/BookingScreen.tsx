@@ -657,9 +657,14 @@ const { setStep } = context;
               </TouchableOpacity>
 
               {/* Quick Destination Shortcut Chips */}
-              <View style={[styles.minimalChipsRow, theme === 'dark' && styles.minimalChipsRowDark, { marginTop: 8, marginBottom: 8 }]}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 2 }}
+                style={[styles.minimalChipsRow, theme === 'dark' && styles.minimalChipsRowDark, { marginTop: 8, marginBottom: 8 }]}
+              >
                 <TouchableOpacity
-                  style={[styles.minimalChip, intermediateStop && styles.minimalChipActiveStop, theme === 'dark' && styles.minimalChipDark]}
+                  style={[styles.minimalChip, intermediateStop && styles.minimalChipActiveStop, theme === 'dark' && styles.minimalChipDark, { minWidth: 84, paddingHorizontal: 10 }]}
                   activeOpacity={0.75}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -668,12 +673,12 @@ const { setStep } = context;
                   }}
                 >
                   <Text style={[styles.minimalChipText, intermediateStop && { color: '#7C3AED' }, theme === 'dark' && styles.minimalChipTextDark]} numberOfLines={1}>
-                    {intermediateStop ? '📍 Stop 1 Set' : '➕ Add Stop'}
+                    {intermediateStop ? '📍 Stop Set' : '➕ Add Stop'}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { minWidth: 72, paddingHorizontal: 10 }]}
                   activeOpacity={0.75}
                   onPress={handleQuickHome}
                 >
@@ -683,7 +688,7 @@ const { setStep } = context;
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { minWidth: 72, paddingHorizontal: 10 }]}
                   activeOpacity={0.75}
                   onPress={handleQuickWork}
                 >
@@ -693,7 +698,7 @@ const { setStep } = context;
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { minWidth: 78, paddingHorizontal: 10 }]}
                   activeOpacity={0.75}
                   onPress={handleQuickAirport}
                 >
@@ -703,7 +708,7 @@ const { setStep } = context;
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark]}
+                  style={[styles.minimalChip, theme === 'dark' && styles.minimalChipDark, { minWidth: 88, paddingHorizontal: 10 }]}
                   activeOpacity={0.75}
                   onPress={() => setScheduleModalVisible(true)}
                 >
@@ -711,7 +716,7 @@ const { setStep } = context;
                     📅 {scheduledDate ? formatScheduleShort(scheduledDate) : 'Schedule'}
                   </Text>
                 </TouchableOpacity>
-              </View>
+              </ScrollView>
 
               {/* Optional Airport / Metro Pickup Gate Note */}
               <View style={[styles.gateNoteBox, theme === 'dark' && styles.gateNoteBoxDark]}>
