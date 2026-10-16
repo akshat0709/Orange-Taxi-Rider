@@ -23,6 +23,8 @@ import { CityPickerModal } from '../components/CityPickerModal';
 import { HourlyRentalModal } from '../components/HourlyRentalModal';
 import { CoolCarSplashScreen } from '../components/CoolCarSplashScreen';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
 
 export const HomeScreen = ({ navigation }: any) => {
   const context = useRideContext();
@@ -38,9 +40,35 @@ export const HomeScreen = ({ navigation }: any) => {
   const [newPlaceSaving, setNewPlaceSaving] = React.useState(false);
   const { setStep } = context;
 
-  const handleSplashFinish = () => {
+  const userRef = React.useRef(user);
+  React.useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const handleSplashFinish = async () => {
     setShowSplash(false);
-    if (!user) {
+    let activeUser = userRef.current;
+    if (!activeUser) {
+      try {
+        const cached = await AsyncStorage.getItem('@orange_rider_user');
+        if (cached) {
+          activeUser = JSON.parse(cached);
+          setUser(activeUser);
+          userRef.current = activeUser;
+        }
+      } catch {}
+    }
+    if (!activeUser) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          activeUser = session.user;
+          setUser(session.user);
+          userRef.current = session.user;
+        }
+      } catch {}
+    }
+    if (!activeUser) {
       setAuthMode('signin');
       setAuthModalVisible(true);
     }

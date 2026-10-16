@@ -277,9 +277,22 @@ useEffect(() => {
     fetchDrivers();
     const driverPoll = setInterval(fetchDrivers, 10000);
 
+    // Instantly restore cached rider user from storage
+    AsyncStorage.getItem('@orange_rider_user').then((cached) => {
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.id) {
+            setUser(parsed);
+          }
+        } catch {}
+      }
+    });
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
       if (session?.user) {
+        setUser(session.user);
+        AsyncStorage.setItem('@orange_rider_user', JSON.stringify(session.user)).catch(() => {});
         await checkActiveRide(session.user.id);
         
         // Restore metadata
@@ -296,14 +309,23 @@ useEffect(() => {
           setSavedWorkAddress(meta.work_address);
           AsyncStorage.setItem('@orange_user_work_address', meta.work_address);
         }
+      } else {
+        const cached = await AsyncStorage.getItem('@orange_rider_user');
+        if (!cached) {
+          setUser(null);
+        }
       }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
+        setUser(session.user);
+        AsyncStorage.setItem('@orange_rider_user', JSON.stringify(session.user)).catch(() => {});
         checkActiveRide(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        AsyncStorage.removeItem('@orange_rider_user').catch(() => {});
       }
     });
 
@@ -1416,6 +1438,7 @@ async function handleAuthSubmit() {
         await AsyncStorage.removeItem('@orange_lockout_time');
         
         setUser(data.user);
+        await AsyncStorage.setItem('@orange_rider_user', JSON.stringify(data.user));
         setAuthModalVisible(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
@@ -1446,6 +1469,7 @@ async function handleAuthSubmit() {
             updated_at: new Date().toISOString(),
           });
           setUser(data.user);
+          await AsyncStorage.setItem('@orange_rider_user', JSON.stringify(data.user));
         }
         setAuthModalVisible(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1459,6 +1483,7 @@ async function handleAuthSubmit() {
 
 async function handleSignOut() {
     await supabase.auth.signOut();
+    await AsyncStorage.removeItem('@orange_rider_user');
     setUser(null);
     setActiveBooking(null);
     setAssignedDriver(null);
