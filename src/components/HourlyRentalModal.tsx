@@ -7,23 +7,21 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  Image,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   X,
   Clock,
   Navigation,
-  ShieldCheck,
-  Check,
+  RotateCcw,
   Sparkles,
   ChevronRight,
   Zap,
   MapPin,
-  Car,
-  RotateCcw,
+  Briefcase,
+  Camera,
+  ShoppingBag,
 } from 'lucide-react-native';
 
 export interface HourlyPackage {
@@ -154,18 +152,13 @@ export function HourlyRentalModal({
           {/* Grabber */}
           <View style={styles.grabber} />
 
-          {/* Header */}
+          {/* Minimal Header */}
           <View style={[styles.header, isDark && styles.headerDark]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={styles.headerIconWrap}>
-                <Clock size={20} color="#F97316" />
-              </View>
-              <View>
-                <Text style={[styles.title, isDark && styles.textWhite]}>Hourly Rentals</Text>
-                <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
-                  Mahindra BE.6 Signature at your disposal
-                </Text>
-              </View>
+            <View>
+              <Text style={[styles.title, isDark && styles.textWhite]}>Hourly Rentals</Text>
+              <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
+                Mahindra BE.6 Signature & Chauffeur at your disposal
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -178,10 +171,33 @@ export function HourlyRentalModal({
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* 1. HORIZONTAL SCROLL TO SELECT NO OF HOURS */}
+            {/* 1. SHORT "WHAT IS IT & WHO IT'S FOR" BRIEFING (MINIMALIST) */}
+            <View style={[styles.introCard, isDark && styles.introCardDark]}>
+              <Text style={[styles.introHeading, isDark && styles.textWhite]}>
+                Book a cab with driver for up to 12 hours with unlimited stops.
+              </Text>
+
+              {/* Clean Use Case Pills */}
+              <View style={styles.useCaseRow}>
+                <View style={[styles.useCasePill, isDark && styles.useCasePillDark]}>
+                  <Briefcase size={12} color="#F97316" />
+                  <Text style={[styles.useCaseText, isDark && styles.textWhite]}>Business Meetings</Text>
+                </View>
+                <View style={[styles.useCasePill, isDark && styles.useCasePillDark]}>
+                  <Camera size={12} color="#10B981" />
+                  <Text style={[styles.useCaseText, isDark && styles.textWhite]}>City Tourists</Text>
+                </View>
+                <View style={[styles.useCasePill, isDark && styles.useCasePillDark]}>
+                  <ShoppingBag size={12} color="#3B82F6" />
+                  <Text style={[styles.useCaseText, isDark && styles.textWhite]}>Shopping</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 2. HORIZONTAL SCROLL TO SELECT NO OF HOURS */}
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, isDark && styles.textMutedDark]}>
-                SELECT NUMBER OF HOURS
+                SELECT DURATION
               </Text>
               <Text style={styles.sectionSub}>Scroll sideways ➔</Text>
             </View>
@@ -239,10 +255,10 @@ export function HourlyRentalModal({
               })}
             </ScrollView>
 
-            {/* 2. ACTIVE PACKAGE PRICING & VALUE COMPARISON CARD */}
+            {/* 3. ACTIVE PACKAGE PRICING & SUMMARY */}
             <View style={[styles.packageCard, isDark && styles.packageCardDark]}>
               <View style={styles.priceRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.packageCardTitle, isDark && styles.textWhite]}>
                     {currentPkg.hours} Hours · {currentPkg.distanceKm} km Package
                   </Text>
@@ -251,7 +267,7 @@ export function HourlyRentalModal({
                   </Text>
                 </View>
 
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
                   <Text style={styles.priceMain}>₹{currentPkg.orangePrice}</Text>
                   <Text style={styles.priceStrike}>Uber: ₹{currentPkg.uberPrice}</Text>
                 </View>
@@ -270,66 +286,37 @@ export function HourlyRentalModal({
               {/* Package Highlights Grid */}
               <View style={styles.perksRow}>
                 <View style={styles.perkItem}>
-                  <Clock size={16} color="#F97316" />
-                  <Text style={[styles.perkLabel, isDark && styles.textWhite]}>{currentPkg.hours}h Free Waiting</Text>
+                  <Clock size={15} color="#F97316" />
+                  <Text style={[styles.perkLabel, isDark && styles.textWhite]}>{currentPkg.hours}h Waiting</Text>
                 </View>
                 <View style={styles.perkItem}>
-                  <Navigation size={16} color="#3B82F6" />
+                  <Navigation size={15} color="#3B82F6" />
                   <Text style={[styles.perkLabel, isDark && styles.textWhite]}>{currentPkg.distanceKm} km Included</Text>
                 </View>
                 <View style={styles.perkItem}>
-                  <RotateCcw size={16} color="#10B981" />
+                  <RotateCcw size={15} color="#10B981" />
                   <Text style={[styles.perkLabel, isDark && styles.textWhite]}>Unlimited Stops</Text>
                 </View>
               </View>
 
-              {/* Extra Usage Notice */}
-              <View style={[styles.extraNoticeBox, isDark && styles.extraNoticeBoxDark]}>
-                <Text style={[styles.extraNoticeText, isDark && styles.textMutedDark]}>
-                  • Extra Distance: <Text style={{ fontWeight: '700', color: isDark ? '#F8FAFC' : '#0F172A' }}>₹14/km</Text> beyond {currentPkg.distanceKm} km{'\n'}
-                  • Extra Time: <Text style={{ fontWeight: '700', color: isDark ? '#F8FAFC' : '#0F172A' }}>₹2.5/min</Text> beyond {currentPkg.hours} hours{'\n'}
-                  • Tolls, state taxes & parking charged at actuals
-                </Text>
-              </View>
+              {/* Compact Extra Usage Notice */}
+              <Text style={[styles.extraNoticeText, isDark && styles.textMutedDark]}>
+                Extra: ₹14/km · ₹2.5/min beyond package · Tolls & parking at actuals
+              </Text>
             </View>
 
-            {/* 3. PICKUP SPOT CARD */}
+            {/* 4. COMPACT PICKUP ROW */}
             <View style={[styles.pickupCard, isDark && styles.pickupCardDark]}>
-              <View style={styles.pickupDot} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={[styles.pickupLabel, isDark && styles.textMutedDark]}>CHAUFFEUR PICKUP LOCATION</Text>
+              <MapPin size={16} color="#F97316" />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[styles.pickupLabel, isDark && styles.textMutedDark]}>PICKUP SPOT</Text>
                 <Text style={[styles.pickupValue, isDark && styles.textWhite]} numberOfLines={1}>
-                  {pickupText || 'Indiranagar 100ft Road, Bengaluru'}
+                  {pickupText || 'Indiranagar, Bengaluru'}
                 </Text>
               </View>
             </View>
 
-            {/* 4. MAHINDRA BE.6 VEHICLE SHOWCASE */}
-            <View style={[styles.vehicleCard, isDark && styles.vehicleCardDark]}>
-              <View style={styles.vehicleImgBox}>
-                <Image
-                  source={require('../../assets/be6-exterior.jpg')}
-                  style={styles.vehicleImg}
-                  resizeMode="cover"
-                />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[styles.vehicleTitle, isDark && styles.textWhite]}>
-                    Mahindra BE.6 Signature
-                  </Text>
-                </View>
-                <Text style={[styles.vehicleDesc, isDark && styles.textMutedDark]}>
-                  100% Pure Electric EV · Spotless Executive Interior · Pre-Cooled AC at 22°C
-                </Text>
-                <View style={styles.verifiedRow}>
-                  <ShieldCheck size={13} color="#10B981" />
-                  <Text style={styles.verifiedText}>Verified Chauffeur</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ height: 24 }} />
+            <View style={{ height: 16 }} />
           </ScrollView>
 
           {/* Bottom Fixed Action Footer */}
@@ -354,7 +341,7 @@ export function HourlyRentalModal({
               ) : (
                 <>
                   <Text style={styles.bookBtnText}>
-                    Book {currentPkg.hours} Hr Rental · ₹{currentPkg.orangePrice}
+                    Book {currentPkg.hours}h Rental · ₹{currentPkg.orangePrice}
                   </Text>
                   <ChevronRight size={18} color="#FFFFFF" />
                 </>
@@ -377,7 +364,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '92%',
+    maxHeight: '88%',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
@@ -391,39 +378,30 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   grabber: {
-    width: 38,
+    width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#CBD5E1',
     alignSelf: 'center',
     marginTop: 10,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   headerDark: {
     borderBottomColor: '#1E293B',
   },
-  headerIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   title: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.3,
   },
   subTitle: {
     fontSize: 12,
@@ -431,9 +409,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -443,37 +421,80 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: 12,
+  },
+  introCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  introCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  introHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  useCaseRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  useCasePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  useCasePillDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+  },
+  useCaseText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '800',
     color: '#64748B',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   sectionSub: {
     fontSize: 11,
     color: '#F97316',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   hoursScroll: {
     gap: 10,
-    paddingBottom: 6,
+    paddingBottom: 14,
   },
   hourPill: {
     width: 120,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
     padding: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    alignItems: 'center',
     position: 'relative',
   },
   hourPillDark: {
@@ -486,39 +507,38 @@ const styles = StyleSheet.create({
   },
   hourPillActiveDark: {
     borderColor: '#F97316',
-    backgroundColor: '#27272A',
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
   },
   pkgBadge: {
     position: 'absolute',
     top: -8,
-    backgroundColor: '#8B5CF6',
+    right: 8,
+    backgroundColor: '#64748B',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   pkgBadgeActive: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#F97316',
   },
   pkgBadgeText: {
+    color: '#FFFFFF',
     fontSize: 8,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   hourNumber: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
-    marginTop: 2,
   },
   hourNumberActive: {
     color: '#EA580C',
   },
   hourKm: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     marginTop: 2,
-    marginBottom: 8,
   },
   hourKmActive: {
     color: '#EA580C',
@@ -526,7 +546,8 @@ const styles = StyleSheet.create({
   pillPriceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: 6,
+    marginTop: 8,
   },
   pillPrice: {
     fontSize: 14,
@@ -537,17 +558,17 @@ const styles = StyleSheet.create({
     color: '#EA580C',
   },
   pillUberPrice: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#94A3B8',
     textDecorationLine: 'line-through',
   },
   packageCard: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    padding: 16,
-    marginTop: 14,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginBottom: 10,
   },
   packageCardDark: {
     backgroundColor: '#1E293B',
@@ -555,22 +576,21 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   packageCardTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   packageTagline: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 2,
-    maxWidth: 200,
   },
   priceMain: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     color: '#EA580C',
   },
@@ -578,17 +598,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     textDecorationLine: 'line-through',
+    marginTop: 1,
   },
   uberDiscountPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
-    alignSelf: 'flex-start',
     marginTop: 10,
+    alignSelf: 'flex-start',
   },
   uberDiscountText: {
     fontSize: 11,
@@ -598,47 +619,34 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#E2E8F0',
-    marginVertical: 12,
+    marginVertical: 10,
   },
   perksRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   perkItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   perkLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#334155',
   },
-  extraNoticeBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginTop: 4,
-  },
-  extraNoticeBoxDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#334155',
-  },
   extraNoticeText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
-    lineHeight: 16,
+    lineHeight: 14,
   },
   pickupCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -646,68 +654,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderColor: '#334155',
   },
-  pickupDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-  },
   pickupLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: '#64748B',
     letterSpacing: 0.5,
   },
   pickupValue: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#0F172A',
     marginTop: 1,
-  },
-  vehicleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  vehicleCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  vehicleImgBox: {
-    width: 72,
-    height: 52,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  vehicleImg: {
-    width: '100%',
-    height: '100%',
-  },
-  vehicleTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  vehicleDesc: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  verifiedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
-  },
-  verifiedText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#10B981',
   },
   footer: {
     flexDirection: 'row',
@@ -722,30 +679,31 @@ const styles = StyleSheet.create({
     borderTopColor: '#1E293B',
   },
   footerPrice: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#0F172A',
   },
   footerSub: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
+    marginTop: 1,
   },
   bookBtn: {
+    backgroundColor: '#F97316',
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     gap: 6,
-    backgroundColor: '#EA580C',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
   },
   bookBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   textWhite: {
-    color: '#F8FAFC',
+    color: '#FFFFFF',
   },
   textMutedDark: {
     color: '#94A3B8',

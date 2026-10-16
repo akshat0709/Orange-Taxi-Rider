@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -13,10 +13,7 @@ import {
   X,
   Calendar,
   Clock,
-  Check,
   ShieldCheck,
-  Zap,
-  Snowflake,
   RotateCcw,
   Sparkles,
 } from 'lucide-react-native';
@@ -59,9 +56,9 @@ export function ScheduleModal({
   const [days, setDays] = useState<DayOption[]>([]);
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
 
-  // Time slots in 15-minute intervals
-  const [selectedHour, setSelectedHour] = useState(9); // 0-23
-  const [selectedMinute, setSelectedMinute] = useState(0); // 0, 15, 30, 45
+  // Time in hours (0-23) and minutes (0, 15, 30, 45)
+  const [selectedHour, setSelectedHour] = useState(9);
+  const [selectedMinute, setSelectedMinute] = useState(0);
 
   useEffect(() => {
     const list: DayOption[] = [];
@@ -87,19 +84,47 @@ export function ScheduleModal({
     setDays(list);
 
     if (currentSchedule) {
-      // Find matching day
       const targetDay = currentSchedule.getDate();
       const idx = list.findIndex((item) => item.date.getDate() === targetDay);
       if (idx >= 0) setSelectedDayIdx(idx);
       setSelectedHour(currentSchedule.getHours());
       setSelectedMinute(Math.round(currentSchedule.getMinutes() / 15) * 15 % 60);
     } else {
-      // Default to 1 hour from now or 9 AM tomorrow
       const future = new Date(now.getTime() + 60 * 60 * 1000);
       setSelectedHour(future.getHours());
       setSelectedMinute(Math.ceil(future.getMinutes() / 15) * 15 % 60);
     }
   }, [visible, currentSchedule]);
+
+  function formatTimeDisplay(hour: number, minute: number): string {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+    const displayMin = minute < 10 ? `0${minute}` : `${minute}`;
+    return `${displayHour}:${displayMin} ${period}`;
+  }
+
+  // Generate 15-minute time slots (00:00 to 23:45)
+  const timeSlots = useMemo(() => {
+    const slots: { hour: number; minute: number; label: string }[] = [];
+    const isToday = selectedDayIdx === 0;
+    const now = new Date();
+    const currentTotalMin = now.getHours() * 60 + now.getMinutes() + 15; // At least 15 min from now
+
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const slotTotalMin = h * 60 + m;
+        if (isToday && slotTotalMin < currentTotalMin) {
+          continue;
+        }
+        slots.push({
+          hour: h,
+          minute: m,
+          label: formatTimeDisplay(h, m),
+        });
+      }
+    }
+    return slots;
+  }, [selectedDayIdx]);
 
   function getComputedDate(): Date {
     const chosenDay = days[selectedDayIdx]?.date || new Date();
@@ -109,13 +134,6 @@ export function ScheduleModal({
     result.setSeconds(0);
     result.setMilliseconds(0);
     return result;
-  }
-
-  function formatTimeDisplay(hour: number, minute: number): string {
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-    const displayMin = minute < 10 ? `0${minute}` : `${minute}`;
-    return `${displayHour}:${displayMin} ${period}`;
   }
 
   function handleConfirm() {
@@ -131,42 +149,25 @@ export function ScheduleModal({
     onClose();
   }
 
-  const computedDate = getComputedDate();
   const chosenDay = days[selectedDayIdx];
   const dateFormattedSummary = chosenDay
-    ? `${chosenDay.label} (${chosenDay.subLabel}) at ${formatTimeDisplay(selectedHour, selectedMinute)}`
+    ? `${chosenDay.label}, ${formatTimeDisplay(selectedHour, selectedMinute)}`
     : '';
-
-  // Common popular time slots
-  const popularTimes = [
-    { hour: 7, minute: 0 },
-    { hour: 8, minute: 30 },
-    { hour: 9, minute: 0 },
-    { hour: 10, minute: 0 },
-    { hour: 12, minute: 30 },
-    { hour: 14, minute: 0 },
-    { hour: 17, minute: 30 },
-    { hour: 19, minute: 0 },
-    { hour: 20, minute: 30 },
-    { hour: 22, minute: 0 },
-  ];
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.card, isDark && styles.cardDark]}>
-          {/* Header */}
+          {/* Grabber */}
+          <View style={styles.grabber} />
+
+          {/* Minimal Header */}
           <View style={[styles.header, isDark && styles.headerDark]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={styles.headerIconWrap}>
-                <Clock size={20} color="#F97316" />
-              </View>
-              <View>
-                <Text style={[styles.title, isDark && styles.textWhite]}>Schedule a Ride</Text>
-                <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
-                  Reserve an EV chauffeur up to 7 days ahead
-                </Text>
-              </View>
+            <View>
+              <Text style={[styles.title, isDark && styles.textWhite]}>Reserve a Ride</Text>
+              <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
+                Advance booking up to 7 days · Locked fare & zero surge
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -179,20 +180,8 @@ export function ScheduleModal({
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* ROUTE / PICKUP & DESTINATION PREVIEW */}
+            {/* Minimalist Route Card */}
             <View style={[styles.routeCard, isDark && styles.routeCardDark]}>
-              <View style={styles.routeHeaderRow}>
-                <Text style={[styles.routeCardTitle, isDark && styles.textMutedDark]}>
-                  SCHEDULED ROUTE
-                </Text>
-                {!dropLocation && (
-                  <View style={styles.destNeededBadge}>
-                    <Text style={styles.destNeededBadgeText}>Destination Required</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Pickup Point */}
               <TouchableOpacity
                 style={styles.routeRow}
                 activeOpacity={0.8}
@@ -202,19 +191,18 @@ export function ScheduleModal({
                   onChangePickup?.();
                 }}
               >
-                <View style={styles.routeDotGreen} />
+                <View style={styles.dotGreen} />
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.routeLabel, isDark && styles.textMutedDark]}>Pickup Spot</Text>
+                  <Text style={[styles.routeLabel, isDark && styles.textMutedDark]}>PICKUP</Text>
                   <Text style={[styles.routeValue, isDark && styles.textWhite]} numberOfLines={1}>
-                    {pickupText || 'Auto-detecting current location...'}
+                    {pickupText || 'Current location'}
                   </Text>
                 </View>
-                <Text style={styles.changeActionText}>Edit</Text>
+                <Text style={styles.editLink}>Edit</Text>
               </TouchableOpacity>
 
               <View style={[styles.routeDivider, isDark && styles.routeDividerDark]} />
 
-              {/* Destination Point */}
               <TouchableOpacity
                 style={styles.routeRow}
                 activeOpacity={0.8}
@@ -224,9 +212,9 @@ export function ScheduleModal({
                   onChangeDrop?.();
                 }}
               >
-                <View style={[styles.routeDotOrange, !dropLocation && styles.routeDotEmpty]} />
+                <View style={[styles.dotOrange, !dropLocation && styles.dotEmpty]} />
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.routeLabel, isDark && styles.textMutedDark]}>Destination</Text>
+                  <Text style={[styles.routeLabel, isDark && styles.textMutedDark]}>DESTINATION</Text>
                   <Text
                     style={[
                       styles.routeValue,
@@ -235,20 +223,20 @@ export function ScheduleModal({
                     ]}
                     numberOfLines={1}
                   >
-                    {dropLocation ? dropLocation.name : 'Tap to select destination →'}
+                    {dropLocation ? dropLocation.name : 'Select destination →'}
                   </Text>
                 </View>
-                <Text style={[styles.changeActionText, !dropLocation && { color: '#F97316', fontWeight: '700' }]}>
+                <Text style={[styles.editLink, !dropLocation && { color: '#F97316' }]}>
                   {dropLocation ? 'Edit' : 'Add'}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* 1. DATE PICKER PILLS */}
+            {/* 1. DATE SCROLL */}
             <Text style={[styles.sectionTitle, isDark && styles.textMutedDark]}>
-              SELECT PICKUP DATE
+              SELECT DATE
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
               {days.map((item, idx) => {
                 const isSelected = idx === selectedDayIdx;
                 return (
@@ -288,68 +276,30 @@ export function ScheduleModal({
               })}
             </ScrollView>
 
-            {/* 2. TIME PICKER */}
-            <Text style={[styles.sectionTitle, isDark && styles.textMutedDark, { marginTop: 18 }]}>
-              SELECT PICKUP TIME
-            </Text>
-
-            {/* Selected Time Display Pill */}
-            <View style={[styles.timeDisplayCard, isDark && styles.timeDisplayCardDark]}>
-              <View style={styles.timeDisplayInner}>
-                <Clock size={20} color="#F97316" />
-                <Text style={[styles.timeDisplayText, isDark && styles.textWhite]}>
-                  {formatTimeDisplay(selectedHour, selectedMinute)}
-                </Text>
-              </View>
-
-              {/* Incremental Adjusters */}
-              <View style={styles.timeAdjustersRow}>
-                <TouchableOpacity
-                  style={[styles.adjustBtn, isDark && styles.adjustBtnDark]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedHour((prev) => (prev === 0 ? 23 : prev - 1));
-                  }}
-                >
-                  <Text style={[styles.adjustBtnText, isDark && styles.textWhite]}>-1h</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.adjustBtn, isDark && styles.adjustBtnDark]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedHour((prev) => (prev === 23 ? 0 : prev + 1));
-                  }}
-                >
-                  <Text style={[styles.adjustBtnText, isDark && styles.textWhite]}>+1h</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.adjustBtn, isDark && styles.adjustBtnDark]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setSelectedMinute((prev) => (prev + 15) % 60);
-                  }}
-                >
-                  <Text style={[styles.adjustBtnText, isDark && styles.textWhite]}>+15m</Text>
-                </TouchableOpacity>
-              </View>
+            {/* 2. TIME SCROLL */}
+            <View style={styles.timeSectionHeader}>
+              <Text style={[styles.sectionTitle, isDark && styles.textMutedDark]}>
+                SELECT TIME
+              </Text>
+              <Text style={styles.selectedTimeBadge}>
+                {formatTimeDisplay(selectedHour, selectedMinute)}
+              </Text>
             </View>
 
-            {/* Quick Popular Times */}
-            <Text style={[styles.microLabel, isDark && styles.textMutedDark]}>
-              POPULAR DEPARTURE SLOTS
-            </Text>
-            <View style={styles.slotsGrid}>
-              {popularTimes.map((slot, idx) => {
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.timeScroll}
+            >
+              {timeSlots.map((slot) => {
                 const isSelected = selectedHour === slot.hour && selectedMinute === slot.minute;
                 return (
                   <TouchableOpacity
-                    key={idx}
+                    key={`${slot.hour}-${slot.minute}`}
                     style={[
-                      styles.slotPill,
-                      isDark && styles.slotPillDark,
-                      isSelected && styles.slotPillActive,
+                      styles.timeSlotPill,
+                      isDark && styles.timeSlotPillDark,
+                      isSelected && styles.timeSlotPillActive,
                     ]}
                     activeOpacity={0.8}
                     onPress={() => {
@@ -358,46 +308,33 @@ export function ScheduleModal({
                       setSelectedMinute(slot.minute);
                     }}
                   >
+                    <Clock size={12} color={isSelected ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B')} />
                     <Text
                       style={[
-                        styles.slotText,
+                        styles.timeSlotText,
                         isDark && styles.textWhite,
-                        isSelected && styles.slotTextActive,
+                        isSelected && styles.timeSlotTextActive,
                       ]}
                     >
-                      {formatTimeDisplay(slot.hour, slot.minute)}
+                      {slot.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
+            </ScrollView>
+
+            {/* Minimalist 1-line Assurance */}
+            <View style={[styles.assurancePill, isDark && styles.assurancePillDark]}>
+              <ShieldCheck size={14} color="#10B981" />
+              <Text style={[styles.assuranceText, isDark && styles.textMutedDark]}>
+                Zero-surge locked · Chauffeur arrives 10m early · Free cancellation
+              </Text>
             </View>
 
-            {/* 3. ASSURANCES NOTE */}
-            <View style={[styles.assuranceCard, isDark && styles.assuranceCardDark]}>
-              <View style={styles.assuranceRow}>
-                <ShieldCheck size={16} color="#10B981" />
-                <Text style={[styles.assuranceText, isDark && styles.textWhite]}>
-                  <Text style={{ fontWeight: '800' }}>100% Zero-Surge Guarantee:</Text> Your scheduled fare is locked.
-                </Text>
-              </View>
-              <View style={styles.assuranceRow}>
-                <Snowflake size={16} color="#38BDF8" />
-                <Text style={[styles.assuranceText, isDark && styles.textWhite]}>
-                  <Text style={{ fontWeight: '800' }}>Early Chauffeur Arrival:</Text> Chauffeur arrives 10 mins early with pre-cooled AC.
-                </Text>
-              </View>
-              <View style={styles.assuranceRow}>
-                <Zap size={16} color="#F97316" />
-                <Text style={[styles.assuranceText, isDark && styles.textWhite]}>
-                  <Text style={{ fontWeight: '800' }}>Free Cancellation:</Text> Cancel penalty-free anytime before driver dispatch.
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ height: 24 }} />
+            <View style={{ height: 16 }} />
           </ScrollView>
 
-          {/* Bottom Actions */}
+          {/* Bottom Confirm Action */}
           <View style={[styles.footer, isDark && styles.footerDark]}>
             <TouchableOpacity
               style={styles.confirmBtn}
@@ -406,9 +343,7 @@ export function ScheduleModal({
             >
               <Calendar size={16} color="#FFFFFF" />
               <Text style={styles.confirmBtnText} numberOfLines={1}>
-                {dropLocation
-                  ? `Confirm Ride for ${dateFormattedSummary}`
-                  : `Set Time & Choose Destination ➔`}
+                Confirm for {dateFormattedSummary}
               </Text>
             </TouchableOpacity>
 
@@ -418,8 +353,8 @@ export function ScheduleModal({
                 activeOpacity={0.8}
                 onPress={handleClear}
               >
-                <RotateCcw size={14} color="#EA580C" />
-                <Text style={styles.clearBtnText}>Switch to Ride Now (Instant)</Text>
+                <RotateCcw size={13} color="#EA580C" />
+                <Text style={styles.clearBtnText}>Switch to Ride Now</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -439,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '88%',
+    maxHeight: '85%',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
@@ -449,31 +384,32 @@ const styles = StyleSheet.create({
   },
   cardDark: {
     backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
+    borderTopColor: '#1E293B',
+    borderTopWidth: 1,
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 6,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   headerDark: {
     borderBottomColor: '#1E293B',
   },
-  headerIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -483,16 +419,78 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeBtnDark: {
     backgroundColor: '#1E293B',
   },
   scrollBody: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 14,
+  },
+  routeCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  routeCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  dotGreen: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  dotOrange: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+    backgroundColor: '#F97316',
+  },
+  dotEmpty: {
+    backgroundColor: '#94A3B8',
+  },
+  routeLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  routeValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 1,
+  },
+  editLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  routeDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 8,
+  },
+  routeDividerDark: {
+    backgroundColor: '#334155',
   },
   sectionTitle: {
     fontSize: 11,
@@ -502,151 +500,105 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   daysScroll: {
-    flexDirection: 'row',
-    marginHorizontal: -4,
+    gap: 8,
+    paddingBottom: 16,
   },
   dayPill: {
-    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
     backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginHorizontal: 4,
     alignItems: 'center',
-    minWidth: 84,
+    minWidth: 78,
   },
   dayPillDark: {
     backgroundColor: '#1E293B',
     borderColor: '#334155',
   },
   dayPillActive: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#F97316',
     borderColor: '#F97316',
   },
   dayLabel: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  dayLabelActive: {
-    color: '#EA580C',
-  },
-  daySubLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  daySubLabelActive: {
-    color: '#F97316',
-  },
-  timeDisplayCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  timeDisplayCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  timeDisplayInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  timeDisplayText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  timeAdjustersRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  adjustBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-  },
-  adjustBtnDark: {
-    backgroundColor: '#334155',
-    borderColor: '#475569',
-  },
-  adjustBtnText: {
-    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
-  microLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.6,
-    marginTop: 14,
-    marginBottom: 8,
+  dayLabelActive: {
+    color: '#FFFFFF',
   },
-  slotsGrid: {
+  daySubLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  daySubLabelActive: {
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  timeSectionHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  slotPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+  selectedTimeBadge: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F97316',
+  },
+  timeScroll: {
+    gap: 8,
+    paddingBottom: 16,
+  },
+  timeSlotPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  slotPillDark: {
+  timeSlotPillDark: {
     backgroundColor: '#1E293B',
     borderColor: '#334155',
   },
-  slotPillActive: {
-    backgroundColor: '#FFF7ED',
+  timeSlotPillActive: {
+    backgroundColor: '#F97316',
     borderColor: '#F97316',
   },
-  slotText: {
+  timeSlotText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#0F172A',
   },
-  slotTextActive: {
-    color: '#EA580C',
+  timeSlotTextActive: {
+    color: '#FFFFFF',
   },
-  assuranceCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 18,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  assuranceCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  assuranceRow: {
+  assurancePill: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+  },
+  assurancePillDark: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   assuranceText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#15803D',
+    fontWeight: '600',
     flex: 1,
-    lineHeight: 16,
   },
   footer: {
     paddingHorizontal: 20,
@@ -660,17 +612,12 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     backgroundColor: '#F97316',
-    borderRadius: 16,
-    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
   confirmBtnText: {
     color: '#FFFFFF',
@@ -678,104 +625,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   clearBtn: {
-    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingVertical: 8,
   },
   clearBtnDark: {},
   clearBtnText: {
-    color: '#EA580C',
     fontSize: 12,
+    color: '#EA580C',
     fontWeight: '700',
   },
   textWhite: {
-    color: '#F8FAFC',
+    color: '#FFFFFF',
   },
   textMutedDark: {
     color: '#94A3B8',
-  },
-  routeCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  routeCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  routeHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  routeCardTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.8,
-  },
-  destNeededBadge: {
-    backgroundColor: '#FFEDD5',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  destNeededBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#EA580C',
-  },
-  routeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  routeDotGreen: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-  },
-  routeDotOrange: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#F97316',
-  },
-  routeDotEmpty: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#F97316',
-  },
-  routeLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  routeValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  changeActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3B82F6',
-    marginLeft: 8,
-  },
-  routeDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 8,
-    marginLeft: 20,
-  },
-  routeDividerDark: {
-    backgroundColor: '#334155',
   },
 });
