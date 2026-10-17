@@ -19,6 +19,8 @@ import { VehicleCategory, Booking, Driver, CustomSavedPlace } from '../types';
 import { getResolvedVehicleDetails } from '../lib/rideVehicle';
 import { haversineMeters } from '../components/RideMap';
 import { HourlyPackage } from '../components/HourlyRentalModal';
+import { registerForPushNotificationsAsync, sendLocalNotification } from '../lib/notificationService';
+import { CabinPreferences, CabinConciergeModal } from '../components/CabinConciergeModal';
 import {
   LocationItem,
   getSanitizedLocation,
@@ -157,6 +159,36 @@ const [isBookingPinConfirm, setIsBookingPinConfirm] = useState(false);
 const [cabinClimate, setCabinClimate] = useState<'chilled' | 'pleasant' | 'eco'>('chilled');
 
 const [quietRide, setQuietRide] = useState(false);
+
+const [cabinModalVisible, setCabinModalVisible] = useState(false);
+const [cabinPreferences, setCabinPreferences] = useState<CabinPreferences>({
+  temperature: '21°C',
+  music: 'lofi',
+  luggageHelp: false,
+  noHonking: true,
+  screenOn: true,
+  waterBottle: true,
+});
+
+useEffect(() => {
+  AsyncStorage.getItem('@orange_cabin_preferences').then((saved) => {
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setCabinPreferences((prev) => ({ ...prev, ...parsed }));
+      } catch {}
+    }
+  }).catch(() => {});
+  registerForPushNotificationsAsync().catch(() => {});
+}, []);
+
+const updateCabinPreferences = (updated: Partial<CabinPreferences>) => {
+  setCabinPreferences((prev) => {
+    const next = { ...prev, ...updated };
+    AsyncStorage.setItem('@orange_cabin_preferences', JSON.stringify(next)).catch(() => {});
+    return next;
+  });
+};
 
 const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'wallet'>('cash');
 
@@ -877,6 +909,7 @@ useEffect(() => {
                 type: notifType,
               });
               setTimeout(() => setInAppNotification(null), 6000);
+              sendLocalNotification(notifTitle, notifMsg, { bookingId: newBooking.id, status: newBooking.status });
             }
           }
 
@@ -1029,7 +1062,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
           customer_id: user.id,
           reference: ref,
           pickup_area: effectivePickup,
-          pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng}`,
+          pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
           drop_area: effectiveDropArea,
           drop_address: effectiveDropAddress,
           distance_km: distKm,
@@ -1133,7 +1166,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
           customer_id: user.id,
           reference: ref,
           pickup_area: pickupText || 'Current Location',
-          pickup_address: `${pickupCoords.lat},${pickupCoords.lng}`,
+          pickup_address: `${pickupCoords.lat},${pickupCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
           drop_area: dropTitle,
           drop_address: `${pickupCoords.lat},${pickupCoords.lng}`,
           distance_km: pkg.distanceKm,
@@ -1328,7 +1361,7 @@ function handleRepeatTrip(trip: any) {
     
     if (trip.pickup_area && trip.pickup_address) {
       setPickupText(trip.pickup_area);
-      const [plat, plng] = trip.pickup_address.split(',').map(Number);
+      const [plat, plng] = trip.pickup_address.split('|')[0].trim().split(',').map(Number);
       if (!isNaN(plat) && !isNaN(plng)) {
         setPickupCoords({ lat: plat, lng: plng });
       }
@@ -1494,7 +1527,7 @@ async function handleSignOut() {
 
   useEffect(() => {
     if (activeBooking?.status === 'in_progress' && expectedPolyline.length === 0 && activeBooking.pickup_address && activeBooking.drop_address) {
-      const pick = activeBooking.pickup_address.split(',').map(Number);
+      const pick = activeBooking.pickup_address.split('|')[0].trim().split(',').map(Number);
       let dropStr = activeBooking.drop_address;
       if (dropStr.includes('|')) dropStr = dropStr.split('|')[1].trim();
       const drop = dropStr.split(',').map(Number);
@@ -1555,7 +1588,7 @@ const inProgressDistKm = inProgressDistM !== null
     ? (inProgressDistM / 1000).toFixed(1)
     : (activeBooking?.distance_km?.toString() || '12');
 
-  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
+  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
 
   return (
     <RideContext.Provider value={value}>

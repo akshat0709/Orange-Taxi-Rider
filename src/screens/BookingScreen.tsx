@@ -3,7 +3,7 @@ import React from 'react';
 import * as Haptics from 'expo-haptics';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, Modal, StatusBar, Alert, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet } from 'lucide-react-native';
+import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Music2, Briefcase } from 'lucide-react-native';
 import { styles } from '../styles/AppStyles';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
 import { RideMap } from '../components/RideMap';
@@ -18,10 +18,11 @@ import { ScheduleModal } from '../components/ScheduleModal';
 import { TalkToOrangeModal } from '../components/TalkToOrangeModal';
 import { WalletModal } from '../components/WalletModal';
 import { RouteDeviationModal } from '../components/RouteDeviationModal';
+import { CabinConciergeModal } from '../components/CabinConciergeModal';
 
 export const BookingScreen = ({ navigation }: any) => {
   const context = useRideContext();
-  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
+  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
   const { height } = Dimensions.get('window');
   const step: number = 2;
   
@@ -932,54 +933,79 @@ const { setStep } = context;
                 )}
               </View>
 
-              {/* SIGNATURE HOSPITALITY PREFERENCES */}
+              {/* SIGNATURE MAHINDRA BE.6 CABIN CONCIERGE */}
               <View style={[styles.sheetHospitalityCard, theme === 'dark' && styles.sheetHospitalityCardDark]}>
-                <Text style={[styles.sheetHospitalityTitle, theme === 'dark' && styles.textWhite]}>SIGNATURE COMFORT</Text>
-
-                <View style={styles.climateRow}>
-                  {[
-                    { id: 'chilled', label: 'Chilled (19°C)' },
-                    { id: 'pleasant', label: 'Pleasant (22°C)' },
-                    { id: 'eco', label: 'Eco AC (24°C)' },
-                  ].map(({ id, label }) => (
-                    <TouchableOpacity
-                      key={id}
-                      style={[
-                        styles.climateChip,
-                        cabinClimate === id && styles.climateChipActive,
-                        theme === 'dark' && styles.climateChipDark,
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setCabinClimate(id as any);
-                      }}
-                    >
-                      <Snowflake size={12} color={cabinClimate === id ? '#F56B00' : '#9CA3AF'} />
-                      <Text style={[styles.climateChipText, cabinClimate === id && styles.climateChipTextActive]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={14} color="#F97316" />
+                    <Text style={[styles.sheetHospitalityTitle, theme === 'dark' && styles.textWhite]}>
+                      MAHINDRA BE.6 CABIN CONCIERGE
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setCabinModalVisible(true);
+                    }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(249, 115, 22, 0.12)',
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#F97316' }}>Customize ⚙️</Text>
+                  </TouchableOpacity>
                 </View>
 
-                {/* Quiet Mode Toggle */}
-                <TouchableOpacity
-                  style={[styles.quietToggle, quietRide && styles.quietToggleActive, theme === 'dark' && styles.quietToggleDark]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setQuietRide(!quietRide);
-                  }}
-                >
-                  <VolumeX size={16} color={quietRide ? '#F56B00' : '#9CA3AF'} />
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.quietToggleTitle, quietRide && styles.quietToggleTitleActive, theme === 'dark' && styles.textWhite]}>
-                      Quiet Ride Mode
+                {/* Quick Preference Highlights */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  <View style={[styles.climateChip, styles.climateChipActive, { backgroundColor: 'rgba(56, 189, 248, 0.12)', borderColor: '#38BDF8' }]}>
+                    <Snowflake size={12} color="#38BDF8" />
+                    <Text style={[styles.climateChipText, { color: '#38BDF8' }]}>
+                      AC: {cabinPreferences?.temperature || '21°C'}
                     </Text>
-                    <Text style={[styles.quietToggleSub, theme === 'dark' && styles.textMutedDark]}>Chauffeur will keep conversation minimal</Text>
                   </View>
-                  <View style={[styles.quietCheckbox, quietRide && styles.quietCheckboxActive]}>
-                    {quietRide && <Check size={10} color="#FFFFFF" />}
+                  <View style={[styles.climateChip, styles.climateChipActive]}>
+                    <Music2 size={12} color="#F97316" />
+                    <Text style={[styles.climateChipText, styles.climateChipTextActive]}>
+                      Acoustic: {cabinPreferences?.music === 'lofi' ? 'Lo-Fi' : cabinPreferences?.music === 'bollywood' ? 'Bollywood' : cabinPreferences?.music === 'jazz' ? 'Jazz' : 'Quiet'}
+                    </Text>
                   </View>
+                  {cabinPreferences?.noHonking && (
+                    <View style={[styles.climateChip, styles.climateChipActive, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: '#10B981' }]}>
+                      <VolumeX size={12} color="#10B981" />
+                      <Text style={[styles.climateChipText, { color: '#10B981' }]}>No Honking</Text>
+                    </View>
+                  )}
+                  {cabinPreferences?.luggageHelp && (
+                    <View style={[styles.climateChip, styles.climateChipActive, { backgroundColor: 'rgba(168, 85, 247, 0.12)', borderColor: '#A855F7' }]}>
+                      <Briefcase size={12} color="#A855F7" />
+                      <Text style={[styles.climateChipText, { color: '#A855F7' }]}>Luggage Help</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Tap to Open Full Cabin Concierge */}
+                <TouchableOpacity
+                  style={[styles.quietToggle, theme === 'dark' && styles.quietToggleDark, { borderColor: '#F97316', borderWidth: 1 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setCabinModalVisible(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Sparkles size={16} color="#F97316" />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.quietToggleTitle, theme === 'dark' && styles.textWhite]}>
+                      Cabin Climate, Ambience & Amenities
+                    </Text>
+                    <Text style={[styles.quietToggleSub, theme === 'dark' && styles.textMutedDark]}>
+                      19°C/21°C/23°C pre-cool, lo-fi playlists, screen & quiet mode
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color="#F97316" />
                 </TouchableOpacity>
               </View>
 
@@ -1651,6 +1677,15 @@ const { setStep } = context;
             </View>
           </KeyboardAvoidingView>
         </Modal>
+
+        {/* MAHINDRA BE.6 CABIN CONCIERGE MODAL */}
+        <CabinConciergeModal
+          visible={cabinModalVisible}
+          onClose={() => setCabinModalVisible(false)}
+          preferences={cabinPreferences}
+          onUpdatePreferences={updateCabinPreferences}
+          theme={theme}
+        />
     </View>
 
   );
