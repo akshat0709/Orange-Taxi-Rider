@@ -728,39 +728,41 @@ const { setStep } = context;
                 <ChevronRight size={14} color="#10B981" />
               </TouchableOpacity>
 
-              {/* Official GST Ride Receipt / Invoice Button */}
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: theme === 'dark' ? '#1E293B' : '#F8FAFC',
-                  borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
-                  borderWidth: 1,
-                  borderRadius: 14,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  marginBottom: 8,
-                }}
-                activeOpacity={0.85}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setTaxInvoiceVisible(true);
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                  <FileText size={16} color="#F97316" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme === 'dark' ? '#F8FAFC' : '#0F172A' }}>
-                      Official GST Ride Receipt & Tax Invoice
-                    </Text>
-                    <Text style={{ fontSize: 10, color: theme === 'dark' ? '#94A3B8' : '#64748B' }} numberOfLines={1}>
-                      Download or share SAC 9964 official GST invoice PDF
-                    </Text>
+              {/* Official GST Ride Receipt / Invoice Button (Only once trip is completed) */}
+              {activeBooking?.status === 'completed' && (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: theme === 'dark' ? '#1E293B' : '#F8FAFC',
+                    borderColor: theme === 'dark' ? '#334155' : '#E2E8F0',
+                    borderWidth: 1,
+                    borderRadius: 14,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    marginBottom: 8,
+                  }}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setTaxInvoiceVisible(true);
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                    <FileText size={16} color="#F97316" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: theme === 'dark' ? '#F8FAFC' : '#0F172A' }}>
+                        Official GST Ride Receipt & Tax Invoice
+                      </Text>
+                      <Text style={{ fontSize: 10, color: theme === 'dark' ? '#94A3B8' : '#64748B' }} numberOfLines={1}>
+                        Download or share SAC 9964 official GST invoice PDF
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <ChevronRight size={14} color="#F97316" />
-              </TouchableOpacity>
+                  <ChevronRight size={14} color="#F97316" />
+                </TouchableOpacity>
+              )}
 
               {/* Safety & SOS Strip */}
               <View style={styles.safetyStripRow}>
