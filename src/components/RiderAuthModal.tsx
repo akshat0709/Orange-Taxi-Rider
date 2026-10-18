@@ -75,7 +75,7 @@ export function RiderAuthModal() {
 
             <Text style={[styles.authModalSub, isDark && styles.textMutedDark]}>
               {authMode === 'verify_otp'
-                ? `We sent a 4-digit code to ${authEmail || 'your email'}. Enter it below to complete registration.`
+                ? `We sent a verification code to ${authEmail || 'your email'}. Enter it below or tap the confirmation link in your email to complete registration.`
                 : authMode === 'signin'
                 ? 'Access your ride history, saved trips and instant booking.'
                 : 'Join Orange Taxi for luxury electric travel across India.'}
@@ -95,7 +95,7 @@ export function RiderAuthModal() {
               <View style={{ marginTop: 16 }}>
                 <View style={styles.authField}>
                   <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>
-                    4-Digit Verification Code
+                    Verification Code
                   </Text>
                   <TextInput
                     style={[
@@ -103,14 +103,35 @@ export function RiderAuthModal() {
                       styles.otpInput,
                       isDark && styles.authInputDark,
                     ]}
-                    placeholder="• • • •"
+                    placeholder="• • • • • •"
                     placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                     keyboardType="number-pad"
-                    maxLength={4}
+                    maxLength={6}
                     value={authOtp}
-                    onChangeText={(val) => setAuthOtp(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                    onChangeText={(val) => setAuthOtp(val.replace(/[^0-9]/g, '').slice(0, 6))}
                     autoFocus
                   />
+                </View>
+
+                {/* Email Confirmation Link Tip */}
+                <View
+                  style={{
+                    backgroundColor: isDark ? '#334155' : '#F1F5F9',
+                    borderRadius: 10,
+                    padding: 10,
+                    marginBottom: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: isDark ? '#94A3B8' : '#64748B',
+                      textAlign: 'center',
+                      lineHeight: 16,
+                    }}
+                  >
+                    Tip: You can also tap the confirmation link directly in the email to activate your account.
+                  </Text>
                 </View>
 
                 {/* Resend 30s Cooldown */}
@@ -139,11 +160,11 @@ export function RiderAuthModal() {
                 <TouchableOpacity
                   style={[
                     styles.authSubmitBtn,
-                    (authSubmitting || authOtp.length !== 4 || authOtpLockoutRemaining > 0) && {
+                    (authSubmitting || authOtp.length < 4 || authOtpLockoutRemaining > 0) && {
                       opacity: 0.6,
                     },
                   ]}
-                  disabled={authSubmitting || authOtp.length !== 4 || authOtpLockoutRemaining > 0}
+                  disabled={authSubmitting || authOtp.length < 4 || authOtpLockoutRemaining > 0}
                   onPress={handleVerifyOtp}
                 >
                   {authSubmitting ? (

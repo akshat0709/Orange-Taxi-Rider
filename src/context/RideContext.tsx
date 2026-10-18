@@ -1514,8 +1514,24 @@ async function handleAuthSubmit() {
         });
         
         if (error) {
+          if (error.message?.toLowerCase().includes('email not confirmed')) {
+            setAuthMode('verify_otp');
+            setAuthOtp('');
+            setAuthOtpResendCooldown(30);
+            supabase.auth.resend({
+              type: 'signup',
+              email: authEmail.trim(),
+            }).catch(() => {});
+            Alert.alert(
+              'Email Verification Required',
+              `Please verify your email address to continue. A verification code has been sent to ${authEmail.trim()}. You can also tap the confirmation link in your email.`
+            );
+            setAuthSubmitting(false);
+            return;
+          }
+
           const storedAttempts = await AsyncStorage.getItem('@orange_login_attempts');
-          let attempts = storedAttempts ? parseInt(storedAttempts) : 0;
+          let attempts = storedAttempts ? parseInt(storedAttempts, 10) : 0;
           attempts++;
           
           if (attempts >= 5) {
@@ -1573,7 +1589,7 @@ async function handleAuthSubmit() {
           setAuthOtpResendCooldown(30);
           Alert.alert(
             'Verification Code Sent',
-            `A 4-digit verification code has been sent to ${authEmail.trim()}. Please enter it to complete registration.`
+            `A verification code has been sent to ${authEmail.trim()}. Please enter it to complete registration, or tap the link in your email.`
           );
           setAuthSubmitting(false);
           return;
@@ -1597,19 +1613,31 @@ async function handleAuthSubmit() {
       return;
     }
     const cleanOtp = authOtp.trim();
-    if (cleanOtp.length !== 4) {
-      Alert.alert('Invalid Code', 'Please enter the complete 4-digit code.');
+    if (cleanOtp.length < 4 || cleanOtp.length > 8) {
+      Alert.alert('Invalid Code', 'Please enter the complete verification code (4 or 6 digits).');
       return;
     }
 
     setAuthSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      let { data, error } = await supabase.auth.verifyOtp({
         email: authEmail.trim(),
         token: cleanOtp,
         type: 'signup',
       });
+
+      if (error) {
+        const retry = await supabase.auth.verifyOtp({
+          email: authEmail.trim(),
+          token: cleanOtp,
+          type: 'email',
+        });
+        if (!retry.error) {
+          data = retry.data;
+          error = null;
+        }
+      }
 
       if (error) {
         const storedAttempts = await AsyncStorage.getItem('@orange_otp_attempts');
@@ -1649,10 +1677,17 @@ async function handleAuthSubmit() {
     setAuthSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const { error } = await supabase.auth.resend({
+      let { error } = await supabase.auth.resend({
         type: 'signup',
         email: authEmail.trim(),
       });
+      if (error) {
+        const retry = await supabase.auth.resend({
+          type: 'email_change',
+          email: authEmail.trim(),
+        });
+        if (!retry.error) error = null;
+      }
       if (error) {
         if (error.status === 429 || error.message?.toLowerCase().includes('rate limit') || error.message?.toLowerCase().includes('too many requests')) {
           setAuthOtpLockoutRemaining(60);
@@ -1663,7 +1698,7 @@ async function handleAuthSubmit() {
         return;
       }
       setAuthOtpResendCooldown(30);
-      Alert.alert('Code Sent', 'A fresh 4-digit code has been sent to your email.');
+      Alert.alert('Code Sent', 'A fresh verification code has been sent to your email.');
     } catch (err: any) {
       Alert.alert('Resend Error', err.message || 'Failed to resend code.');
     } finally {
@@ -1671,7 +1706,7 @@ async function handleAuthSubmit() {
     }
   }
 
-async function handleSignOut() {
+  async function handleSignOut() {
     await supabase.auth.signOut();
     await AsyncStorage.removeItem('@orange_rider_user');
     setUser(null);
