@@ -2,16 +2,20 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 // Configure notification behavior for foreground and background
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    priority: Notifications.AndroidNotificationPriority.MAX,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      priority: Notifications.AndroidNotificationPriority.MAX,
+    }),
+  });
+} catch (err) {
+  console.warn("Notifications.setNotificationHandler warning:", err);
+}
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   let token: string | null = null;

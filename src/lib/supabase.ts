@@ -2,11 +2,39 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
+const SUPABASE_URL =
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://ndaollycrvlawemhwvky.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_baABGadHhpQI6LtkZcyI0g_HJX39Y_d';
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn("⚠️ Warning: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY is missing.");
+function createSupabaseFetch(supabaseKey: string): typeof fetch {
+  return (input, init) => {
+    const headerObj: Record<string, string> = {};
+
+    if (init?.headers) {
+      if (typeof (init.headers as any).forEach === 'function') {
+        (init.headers as any).forEach((value: string, key: string) => {
+          headerObj[key] = String(value);
+        });
+      } else if (Array.isArray(init.headers)) {
+        for (const [key, value] of init.headers) {
+          headerObj[key] = String(value);
+        }
+      } else {
+        Object.assign(headerObj, init.headers);
+      }
+    }
+
+    if (!headerObj.apikey && !headerObj.ApiKey && !headerObj.APIKEY) {
+      headerObj.apikey = supabaseKey;
+    }
+
+    if (!headerObj.Authorization && !headerObj.authorization) {
+      headerObj.Authorization = `Bearer ${supabaseKey}`;
+    }
+
+    return fetch(input, { ...init, headers: headerObj });
+  };
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -15,5 +43,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+  },
+  global: {
+    fetch: createSupabaseFetch(SUPABASE_ANON_KEY),
   },
 });

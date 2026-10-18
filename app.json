@@ -32,7 +32,8 @@
       }
     },
     "plugins": [
-      "expo-sharing"
+      "expo-sharing",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

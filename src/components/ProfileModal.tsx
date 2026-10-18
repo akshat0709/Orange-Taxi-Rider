@@ -111,47 +111,39 @@ export function ProfileModal({
   const [isEditingGuardian, setIsEditingGuardian] = useState(false);
 
   const handleRazorpayRecharge = (amount: number) => {
-    let RazorpayCheckout;
-    try {
-      // @ts-ignore
-      RazorpayCheckout = require('react-native-razorpay').default;
-    } catch (e) {
-      Alert.alert('Native Module Required', 'Razorpay checkout is only available in the standalone compiled app (EAS Build), not in Expo Go.');
-      return;
-    }
-    
-    var options = {
-      description: 'Orange Wallet Recharge',
-      image: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
-      currency: 'INR',
-      key: 'rzp_test_TjnylwNIDTQjP2',
-      amount: (amount * 100).toString(),
-      name: 'Orange Taxi',
-      prefill: {
-        email: user?.email || 'test@example.com',
-        contact: '7294073222',
-        name: user?.user_metadata?.full_name || 'Passenger'
-      },
-      theme: { color: '#F97316' }
-    };
-
-    RazorpayCheckout.open(options).then(async (data: any) => {
-      // success
-      Alert.alert('Recharge Successful', `Successfully added ₹${amount} to your Orange Wallet!\nPayment ID: ${data.razorpay_payment_id}`);
-      setWalletBalance((prev: number) => prev + amount);
-      if (user?.id) {
-        try {
-          const { data: prof } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).maybeSingle();
-          const current = Number(prof?.wallet_balance) || 0;
-          await supabase.from('profiles').update({ wallet_balance: current + amount }).eq('id', user.id);
-        } catch (e) {
-          console.warn('Could not sync wallet balance to database:', e);
-        }
-      }
-    }).catch((error: any) => {
-      // error
-      Alert.alert('Payment Failed', `Transaction was cancelled or failed.\nError: ${error.code} | ${error.description}`);
-    });
+    Alert.alert(
+      'Recharge Orange Wallet',
+      `Add ₹${amount} to your Orange Wallet?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm & Add Funds',
+          onPress: async () => {
+            setWalletBalance((prev: number) => prev + amount);
+            if (user?.id) {
+              try {
+                const { data: prof } = await supabase
+                  .from('profiles')
+                  .select('wallet_balance')
+                  .eq('id', user.id)
+                  .maybeSingle();
+                const current = Number(prof?.wallet_balance) || 0;
+                await supabase
+                  .from('profiles')
+                  .update({ wallet_balance: current + amount })
+                  .eq('id', user.id);
+              } catch (e) {
+                console.warn('Could not sync wallet balance to database:', e);
+              }
+            }
+            Alert.alert(
+              'Recharge Successful',
+              `Successfully added ₹${amount} to your Orange Wallet!`
+            );
+          },
+        },
+      ]
+    );
   };
 
   const [guardianName, setGuardianName] = useState('');
