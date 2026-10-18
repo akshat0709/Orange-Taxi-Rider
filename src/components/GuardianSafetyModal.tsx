@@ -124,7 +124,7 @@ export function GuardianSafetyModal({
         `🚗 Booking: ${booking?.reference || 'N/A'}`,
         `📍 Route: ${booking?.pickup_area || ''} → ${booking?.drop_area || ''}`,
         `👤 Driver: ${driver?.full_name || 'N/A'} | 📞 ${driver?.phone || 'N/A'}`,
-        `Live Track: https://orange-taxi.com/track?ref=${booking?.reference || ''}`,
+        `Live Track: https://bookings.orange-taxi.com/track?ref=${booking?.reference || ''}`,
         '',
         '⚠️ Please check on them or call 112 immediately.',
       ].join('\n');
@@ -159,7 +159,7 @@ export function GuardianSafetyModal({
 
   async function handleShareLiveRide() {
     Haptics.selectionAsync();
-    const trackUrl = `https://orange-taxi.com/track?ref=${booking?.reference || ''}`;
+    const trackUrl = `https://bookings.orange-taxi.com/track?ref=${booking?.reference || ''}`;
     const driverName = driver?.full_name || 'Your Chauffeur';
     const pickup = booking?.pickup_area || 'Pickup';
     const drop = booking?.drop_area || 'Destination';
@@ -179,7 +179,7 @@ export function GuardianSafetyModal({
 
   function handleWhatsAppShareLiveRide() {
     Haptics.selectionAsync();
-    const trackUrl = `https://orange-taxi.com/track?ref=${booking?.reference || ''}`;
+    const trackUrl = `https://bookings.orange-taxi.com/track?ref=${booking?.reference || ''}`;
     const driverName = driver?.full_name || 'Your Chauffeur';
     const pickup = booking?.pickup_area || 'Pickup';
     const drop = booking?.drop_area || 'Destination';

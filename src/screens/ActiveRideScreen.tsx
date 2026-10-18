@@ -600,7 +600,7 @@ const { setStep } = context;
                   accessibilityRole="button"
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    const trackUrl = `https://orange-taxi.com/track?ref=${activeBooking.reference}`;
+                    const trackUrl = `https://bookings.orange-taxi.com/track?ref=${activeBooking.reference}`;
                     const msg = encodeURIComponent(`Hi! I'm riding in an Orange Electric Cab (${resolvedVehicle.modelName} · ${resolvedVehicle.plateNumber}). Track my live trip: ${trackUrl}`);
                     Linking.openURL(`whatsapp://send?text=${msg}`).catch(() => {
                       Share.share({
@@ -704,7 +704,7 @@ const { setStep } = context;
                 activeOpacity={0.85}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  const trackUrl = `https://orange-taxi.com/track?ref=${activeBooking.reference}`;
+                  const trackUrl = `https://bookings.orange-taxi.com/track?ref=${activeBooking.reference}`;
                   const msg = encodeURIComponent(`Hi! I'm riding in an Orange Electric Cab (${resolvedVehicle.modelName} · ${resolvedVehicle.plateNumber}). Track my live trip: ${trackUrl}`);
                   Linking.openURL(`whatsapp://send?text=${msg}`).catch(() => {
                     Share.share({
