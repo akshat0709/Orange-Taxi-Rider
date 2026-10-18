@@ -1933,7 +1933,7 @@ export const HomeScreen = ({ navigation }: any) => {
               </View>
             </ScrollView>
 
-            {/* ── UBER-STYLE FLOATING PROMO PILL ── */}
+            {/* ── FLOATING PROMO PILL ── */}
             {promoPillVisible && (
               <View
                 style={{
@@ -2070,9 +2070,7 @@ export const HomeScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {/* ================================================================= */}
-        {/* DEDICATED LOCATION SEARCH MODAL (UBER / OLA STYLE)                */}
-        {/* ================================================================= */}
+        {/* DEDICATED LOCATION SEARCH MODAL */}
         <LocationSearchModal
           visible={searchModalVisible}
           topInset={insets.top}
@@ -2375,9 +2373,7 @@ export const HomeScreen = ({ navigation }: any) => {
           theme={theme}
         />
 
-        {/* ================================================================= */}
-        {/* HOURLY RENTAL MODAL (10% LESS THAN UBER WITH HOUR SCROLL)         */}
-        {/* ================================================================= */}
+        {/* HOURLY RENTAL MODAL */}
         <HourlyRentalModal
           visible={hourlyModalVisible}
           onClose={() => setHourlyModalVisible(false)}

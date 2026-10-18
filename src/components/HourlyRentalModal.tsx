@@ -32,7 +32,7 @@ export interface HourlyPackage {
   id: string;
   hours: number;
   distanceKm: number;
-  uberPrice: number;
+  regularPrice: number;
   orangePrice: number;
   badge?: string;
   tagline: string;
@@ -43,7 +43,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '1h',
     hours: 1,
     distanceKm: 10,
-    uberPrice: 400,
+    regularPrice: 400,
     orangePrice: 360,
     tagline: 'Quick errands, meetings & single appointments',
   },
@@ -51,7 +51,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '2h',
     hours: 2,
     distanceKm: 20,
-    uberPrice: 720,
+    regularPrice: 720,
     orangePrice: 648,
     tagline: 'Doctor visits, shopping & quick city tasks',
   },
@@ -59,7 +59,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '3h',
     hours: 3,
     distanceKm: 30,
-    uberPrice: 1080,
+    regularPrice: 1080,
     orangePrice: 972,
     tagline: 'Multiple errands across town with stops',
   },
@@ -67,7 +67,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '4h',
     hours: 4,
     distanceKm: 40,
-    uberPrice: 1440,
+    regularPrice: 1440,
     orangePrice: 1296,
     badge: 'MOST POPULAR',
     tagline: 'Half-day business meetings & client visits',
@@ -76,7 +76,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '5h',
     hours: 5,
     distanceKm: 50,
-    uberPrice: 1800,
+    regularPrice: 1800,
     orangePrice: 1620,
     tagline: 'Extended half-day with flexible stops',
   },
@@ -84,7 +84,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '6h',
     hours: 6,
     distanceKm: 60,
-    uberPrice: 2160,
+    regularPrice: 2160,
     orangePrice: 1944,
     tagline: 'Multi-location corporate visits & shopping',
   },
@@ -92,7 +92,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '8h',
     hours: 8,
     distanceKm: 80,
-    uberPrice: 2880,
+    regularPrice: 2880,
     orangePrice: 2592,
     badge: 'BEST VALUE',
     tagline: 'Full-day city disposal (8 hours / 80 km)',
@@ -101,7 +101,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '10h',
     hours: 10,
     distanceKm: 100,
-    uberPrice: 3600,
+    regularPrice: 3600,
     orangePrice: 3240,
     tagline: 'Full-day comprehensive travel & events',
   },
@@ -109,7 +109,7 @@ export const HOURLY_PACKAGES: HourlyPackage[] = [
     id: '12h',
     hours: 12,
     distanceKm: 120,
-    uberPrice: 4320,
+    regularPrice: 4320,
     orangePrice: 3888,
     badge: 'MAX DISPOSAL',
     tagline: 'Full-day VIP disposal for weddings & outstation',
@@ -155,7 +155,7 @@ export function HourlyRentalModal({
     onConfirmRental(currentPkg);
   };
 
-  const savings = currentPkg.uberPrice - currentPkg.orangePrice;
+  const savings = currentPkg.regularPrice - currentPkg.orangePrice;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={handleClose}>
@@ -191,15 +191,15 @@ export function HourlyRentalModal({
               </View>
 
               <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-                {/* 10% Uber Discount Hero Pill */}
+                {/* 10% Savings Hero Pill */}
                 <View style={[styles.heroPromoBanner, isDark && styles.heroPromoBannerDark]}>
                   <View style={styles.zapIconWrap}>
                     <Zap size={16} color="#15803D" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.heroPromoTitle}>10% Cheaper than Uber Rentals</Text>
+                    <Text style={styles.heroPromoTitle}>10% Cheaper than Standard Market Rates</Text>
                     <Text style={[styles.heroPromoSub, isDark && styles.textMutedDark]}>
-                      Uber ₹400/hr, ₹720/2hr · Orange Taxi ₹360/hr, ₹648/2hr
+                      Standard ₹400/hr, ₹720/2hr · Orange Taxi ₹360/hr, ₹648/2hr
                     </Text>
                   </View>
                 </View>
@@ -328,7 +328,7 @@ export function HourlyRentalModal({
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={[styles.title, isDark && styles.textWhite]}>Select Rental Duration</Text>
                   <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
-                    All packages include 10% discount vs Uber
+                    All packages include 10% flat savings vs standard rates
                   </Text>
                 </View>
 
@@ -346,7 +346,7 @@ export function HourlyRentalModal({
                 <View style={[styles.discountTagBanner, isDark && styles.discountTagBannerDark]}>
                   <Zap size={14} color="#15803D" />
                   <Text style={styles.discountTagText}>
-                    10% Less than Uber: ₹400 → ₹360 (1h) · ₹720 → ₹648 (2h)
+                    10% Less than Market: ₹400 → ₹360 (1h) · ₹720 → ₹648 (2h)
                   </Text>
                 </View>
 
@@ -410,7 +410,7 @@ export function HourlyRentalModal({
                           >
                             ₹{pkg.orangePrice}
                           </Text>
-                          <Text style={styles.pillUberPrice}>₹{pkg.uberPrice}</Text>
+                          <Text style={styles.pillRegularPrice}>₹{pkg.regularPrice}</Text>
                         </View>
                       </TouchableOpacity>
                     );
@@ -431,15 +431,15 @@ export function HourlyRentalModal({
 
                     <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
                       <Text style={styles.priceMain}>₹{currentPkg.orangePrice}</Text>
-                      <Text style={styles.priceStrike}>Uber: ₹{currentPkg.uberPrice}</Text>
+                      <Text style={styles.priceStrike}>Regular: ₹{currentPkg.regularPrice}</Text>
                     </View>
                   </View>
 
                   {/* 10% Off Savings Pill */}
-                  <View style={styles.uberDiscountPill}>
+                  <View style={styles.savingsDiscountPill}>
                     <Zap size={13} color="#15803D" />
-                    <Text style={styles.uberDiscountText}>
-                      10% Less than Uber · You Save ₹{savings}
+                    <Text style={styles.savingsDiscountText}>
+                      10% Off Regular Fare · You Save ₹{savings}
                     </Text>
                   </View>
 
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
   pillPriceActive: {
     color: '#EA580C',
   },
-  pillUberPrice: {
+  pillRegularPrice: {
     fontSize: 11,
     color: '#94A3B8',
     textDecorationLine: 'line-through',
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     marginTop: 1,
   },
-  uberDiscountPill: {
+  savingsDiscountPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignSelf: 'flex-start',
   },
-  uberDiscountText: {
+  savingsDiscountText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#15803D',

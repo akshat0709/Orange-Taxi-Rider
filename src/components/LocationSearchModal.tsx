@@ -262,7 +262,7 @@ export function LocationSearchModal({
           <View style={{ width: 38 }} />
         </View>
 
-        {/* Dual Connected Inputs (Uber / Ola Style) */}
+        {/* Dual Connected Inputs */}
         <View style={[styles.inputsCard, isDark && styles.inputsCardDark]}>
           {/* Visual Route Connector */}
           <View style={styles.routePillGuide}>

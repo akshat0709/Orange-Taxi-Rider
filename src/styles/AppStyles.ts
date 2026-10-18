@@ -2578,7 +2578,7 @@ export const styles = StyleSheet.create({
   },
 
   // -------------------------------------------------------------------------
-  // UBER-STYLE HOME LAYOUT STYLES
+  // MODERN EXECUTIVE HOME LAYOUT STYLES
   // -------------------------------------------------------------------------
   uberTopHeader: {
     position: 'absolute',

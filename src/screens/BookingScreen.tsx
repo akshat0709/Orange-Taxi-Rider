@@ -1276,9 +1276,7 @@ const { setStep } = context;
         </View>
         ) : null}
 
-        {/* ================================================================= */}
-        {/* DEDICATED LOCATION SEARCH MODAL (UBER / OLA STYLE)                */}
-        {/* ================================================================= */}
+        {/* DEDICATED LOCATION SEARCH MODAL */}
         <LocationSearchModal
           visible={searchModalVisible}
           topInset={insets.top}

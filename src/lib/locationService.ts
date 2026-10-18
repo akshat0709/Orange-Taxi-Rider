@@ -501,7 +501,7 @@ export async function searchPlaces(
 }
 
 // ---------------------------------------------------------------------------
-// GENERATE REALISTIC NEARBY CABS (for Uber/Ola moving cars effect)
+// GENERATE REALISTIC NEARBY CABS (for realistic moving cars effect)
 // ---------------------------------------------------------------------------
 export function generateNearbyCabs(centerLat: number, centerLng: number): NearbyCab[] {
   const offsets = [

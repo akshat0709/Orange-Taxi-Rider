@@ -1279,7 +1279,7 @@ const { setStep } = context;
         </View>
         ) : (
           /* =============================================================== */
-          /* STEP 1: UBER / OLA MAP-FIRST HOME SCREEN                        */
+          /* STEP 1: MAP-FIRST HOME SCREEN                                  */
           /* =============================================================== */
           <View style={{ flex: 1, position: 'relative' }}>
             {/* Full Screen Interactive Minimalist Map */}
@@ -1776,9 +1776,7 @@ const { setStep } = context;
           </View>
         )}
 
-        {/* ================================================================= */}
-        {/* DEDICATED LOCATION SEARCH MODAL (UBER / OLA STYLE)                */}
-        {/* ================================================================= */}
+        {/* DEDICATED LOCATION SEARCH MODAL */}
         <LocationSearchModal
           visible={searchModalVisible}
           topInset={insets.top}

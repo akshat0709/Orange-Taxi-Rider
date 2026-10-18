@@ -26,7 +26,7 @@ interface RideMapProps {
 
 const { width } = Dimensions.get('window');
 
-// Minimalist, modern light grayscale cartography for clean Uber-style look (Option B - Default)
+// Minimalist, modern light grayscale cartography for clean executive look (Option B - Default)
 export const MINIMAL_LIGHT_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#F4F5F7' }] },
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
@@ -494,7 +494,7 @@ export function RideMap({
           />
         )}
       
-        {/* Nearby Drivers Markers (Uber Style) */}
+        {/* Nearby Drivers Markers */}
         {!drop && !isPinPickerMode && nearbyDrivers && nearbyDrivers.map(d => (
           <Marker
             key={`driver-${d.id}`}
