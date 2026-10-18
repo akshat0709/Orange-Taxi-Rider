@@ -1589,7 +1589,7 @@ async function handleAuthSubmit() {
           setAuthOtpResendCooldown(30);
           Alert.alert(
             'Verification Code Sent',
-            `A verification code has been sent to ${authEmail.trim()}. Please enter it to complete registration, or tap the link in your email.`
+            `A 6-digit verification code has been sent to ${authEmail.trim()}. Please enter it to complete registration, or tap the link in your email.`
           );
           setAuthSubmitting(false);
           return;
@@ -1613,8 +1613,8 @@ async function handleAuthSubmit() {
       return;
     }
     const cleanOtp = authOtp.trim();
-    if (cleanOtp.length < 4 || cleanOtp.length > 8) {
-      Alert.alert('Invalid Code', 'Please enter the complete verification code (4 or 6 digits).');
+    if (cleanOtp.length !== 6) {
+      Alert.alert('Invalid Code', 'Please enter the complete 6-digit verification code.');
       return;
     }
 
@@ -1698,7 +1698,7 @@ async function handleAuthSubmit() {
         return;
       }
       setAuthOtpResendCooldown(30);
-      Alert.alert('Code Sent', 'A fresh verification code has been sent to your email.');
+      Alert.alert('Code Sent', 'A fresh 6-digit verification code has been sent to your email.');
     } catch (err: any) {
       Alert.alert('Resend Error', err.message || 'Failed to resend code.');
     } finally {

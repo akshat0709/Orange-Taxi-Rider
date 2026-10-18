@@ -75,7 +75,7 @@ export function RiderAuthModal() {
 
             <Text style={[styles.authModalSub, isDark && styles.textMutedDark]}>
               {authMode === 'verify_otp'
-                ? `We sent a verification code to ${authEmail || 'your email'}. Enter it below or tap the confirmation link in your email to complete registration.`
+                ? `We sent a 6-digit verification code to ${authEmail || 'your email'}. Enter it below or tap the confirmation link in your email to complete registration.`
                 : authMode === 'signin'
                 ? 'Access your ride history, saved trips and instant booking.'
                 : 'Join Orange Taxi for luxury electric travel across India.'}
@@ -95,7 +95,7 @@ export function RiderAuthModal() {
               <View style={{ marginTop: 16 }}>
                 <View style={styles.authField}>
                   <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>
-                    Verification Code
+                    6-Digit Verification Code
                   </Text>
                   <TextInput
                     style={[
@@ -160,11 +160,11 @@ export function RiderAuthModal() {
                 <TouchableOpacity
                   style={[
                     styles.authSubmitBtn,
-                    (authSubmitting || authOtp.length < 4 || authOtpLockoutRemaining > 0) && {
+                    (authSubmitting || authOtp.length !== 6 || authOtpLockoutRemaining > 0) && {
                       opacity: 0.6,
                     },
                   ]}
-                  disabled={authSubmitting || authOtp.length < 4 || authOtpLockoutRemaining > 0}
+                  disabled={authSubmitting || authOtp.length !== 6 || authOtpLockoutRemaining > 0}
                   onPress={handleVerifyOtp}
                 >
                   {authSubmitting ? (
