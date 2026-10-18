@@ -114,7 +114,7 @@ const [user, setUser] = useState<any>(null);
 
 const [authModalVisible, setAuthModalVisible] = useState(false);
 
-const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'verify_otp'>('signin');
 
 const [authEmail, setAuthEmail] = useState('');
 
@@ -123,6 +123,12 @@ const [authPassword, setAuthPassword] = useState('');
 const [authFullName, setAuthFullName] = useState('');
 
 const [authPhone, setAuthPhone] = useState('');
+
+const [authOtp, setAuthOtp] = useState('');
+
+const [authOtpResendCooldown, setAuthOtpResendCooldown] = useState(0);
+
+const [authOtpLockoutRemaining, setAuthOtpLockoutRemaining] = useState(0);
 
 const [authSubmitting, setAuthSubmitting] = useState(false);
 
@@ -418,6 +424,38 @@ useEffect(() => {
     return () => {
       subscription.unsubscribe();
     };
+  }, []);
+
+  // Resend OTP 30-second cooldown timer
+  useEffect(() => {
+    if (authOtpResendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setAuthOtpResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [authOtpResendCooldown]);
+
+  // OTP lockout timer (max 4-5 attempts in 1 min)
+  useEffect(() => {
+    const checkOtpLockout = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@orange_otp_lockout_time');
+        if (stored) {
+          const diff = Math.ceil((parseInt(stored, 10) - Date.now()) / 1000);
+          if (diff > 0) {
+            setAuthOtpLockoutRemaining(diff);
+          } else {
+            setAuthOtpLockoutRemaining(0);
+            await AsyncStorage.removeItem('@orange_otp_lockout_time');
+          }
+        } else {
+          setAuthOtpLockoutRemaining(0);
+        }
+      } catch {}
+    };
+    checkOtpLockout();
+    const interval = setInterval(checkOtpLockout, 1000);
+    return () => clearInterval(interval);
   }, []);
 
 useEffect(() => {
@@ -1495,20 +1533,115 @@ async function handleAuthSubmit() {
         if (error) throw error;
 
         if (data.user) {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            full_name: authFullName.trim(),
-            phone: authPhone.trim(),
-            updated_at: new Date().toISOString(),
-          });
-          setUser(data.user);
-          await AsyncStorage.setItem('@orange_rider_user', JSON.stringify(data.user));
+          try {
+            await supabase.from('profiles').upsert({
+              id: data.user.id,
+              full_name: authFullName.trim(),
+              phone: authPhone.trim(),
+              updated_at: new Date().toISOString(),
+            });
+          } catch {}
         }
+
+        if (data.user && !data.session) {
+          setAuthMode('verify_otp');
+          setAuthOtp('');
+          setAuthOtpResendCooldown(30);
+          Alert.alert(
+            'Verification Code Sent',
+            `A 4-digit verification code has been sent to ${authEmail.trim()}. Please enter it to complete registration.`
+          );
+          setAuthSubmitting(false);
+          return;
+        }
+
+        setUser(data.user);
+        await AsyncStorage.setItem('@orange_rider_user', JSON.stringify(data.user));
         setAuthModalVisible(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
       Alert.alert('Authentication Error', err.message || 'Please check your details.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (authOtpLockoutRemaining > 0) {
+      Alert.alert('Verification Locked', `Too many failed attempts. Please wait ${authOtpLockoutRemaining} second${authOtpLockoutRemaining === 1 ? '' : 's'}.`);
+      return;
+    }
+    const cleanOtp = authOtp.trim();
+    if (cleanOtp.length !== 4) {
+      Alert.alert('Invalid Code', 'Please enter the complete 4-digit code.');
+      return;
+    }
+
+    setAuthSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: authEmail.trim(),
+        token: cleanOtp,
+        type: 'signup',
+      });
+
+      if (error) {
+        const storedAttempts = await AsyncStorage.getItem('@orange_otp_attempts');
+        let attempts = storedAttempts ? parseInt(storedAttempts, 10) : 0;
+        attempts++;
+        if (attempts >= 5) {
+          await AsyncStorage.setItem('@orange_otp_lockout_time', (Date.now() + 60 * 1000).toString());
+          await AsyncStorage.setItem('@orange_otp_attempts', '0');
+          setAuthOtpLockoutRemaining(60);
+          Alert.alert('Verification Locked', '5 unsuccessful attempts. Please wait 1 minute before trying again.');
+        } else {
+          await AsyncStorage.setItem('@orange_otp_attempts', attempts.toString());
+          Alert.alert('Verification Failed', `${error.message} (${5 - attempts} attempt${5 - attempts === 1 ? '' : 's'} remaining).`);
+        }
+        throw error;
+      }
+
+      await AsyncStorage.setItem('@orange_otp_attempts', '0');
+      await AsyncStorage.removeItem('@orange_otp_lockout_time');
+
+      if (data.user) {
+        setUser(data.user);
+        await AsyncStorage.setItem('@orange_rider_user', JSON.stringify(data.user));
+      }
+      setAuthModalVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Success', 'Email verified successfully! Welcome to Orange Taxi.');
+    } catch (err: any) {
+      // Handled in alert
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  async function handleResendOtp() {
+    if (authOtpResendCooldown > 0 || !authEmail.trim()) return;
+    setAuthSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: authEmail.trim(),
+      });
+      if (error) {
+        if (error.status === 429 || error.message?.toLowerCase().includes('rate limit') || error.message?.toLowerCase().includes('too many requests')) {
+          setAuthOtpLockoutRemaining(60);
+          Alert.alert('Rate Limited', 'Too many requests. Please wait 60 seconds before trying again.');
+        } else {
+          Alert.alert('Resend Failed', error.message);
+        }
+        return;
+      }
+      setAuthOtpResendCooldown(30);
+      Alert.alert('Code Sent', 'A fresh 4-digit code has been sent to your email.');
+    } catch (err: any) {
+      Alert.alert('Resend Error', err.message || 'Failed to resend code.');
     } finally {
       setAuthSubmitting(false);
     }
@@ -1588,7 +1721,7 @@ const inProgressDistKm = inProgressDistM !== null
     ? (inProgressDistM / 1000).toFixed(1)
     : (activeBooking?.distance_km?.toString() || '12');
 
-  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
+  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authOtp, setAuthOtp, authOtpResendCooldown, setAuthOtpResendCooldown, authOtpLockoutRemaining, handleVerifyOtp, handleResendOtp, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
 
   return (
     <RideContext.Provider value={value}>

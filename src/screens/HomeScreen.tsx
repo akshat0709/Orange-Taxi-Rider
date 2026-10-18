@@ -22,6 +22,7 @@ import { RouteDeviationModal } from '../components/RouteDeviationModal';
 import { CityPickerModal } from '../components/CityPickerModal';
 import { HourlyRentalModal } from '../components/HourlyRentalModal';
 import { CoolCarSplashScreen } from '../components/CoolCarSplashScreen';
+import { RiderAuthModal } from '../components/RiderAuthModal';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
@@ -2356,134 +2357,9 @@ export const HomeScreen = ({ navigation }: any) => {
         />
 
         {/* ================================================================= */}
-        {/* SUPABASE AUTH MODAL                                               */}
+        {/* SUPABASE AUTH MODAL (WITH 4-DIGIT OTP & RATE LIMITING)             */}
         {/* ================================================================= */}
-        <Modal visible={authModalVisible} animationType="slide" transparent={true}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalBackdrop}
-          >
-            <View style={styles.authModalContent}>
-              <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <View style={styles.authModalHeader}>
-                <Text style={styles.authModalTitle}>
-                  {authMode === 'signin' ? 'Sign In to Orange Taxi' : 'Create Orange Account'}
-                </Text>
-                <TouchableOpacity onPress={() => setAuthModalVisible(false)}>
-                  <X size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.authModalSub}>
-                {authMode === 'signin'
-                  ? 'Access your ride history, saved trips and instant booking.'
-                  : 'Join Orange Taxi for luxury electric travel across India.'}
-              </Text>
-
-              {authMode === 'signup' && (
-                <>
-                  <View style={styles.authField}>
-                    <Text style={styles.authLabel}>Full Name</Text>
-                    <TextInput
-                      style={styles.authInput}
-                      placeholder="e.g. Akshat Gupta"
-                      placeholderTextColor="#94A3B8"
-                      value={authFullName}
-                      onChangeText={setAuthFullName}
-                    />
-                  </View>
-                  <View style={styles.authField}>
-                    <Text style={styles.authLabel}>Phone Number</Text>
-                    <TextInput
-                      style={styles.authInput}
-                      placeholder="e.g. +91 98765 43210"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="phone-pad"
-                      value={authPhone}
-                      onChangeText={setAuthPhone}
-                    />
-                  </View>
-                </>
-              )}
-
-              <View style={styles.authField}>
-                <Text style={styles.authLabel}>Email Address</Text>
-                <TextInput
-                  style={styles.authInput}
-                  placeholder="name@domain.com"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={authEmail}
-                  onChangeText={setAuthEmail}
-                />
-              </View>
-
-              <View style={styles.authField}>
-                <Text style={styles.authLabel}>Password</Text>
-                <TextInput
-                  style={styles.authInput}
-                  placeholder="••••••••"
-                  placeholderTextColor="#94A3B8"
-                  secureTextEntry
-                  value={authPassword}
-                  onChangeText={setAuthPassword}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.authSubmitBtn}
-                disabled={authSubmitting}
-                onPress={handleAuthSubmit}
-              >
-                {authSubmitting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.authSubmitText}>
-                    {authMode === 'signin' ? 'Sign In' : 'Create Account'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {authMode === 'signin' && (
-                <TouchableOpacity style={{ alignItems: 'center', marginTop: 15 }} onPress={context.handleForgotPassword}>
-                  <Text style={{ color: '#F97316', fontSize: 14, fontWeight: '600' }}>Forgot Password?</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={styles.authSwitchBtn}
-                onPress={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
-              >
-                <Text style={styles.authSwitchText}>
-                  {authMode === 'signin'
-                    ? "Don't have an account? Sign Up"
-                    : 'Already have an account? Sign In'}
-                </Text>
-              </TouchableOpacity>
-
-              <View style={{ marginTop: 16, marginBottom: 8, paddingHorizontal: 4 }}>
-                <Text style={{ fontSize: 11, color: theme === 'light' ? '#64748B' : '#94A3B8', textAlign: 'center', lineHeight: 16 }}>
-                  By continuing, you agree to Orange Taxi&apos;s{' '}
-                  <Text
-                    style={{ color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}
-                    onPress={() => Linking.openURL('https://orange-taxi.com/privacy')}
-                  >
-                    Privacy Policy
-                  </Text>{' '}
-                  and{' '}
-                  <Text
-                    style={{ color: '#F97316', fontWeight: '600', textDecorationLine: 'underline' }}
-                    onPress={() => Linking.openURL('https://orange-taxi.com/terms')}
-                  >
-                    Terms of Service
-                  </Text>.
-                </Text>
-              </View>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        <RiderAuthModal />
 
         {/* ================================================================= */}
         {/* CITY & GPS LOCATION PICKER MODAL                                 */}
