@@ -35,6 +35,8 @@ export interface Booking {
   customer_id?: string;
   vehicle_code?: string;
   payment_method?: string;
+  payment_status?: string;
+  payment_made?: string | boolean | null;
   base_fare?: number;
   distance_fare?: number;
   tax_amount?: number;

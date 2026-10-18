@@ -1094,30 +1094,42 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
         ? `${intermediateStop.lat},${intermediateStop.lng} | ${dropLocation.lat},${dropLocation.lng}`
         : `${dropLocation.lat},${dropLocation.lng}`;
 
-      const { data, error } = await supabase
+      const bookingPayload: any = {
+        customer_id: user.id,
+        reference: ref,
+        pickup_area: effectivePickup,
+        pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
+        drop_area: effectiveDropArea,
+        drop_address: effectiveDropAddress,
+        distance_km: distKm,
+        duration_min: durationMin,
+        vehicle_code: selectedVehicle?.code || 'ORANGE_SIGNATURE',
+        vehicle_name: selectedVehicle?.name || 'Mahindra BE 6 Signature',
+        base_fare: baseFare,
+        distance_fare: distanceFare,
+        tax_amount: taxAmount,
+        estimated_fare: totalEstimatedFare,
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === 'wallet' ? 'paid' : 'pending',
+        payment_made: paymentMethod === 'wallet' ? 'yes' : 'no',
+        ride_otp: otp,
+        status: isAdvanceBooking ? 'scheduled' : 'searching',
+        scheduled_at: scheduledIso,
+      };
+
+      let { data, error } = await supabase
         .from('bookings')
-        .insert({
-          customer_id: user.id,
-          reference: ref,
-          pickup_area: effectivePickup,
-          pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
-          drop_area: effectiveDropArea,
-          drop_address: effectiveDropAddress,
-          distance_km: distKm,
-          duration_min: durationMin,
-          vehicle_code: selectedVehicle?.code || 'ORANGE_SIGNATURE',
-          vehicle_name: selectedVehicle?.name || 'Mahindra BE 6 Signature',
-          base_fare: baseFare,
-          distance_fare: distanceFare,
-          tax_amount: taxAmount,
-          estimated_fare: totalEstimatedFare,
-          payment_method: paymentMethod,
-          ride_otp: otp,
-          status: isAdvanceBooking ? 'scheduled' : 'searching',
-          scheduled_at: scheduledIso,
-        })
+        .insert(bookingPayload)
         .select('*')
         .single();
+
+      if (error && error.message && error.message.includes('payment_made')) {
+        const safePayload = { ...bookingPayload };
+        delete safePayload.payment_made;
+        const retry = await supabase.from('bookings').insert(safePayload).select('*').single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error('DB insert error:', error);
@@ -1198,29 +1210,41 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
       const ref = 'OT' + Math.random().toString(36).substring(2, 8).toUpperCase();
       const dropTitle = `Hourly Rental · ${pkg.hours} Hours (${pkg.distanceKm} km)`;
 
-      const { data, error } = await supabase
+      const hourlyPayload: any = {
+        customer_id: user.id,
+        reference: ref,
+        pickup_area: pickupText || 'Current Location',
+        pickup_address: `${pickupCoords.lat},${pickupCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
+        drop_area: dropTitle,
+        drop_address: `${pickupCoords.lat},${pickupCoords.lng}`,
+        distance_km: pkg.distanceKm,
+        duration_min: pkg.hours * 60,
+        vehicle_code: 'ORANGE_SIGNATURE',
+        vehicle_name: `Mahindra BE 6 Signature (${pkg.hours}h Rental)`,
+        base_fare: pkg.orangePrice,
+        distance_fare: 0,
+        tax_amount: 0,
+        estimated_fare: pkg.orangePrice,
+        payment_method: paymentMethod || 'cash',
+        payment_status: paymentMethod === 'wallet' ? 'paid' : 'pending',
+        payment_made: paymentMethod === 'wallet' ? 'yes' : 'no',
+        ride_otp: otp,
+        status: 'searching',
+      };
+
+      let { data, error } = await supabase
         .from('bookings')
-        .insert({
-          customer_id: user.id,
-          reference: ref,
-          pickup_area: pickupText || 'Current Location',
-          pickup_address: `${pickupCoords.lat},${pickupCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
-          drop_area: dropTitle,
-          drop_address: `${pickupCoords.lat},${pickupCoords.lng}`,
-          distance_km: pkg.distanceKm,
-          duration_min: pkg.hours * 60,
-          vehicle_code: 'ORANGE_SIGNATURE',
-          vehicle_name: `Mahindra BE 6 Signature (${pkg.hours}h Rental)`,
-          base_fare: pkg.orangePrice,
-          distance_fare: 0,
-          tax_amount: 0,
-          estimated_fare: pkg.orangePrice,
-          payment_method: paymentMethod || 'cash',
-          ride_otp: otp,
-          status: 'searching',
-        })
+        .insert(hourlyPayload)
         .select('*')
         .single();
+
+      if (error && error.message && error.message.includes('payment_made')) {
+        const safePayload = { ...hourlyPayload };
+        delete safePayload.payment_made;
+        const retry = await supabase.from('bookings').insert(safePayload).select('*').single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error('Hourly booking insert error:', error);
