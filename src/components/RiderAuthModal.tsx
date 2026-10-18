@@ -25,6 +25,8 @@ export function RiderAuthModal() {
     setAuthEmail,
     authPassword,
     setAuthPassword,
+    authConfirmPassword,
+    setAuthConfirmPassword,
     authFullName,
     setAuthFullName,
     authPhone,
@@ -234,13 +236,27 @@ export function RiderAuthModal() {
                   <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>Password</Text>
                   <TextInput
                     style={[styles.authInput, isDark && styles.authInputDark]}
-                    placeholder="••••••••"
+                    placeholder="At least 8 characters"
                     placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                     secureTextEntry
                     value={authPassword}
                     onChangeText={setAuthPassword}
                   />
                 </View>
+
+                {authMode === 'signup' && (
+                  <View style={styles.authField}>
+                    <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>Confirm Password</Text>
+                    <TextInput
+                      style={[styles.authInput, isDark && styles.authInputDark]}
+                      placeholder="Re-enter your password"
+                      placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                      secureTextEntry
+                      value={authConfirmPassword}
+                      onChangeText={setAuthConfirmPassword}
+                    />
+                  </View>
+                )}
 
                 <TouchableOpacity
                   style={styles.authSubmitBtn}
