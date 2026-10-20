@@ -10,16 +10,20 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.orangetaxi.rider",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Orange Taxi needs your location to detect your pickup point."
+        "NSLocationWhenInUseUsageDescription": "Orange Taxi uses your precise location to identify your pickup bay, show electric cabs nearby, calculate upfront fares, and navigate your chauffeur to your exact location.",
+        "NSPhotoLibraryUsageDescription": "Orange Taxi allows selecting a profile photo for chauffeur identification at pickup."
       },
       "config": {}
     },
     "android": {
       "package": "com.orangetaxi.rider",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
       ],
       "config": {
         "googleMaps": {

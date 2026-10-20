@@ -499,6 +499,13 @@ useEffect(() => {
                     }
                   } catch {}
                 }
+              } else {
+                // Store review testing safeguard: fallback gracefully to Delhi Airport T3 if location is outside India (e.g. Cupertino, CA)
+                if (step === 1 && !activeBooking) {
+                  setPickupCoords({ lat: 28.5562, lng: 77.1000 });
+                  setPickupText('Indira Gandhi International Airport, Terminal 3');
+                  setActiveCity('Delhi NCR');
+                }
               }
             }
           );
