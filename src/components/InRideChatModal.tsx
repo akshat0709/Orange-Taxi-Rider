@@ -29,6 +29,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { sendLocalNotification } from '../lib/notificationService';
 
 export interface ChatMessage {
   id: string;
@@ -221,6 +222,12 @@ export function InRideChatModal({
         if (!visibleRef.current) {
           unreadCountRef.current += fromDriver.length;
           onUnreadCountChangeRef.current?.(unreadCountRef.current);
+          const latest = fromDriver[fromDriver.length - 1];
+          sendLocalNotification(
+            `💬 Message from Chauffeur ${driverName || ''}`,
+            latest.text,
+            { bookingId }
+          );
         }
       }
 

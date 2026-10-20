@@ -939,6 +939,10 @@ useEffect(() => {
               notifTitle = '🎉 Arrived at Destination';
               notifMsg = `Trip completed. Fare: ₹${newBooking.estimated_fare || ''}. Tax invoice generated.`;
               notifType = 'completed';
+            } else if (newBooking.status === 'cancelled') {
+              notifTitle = '❌ Ride Request Cancelled';
+              notifMsg = 'Your booking has been cancelled. Tap to request a new ride.';
+              notifType = 'info';
             }
 
             if (notifTitle) {
