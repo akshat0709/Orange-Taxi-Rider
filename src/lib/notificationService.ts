@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 // Configure notification behavior for foreground and background
 try {
@@ -25,6 +25,14 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
+      await new Promise<void>((resolve) => {
+        Alert.alert(
+          'Stay Updated on Your Ride',
+          'Enable notifications to receive live arrival alerts when your chauffeur reaches your pickup bay, ride OTP reminders, and in-ride messages.',
+          [{ text: 'Continue', onPress: () => resolve() }],
+          { cancelable: false }
+        );
+      });
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }

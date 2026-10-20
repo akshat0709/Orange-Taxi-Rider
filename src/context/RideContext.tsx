@@ -465,7 +465,20 @@ useEffect(() => {
 
     async function startLiveLocationWatch() {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+        let status = existingStatus;
+        if (existingStatus !== 'granted') {
+          await new Promise<void>((resolve) => {
+            Alert.alert(
+              'Location Access Required',
+              'Orange Taxi uses your location to automatically determine your pickup point, show available electric cabs nearby, and calculate upfront fares.',
+              [{ text: 'Continue', onPress: () => resolve() }],
+              { cancelable: false }
+            );
+          });
+          const req = await Location.requestForegroundPermissionsAsync();
+          status = req.status;
+        }
         if (status === 'granted') {
           watcherSub = await Location.watchPositionAsync(
             {
