@@ -1426,7 +1426,7 @@ export const HomeScreen = ({ navigation }: any) => {
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.uberBannerBadge, { color: '#0F172A' }]}>⚡ 100% PURE ELECTRIC FLAGSHIP</Text>
                       <Text style={[styles.uberBannerTitle, { color: '#0F172A' }]}>
-                        Mahindra BE.6{'\n'}Signature EV
+                        Orange Signature{'\n'}100% Electric EV
                       </Text>
                       <TouchableOpacity
                         style={[styles.uberBannerBtn, { backgroundColor: '#0F172A' }]}
@@ -1664,7 +1664,7 @@ export const HomeScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.uberCarouselCardBody}>
                       <Text style={[styles.uberCarouselCardTitle, theme === 'dark' && styles.textWhite]}>
-                        Mahindra BE.6 Signature
+                        Orange Signature
                       </Text>
                       <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
                         Spotless executive EV with pre-cooled AC

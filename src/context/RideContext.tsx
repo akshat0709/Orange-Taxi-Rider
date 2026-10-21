@@ -686,9 +686,9 @@ async function checkActiveRide(userId?: string) {
 
 async function initApp() {
     try {
-      // 1. Hardcode single vehicle category (Mahindra BE 6 Signature)
+      // 1. Single vehicle category (Orange Signature)
       const defaults: VehicleCategory[] = [
-        { id: '1', code: 'ORANGE_SIGNATURE', name: 'Mahindra BE 6 Signature', tagline: 'Spotless, Pre-Cooled Mahindra BE 6 EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 }
+        { id: '1', code: 'ORANGE_SIGNATURE', name: 'Orange Signature', tagline: 'Spotless, Pre-Cooled 100% Electric EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 }
       ];
       setVehicles(defaults);
       setSelectedVehicle(defaults[0]);
@@ -1130,7 +1130,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
         distance_km: distKm,
         duration_min: durationMin,
         vehicle_code: selectedVehicle?.code || 'ORANGE_SIGNATURE',
-        vehicle_name: selectedVehicle?.name || 'Mahindra BE 6 Signature',
+        vehicle_name: selectedVehicle?.name || 'Orange Signature',
         base_fare: baseFare,
         distance_fare: distanceFare,
         tax_amount: taxAmount,
@@ -1246,7 +1246,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
         distance_km: pkg.distanceKm,
         duration_min: pkg.hours * 60,
         vehicle_code: 'ORANGE_SIGNATURE',
-        vehicle_name: `Mahindra BE 6 Signature (${pkg.hours}h Rental)`,
+        vehicle_name: `Orange Signature (${pkg.hours}h Rental)`,
         base_fare: pkg.orangePrice,
         distance_fare: 0,
         tax_amount: 0,

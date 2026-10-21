@@ -65,13 +65,13 @@ export function extractPlateFromVehicleName(vehicleName?: string | null): string
  * "Orange Signature [KA 01 EV 4421]" -> "Orange Signature"
  */
 export function cleanVehicleModelName(vehicleName?: string | null): string {
-  if (!vehicleName) return 'Mahindra BE 6 Signature';
+  if (!vehicleName) return 'Orange Signature';
   const cleaned = vehicleName
     .split('·')[0]
     .split('[')[0]
     .split('(')[0]
     .trim();
-  return cleaned || 'Mahindra BE 6 Signature';
+  return cleaned || 'Orange Signature';
 }
 
 /**
@@ -180,12 +180,12 @@ export function getResolvedVehicleDetails(
 
   // d) Fallback model
   if (!model) {
-    model = 'Mahindra BE 6 Signature';
+    model = 'Orange Signature';
   }
 
-  // Ensure consistent branding for launch
-  if (['orange sedan', 'orange go', 'orange xl', 'orange signature'].includes(model.toLowerCase())) {
-    model = 'Mahindra BE 6 Signature';
+  // Ensure consistent branding for launch: single vehicle category is Orange Signature
+  if (['orange sedan', 'orange go', 'orange xl', 'mahindra be 6 signature', 'mahindra be.6 signature'].includes(model.toLowerCase())) {
+    model = 'Orange Signature';
   }
 
   return {
