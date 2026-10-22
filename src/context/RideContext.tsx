@@ -768,7 +768,7 @@ const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: num
         try {
           const origin = `${pickupCoords.lat},${pickupCoords.lng}`;
           const dest = `${dropLocation.lat},${dropLocation.lng}`;
-          const API_KEY = "AIzaSyCz4SEloomUEX3wQaFn4avuNvQemjuBkMM";
+          const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
           
           // Google Directions API for exact route distance, duration and toll detection
           const dirRes = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&key=${API_KEY}`);

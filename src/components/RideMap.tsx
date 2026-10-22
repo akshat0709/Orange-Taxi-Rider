@@ -336,7 +336,7 @@ export function RideMap({
         : `${pickup.lat},${pickup.lng}`;
     const destination = `${target.lat},${target.lng}`;
     
-    const API_KEY = "AIzaSyCz4SEloomUEX3wQaFn4avuNvQemjuBkMM";
+    const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&key=${API_KEY}`;
     
     fetch(url)
