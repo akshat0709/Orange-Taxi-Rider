@@ -350,10 +350,8 @@ useEffect(() => {
           AsyncStorage.setItem('@orange_user_work_address', meta.work_address);
         }
       } else {
-        const cached = await AsyncStorage.getItem('@orange_rider_user');
-        if (!cached) {
-          setUser(null);
-        }
+        await AsyncStorage.removeItem('@orange_rider_user');
+        setUser(null);
       }
       setLoading(false);
     });
@@ -1068,11 +1066,18 @@ function handleConfirmPinPicker() {
   }
 
 async function handleConfirmBooking() {
-    if (!user) {
+    // Actively verify Supabase authentication session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      await AsyncStorage.removeItem('@orange_rider_user');
+      setUser(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setAuthMode('signin');
       setAuthModalVisible(true);
       return;
+    }
+    if (!user || user.id !== session.user.id) {
+      setUser(session.user);
     }
 
     if (!dropLocation) {
@@ -1096,7 +1101,12 @@ async function handleConfirmBooking() {
   }
 
 async function executeBookingSubmission(finalCoords?: { lat: number; lng: number }, finalAddress?: string) {
-    if (!user || !dropLocation) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const activeUser = session?.user || user;
+    if (!activeUser || !dropLocation) {
+      setAuthModalVisible(true);
+      return;
+    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setBookingLoading(true);
@@ -1121,7 +1131,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
         : `${dropLocation.lat},${dropLocation.lng}`;
 
       const bookingPayload: any = {
-        customer_id: user.id,
+        customer_id: activeUser.id,
         reference: ref,
         pickup_area: effectivePickup,
         pickup_address: `${effectiveCoords.lat},${effectiveCoords.lng} | CABIN:${JSON.stringify(cabinPreferences)}`,
