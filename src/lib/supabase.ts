@@ -3,9 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL =
-  process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://ndaollycrvlawemhwvky.supabase.co';
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qcrpzrrzjddwqebaktyu.supabase.co';
 const SUPABASE_ANON_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_baABGadHhpQI6LtkZcyI0g_HJX39Y_d';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_j3AZt-Mp2AapyNbCTcys4w_gbNzhfrx';
+
+function isNewSupabaseApiKey(value: string): boolean {
+  return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
+}
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
   return (input, init) => {
@@ -25,12 +29,17 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
       }
     }
 
-    if (!headerObj.apikey && !headerObj.ApiKey && !headerObj.APIKEY) {
-      headerObj.apikey = supabaseKey;
+    // New Supabase API keys are opaque strings, not bearer JWTs.
+    if (isNewSupabaseApiKey(supabaseKey)) {
+      const authHeader = headerObj['Authorization'] || headerObj['authorization'];
+      if (authHeader === `Bearer ${supabaseKey}`) {
+        delete headerObj['Authorization'];
+        delete headerObj['authorization'];
+      }
     }
 
-    if (!headerObj.Authorization && !headerObj.authorization) {
-      headerObj.Authorization = `Bearer ${supabaseKey}`;
+    if (!headerObj.apikey && !headerObj.ApiKey && !headerObj.APIKEY) {
+      headerObj.apikey = supabaseKey;
     }
 
     return fetch(input, { ...init, headers: headerObj });

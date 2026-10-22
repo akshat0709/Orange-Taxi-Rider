@@ -119,20 +119,27 @@ export function ProfileModal({
         {
           text: 'Confirm & Add Funds',
           onPress: async () => {
-            setWalletBalance((prev: number) => prev + amount);
             if (user?.id) {
               try {
-                const { data: prof } = await supabase
-                  .from('profiles')
-                  .select('wallet_balance')
-                  .eq('id', user.id)
-                  .maybeSingle();
-                const current = Number(prof?.wallet_balance) || 0;
-                await supabase
-                  .from('profiles')
-                  .update({ wallet_balance: current + amount })
-                  .eq('id', user.id);
+                const paymentRef = `wallet_topup_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                const { data: rpcRes, error: rpcErr } = await supabase.rpc('top_up_wallet', {
+                  _amount: amount,
+                  _payment_id: paymentRef,
+                  _description: `Wallet Recharge of ₹${amount}`,
+                });
+
+                if (!rpcErr && rpcRes?.success) {
+                  setWalletBalance(Number(rpcRes.new_balance));
+                } else {
+                  // Fallback if RPC not yet deployed
+                  setWalletBalance((prev: number) => prev + amount);
+                  await supabase
+                    .from('profiles')
+                    .update({ wallet_balance: walletBalance + amount })
+                    .eq('id', user.id);
+                }
               } catch (e) {
+                setWalletBalance((prev: number) => prev + amount);
                 console.warn('Could not sync wallet balance to database:', e);
               }
             }

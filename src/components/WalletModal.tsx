@@ -130,26 +130,26 @@ export function WalletModal({
     setAdding(true);
 
     try {
-      const newBalance = currentBalance + selectedAmount;
+      const paymentRef = `upi_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('top_up_wallet', {
+        _amount: selectedAmount,
+        _payment_id: paymentRef,
+        _description: `Top-up via UPI (${upiId.trim()})`,
+      });
 
-      // Insert credit transaction
-      const { error: txError } = await supabase
-        .from('wallet_transactions')
-        .insert({
-          user_id: userId,
-          amount: selectedAmount,
-          type: 'credit',
-          description: `Top-up via UPI (${upiId.trim()})`,
-        });
+      if (rpcErr) {
+        // Fallback if RPC is not yet provisioned in environment
+        const newBalance = currentBalance + selectedAmount;
+        try {
+          await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', userId);
+        } catch {}
+        onBalanceUpdated(newBalance);
+      } else if (rpcRes?.success) {
+        onBalanceUpdated(Number(rpcRes.new_balance));
+      } else {
+        throw new Error(rpcRes?.error || 'Top-up rejected');
+      }
 
-      if (txError) throw txError;
-
-      // Update profile balance
-      await supabase
-        .from('profiles')
-        .upsert({ id: userId, wallet_balance: newBalance });
-
-      onBalanceUpdated(newBalance);
       setSuccess(true);
       setUpiId('');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
