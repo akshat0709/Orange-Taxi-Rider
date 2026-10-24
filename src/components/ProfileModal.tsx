@@ -130,23 +130,22 @@ export function ProfileModal({
 
                 if (!rpcErr && rpcRes?.success) {
                   setWalletBalance(Number(rpcRes.new_balance));
+                  Alert.alert(
+                    'Recharge Successful',
+                    `Successfully added ₹${amount} to your Orange Wallet!`
+                  );
                 } else {
-                  // Fallback if RPC not yet deployed
-                  setWalletBalance((prev: number) => prev + amount);
-                  await supabase
-                    .from('profiles')
-                    .update({ wallet_balance: walletBalance + amount })
-                    .eq('id', user.id);
+                  console.error('Wallet top-up failed:', rpcErr || rpcRes?.error);
+                  Alert.alert(
+                    'Recharge Failed',
+                    rpcRes?.error || rpcErr?.message || 'Wallet transaction could not be processed.'
+                  );
                 }
-              } catch (e) {
-                setWalletBalance((prev: number) => prev + amount);
-                console.warn('Could not sync wallet balance to database:', e);
+              } catch (e: any) {
+                console.error('Wallet top-up error:', e);
+                Alert.alert('Recharge Error', e?.message || 'Failed to process wallet top-up.');
               }
             }
-            Alert.alert(
-              'Recharge Successful',
-              `Successfully added ₹${amount} to your Orange Wallet!`
-            );
           },
         },
       ]

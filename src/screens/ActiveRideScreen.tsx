@@ -155,7 +155,7 @@ const { setStep } = context;
               }}
             >
               <CreditCard size={15} color={theme === 'dark' ? '#F97316' : '#18181B'} />
-              <Text style={[styles.floatingWalletText, theme === 'dark' && styles.textWhite]}>₹ {walletBalance}</Text>
+              <Text style={[styles.floatingWalletText, theme === 'dark' && styles.textWhite]}>₹{walletBalance}</Text>
             </TouchableOpacity>
 
             {/* Right Action Cluster: Theme Switcher & City Selector */}

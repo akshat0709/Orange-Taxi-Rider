@@ -138,12 +138,7 @@ export function WalletModal({
       });
 
       if (rpcErr) {
-        // Fallback if RPC is not yet provisioned in environment
-        const newBalance = currentBalance + selectedAmount;
-        try {
-          await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', userId);
-        } catch {}
-        onBalanceUpdated(newBalance);
+        throw new Error(rpcErr.message || 'Wallet service temporarily unavailable.');
       } else if (rpcRes?.success) {
         onBalanceUpdated(Number(rpcRes.new_balance));
       } else {
