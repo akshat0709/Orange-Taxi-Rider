@@ -8,10 +8,12 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Star, CheckCircle, X, Sparkles, Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../lib/supabase';
+import { createTipPaymentLink } from '../lib/onlinePayment';
 
 interface RatingModalProps {
   visible: boolean;
@@ -70,12 +72,7 @@ export function RatingModal({
     setSubmitting(true);
 
     try {
-      const tipText = selectedTip > 0 ? `Chauffeur Tip: ₹${selectedTip}` : '';
-      const fullReview = [
-        ...selectedChips,
-        reviewText.trim(),
-        tipText,
-      ].filter(Boolean).join(' · ');
+      const fullReview = [...selectedChips, reviewText.trim()].filter(Boolean).join(' · ');
 
       // 1. Save rating and review on the booking. Errors used to be ignored (success shown anyway).
       const { error: rateErr } = await supabase
@@ -100,6 +97,19 @@ export function RatingModal({
           const d = Array.isArray(rows) ? rows[0] : null;
           if (d) onRatingSubmitted?.(Number(d.rating), Number(d.total_rides));
         } catch (e) {}
+      }
+
+      // 3. A tip is paid through Razorpay (the server records it for the chauffeur once paid).
+      if (selectedTip > 0) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const token = data.session?.access_token;
+          if (!token) throw new Error('Please sign in again.');
+          const link = await createTipPaymentLink(bookingId, selectedTip, token);
+          await Linking.openURL(link.image_url);
+        } catch (e: any) {
+          Alert.alert('Tip not started', `Your rating is saved, but the tip could not be opened. ${e?.message || ''}`.trim());
+        }
       }
 
       setSubmitted(true);
@@ -252,7 +262,9 @@ export function RatingModal({
                 {submitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Submit Experience</Text>
+                  <Text style={styles.submitBtnText}>
+                    {selectedTip > 0 ? `Submit and pay ₹${selectedTip} tip` : 'Submit rating'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </>

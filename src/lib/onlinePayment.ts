@@ -29,6 +29,16 @@ export function createRidePaymentLink(bookingId: string, accessToken: string, fe
   return call('/api/pay/ride-link', accessToken, { method: 'POST', body: JSON.stringify({ bookingId }) }, fetchImpl);
 }
 
+/** Tip the chauffeur after a completed ride: a Razorpay payment link for the tip amount. */
+export function createTipPaymentLink(
+  bookingId: string,
+  amount: number,
+  accessToken: string,
+  fetchImpl: FetchLike = fetch as any
+) {
+  return call('/api/pay/tip-link', accessToken, { method: 'POST', body: JSON.stringify({ bookingId, amount }) }, fetchImpl);
+}
+
 export function getPaymentLinkStatus(linkId: string, accessToken: string, fetchImpl: FetchLike = fetch as any) {
   return call(`/api/qr/status?id=${encodeURIComponent(linkId)}`, accessToken, { method: 'GET' }, fetchImpl);
 }
