@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -12,7 +12,7 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { X, ShieldCheck, ArrowRight, RotateCcw } from 'lucide-react-native';
+import { X, ShieldCheck, ArrowRight, RotateCcw, Eye, EyeOff } from 'lucide-react-native';
 import { useRideContext } from '../context/RideContext';
 
 export function RiderAuthModal() {
@@ -44,6 +44,9 @@ export function RiderAuthModal() {
   } = useRideContext();
 
   const isDark = theme === 'dark';
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const eyeColor = isDark ? '#94A3B8' : '#64748B';
 
   return (
     <Modal visible={authModalVisible} animationType="slide" transparent={true}>
@@ -234,27 +237,51 @@ export function RiderAuthModal() {
 
                 <View style={styles.authField}>
                   <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>Password</Text>
-                  <TextInput
-                    style={[styles.authInput, isDark && styles.authInputDark]}
-                    placeholder="At least 8 characters"
-                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-                    secureTextEntry
-                    value={authPassword}
-                    onChangeText={setAuthPassword}
-                  />
+                  <View style={styles.passwordWrap}>
+                    <TextInput
+                      style={[styles.authInput, styles.passwordInput, isDark && styles.authInputDark]}
+                      placeholder="At least 8 characters"
+                      placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={authPassword}
+                      onChangeText={setAuthPassword}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeButton}
+                      onPress={() => setShowPassword((v) => !v)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={20} color={eyeColor} /> : <Eye size={20} color={eyeColor} />}
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {authMode === 'signup' && (
                   <View style={styles.authField}>
                     <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>Confirm Password</Text>
-                    <TextInput
-                      style={[styles.authInput, isDark && styles.authInputDark]}
-                      placeholder="Re-enter your password"
-                      placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-                      secureTextEntry
-                      value={authConfirmPassword}
-                      onChangeText={setAuthConfirmPassword}
-                    />
+                    <View style={styles.passwordWrap}>
+                      <TextInput
+                        style={[styles.authInput, styles.passwordInput, isDark && styles.authInputDark]}
+                        placeholder="Re-enter your password"
+                        placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        value={authConfirmPassword}
+                        onChangeText={setAuthConfirmPassword}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeButton}
+                        onPress={() => setShowConfirmPassword((v) => !v)}
+                        accessibilityRole="button"
+                        accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={20} color={eyeColor} /> : <Eye size={20} color={eyeColor} />}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
 
@@ -369,6 +396,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  passwordWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  passwordInput: {
+    paddingRight: 52,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 4,
+    height: 44,
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   authInput: {
     backgroundColor: '#F8FAFC',
