@@ -33,7 +33,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#0B0D11",
         "foregroundImage": "./assets/android-icon-foreground.png"
-      }
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "plugins": [
       "expo-sharing",
