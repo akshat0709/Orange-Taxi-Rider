@@ -10,7 +10,9 @@ import {
   RefreshControl,
   Alert,
   Dimensions,
+  Linking,
 } from 'react-native';
+import { WEB_BASE_URL } from '../lib/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import {
@@ -517,9 +519,27 @@ export function RideHistoryModal({
 
                       <View style={styles.fareInfoCol}>
                         <Text style={[styles.fareAmountText, isDark && styles.textWhite]}>₹{trip.estimated_fare}</Text>
-                        <Text style={styles.fareDistanceText}>{trip.distance_km || 12} km</Text>
+                        <Text style={styles.fareDistanceText}>{trip.distance_km ? `${trip.distance_km} km` : ''}</Text>
                       </View>
                     </View>
+
+                    {/* Refund / help for finished rides: opens the Support form with the ride filled in */}
+                    {(trip.status === 'completed' || trip.status === 'cancelled') && trip.reference && (
+                      <TouchableOpacity
+                        style={{ alignSelf: 'flex-start', paddingVertical: 4, marginBottom: 6 }}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          Linking.openURL(
+                            `${WEB_BASE_URL.replace(/\/+$/, '')}/support?type=refund&ref=${encodeURIComponent(trip.reference)}`
+                          ).catch(() => Alert.alert('Support', 'Call +91 72940 73222 or email support@orange-taxi.com.'));
+                        }}
+                        accessibilityRole="link"
+                      >
+                        <Text style={{ color: '#F97316', fontSize: 12, fontWeight: '700' }}>
+                          Request a refund / report a problem →
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
                     {/* Action Buttons */}
                     <View style={styles.tripActionsRow}>

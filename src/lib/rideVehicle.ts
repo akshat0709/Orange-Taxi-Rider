@@ -115,8 +115,8 @@ export function getResolvedVehicleDetails(
   const phone = driver?.phone || '+917294073222';
 
   // 5. Rating & Rides
-  const rating = driver?.rating ? Number(driver.rating).toFixed(1) : '4.9';
-  const totalRides = Number(driver?.total_rides) || 12;
+  const rating = driver?.rating ? Number(driver.rating).toFixed(1) : 'New';
+  const totalRides = Number(driver?.total_rides) || 0;
 
   // 6. License Plate Extraction
   let plate = '';

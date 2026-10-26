@@ -4,6 +4,7 @@ import { GuardianContact } from "../components/ProfileModal";
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert, Platform, StatusBar, Linking, AppState } from 'react-native';
 import { createRidePaymentLink, getPaymentLinkStatus } from '../lib/onlinePayment';
+import { accountStatus } from '../lib/accountStatus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDistanceToPolyline, decodePolyline } from '../lib/geomUtils';
@@ -1794,6 +1795,26 @@ async function handleAuthSubmit() {
             return;
           }
 
+          // "Invalid login credentials" covers both a wrong password and no account at all.
+          if (error.message?.toLowerCase().includes('invalid login credentials')) {
+            const status = await accountStatus(authEmail);
+            if (status === 'none') {
+              setAuthMode('signup');
+              Alert.alert('No Account Found', 'There is no account with this email. Please create an account first.');
+              setAuthSubmitting(false);
+              return;
+            }
+            if (status === 'unconfirmed') {
+              setAuthMode('verify_otp');
+              setAuthOtp('');
+              setAuthOtpResendCooldown(30);
+              supabase.auth.resend({ type: 'signup', email: authEmail.trim() }).catch(() => {});
+              Alert.alert('Email Verification Required', `Please verify your email first. A new code has been sent to ${authEmail.trim()}.`);
+              setAuthSubmitting(false);
+              return;
+            }
+          }
+
           const storedAttempts = await AsyncStorage.getItem('@orange_login_attempts');
           let attempts = storedAttempts ? parseInt(storedAttempts, 10) : 0;
           attempts++;
@@ -2052,7 +2073,7 @@ const inProgressDistM = assignedDriver?.current_lat && assignedDriver?.current_l
 
 const inProgressDistKm = inProgressDistM !== null
     ? (inProgressDistM / 1000).toFixed(1)
-    : (activeBooking?.distance_km?.toString() || '12');
+    : (activeBooking?.distance_km?.toString() || '—');
 
   const value = { payRideOnline, onlinePayBusy, insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authConfirmPassword, setAuthConfirmPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authOtp, setAuthOtp, authOtpResendCooldown, setAuthOtpResendCooldown, authOtpLockoutRemaining, handleVerifyOtp, handleResendOtp, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, pricingSettings, duesAmount, refreshDues, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
 

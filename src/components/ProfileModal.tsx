@@ -1243,7 +1243,7 @@ export function ProfileModal({
                     <Text style={[styles.inputLabel, isDark && styles.textMutedDark]}>GUARDIAN FULL NAME</Text>
                     <TextInput
                       style={[styles.inputField, isDark && styles.inputFieldDark]}
-                      placeholder="e.g. Rahul Sharma"
+                      placeholder="Full name"
                       placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                       value={guardianName}
                       onChangeText={setGuardianName}
@@ -1254,7 +1254,7 @@ export function ProfileModal({
                     <Text style={[styles.inputLabel, isDark && styles.textMutedDark]}>GUARDIAN PHONE NUMBER</Text>
                     <TextInput
                       style={[styles.inputField, isDark && styles.inputFieldDark]}
-                      placeholder="e.g. +91 98765 43210"
+                      placeholder="10-digit mobile number"
                       placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                       keyboardType="phone-pad"
                       value={guardianPhone}

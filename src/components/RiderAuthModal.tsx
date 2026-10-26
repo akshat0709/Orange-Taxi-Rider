@@ -209,7 +209,7 @@ export function RiderAuthModal() {
                       <Text style={[styles.authLabel, isDark && styles.textMutedDark]}>Phone Number</Text>
                       <TextInput
                         style={[styles.authInput, isDark && styles.authInputDark]}
-                        placeholder="e.g. +91 98765 43210"
+                        placeholder="10-digit mobile number"
                         placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                         keyboardType="phone-pad"
                         value={authPhone}
