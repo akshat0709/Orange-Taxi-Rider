@@ -54,6 +54,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { WEB_BASE_URL } from '../lib/config';
 import { useRideContext } from '../context/RideContext';
 
 import { RideMap } from './RideMap';
@@ -110,42 +111,18 @@ export function ProfileModal({
   const { setWalletBalance, pickupCoords, pickupText, activeCity } = useRideContext();
   const [isEditingGuardian, setIsEditingGuardian] = useState(false);
 
+  // Recharge happens on the website's Razorpay checkout and is credited server-side after
+  // confirmation (the old in-app call used a made-up payment id and was always rejected).
   const handleRazorpayRecharge = (amount: number) => {
     Alert.alert(
       'Recharge Orange Wallet',
-      `Add ₹${amount} to your Orange Wallet?`,
+      `Add ₹${amount} on orange-taxi.com with UPI or card? Sign in with the same account; your balance updates here once the payment is confirmed.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Confirm & Add Funds',
-          onPress: async () => {
-            if (user?.id) {
-              try {
-                const paymentRef = `wallet_topup_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-                const { data: rpcRes, error: rpcErr } = await supabase.rpc('top_up_wallet', {
-                  _amount: amount,
-                  _payment_id: paymentRef,
-                  _description: `Wallet Recharge of ₹${amount}`,
-                });
-
-                if (!rpcErr && rpcRes?.success) {
-                  setWalletBalance(Number(rpcRes.new_balance));
-                  Alert.alert(
-                    'Recharge Successful',
-                    `Successfully added ₹${amount} to your Orange Wallet!`
-                  );
-                } else {
-                  console.error('Wallet top-up failed:', rpcErr || rpcRes?.error);
-                  Alert.alert(
-                    'Recharge Failed',
-                    rpcRes?.error || rpcErr?.message || 'Wallet transaction could not be processed.'
-                  );
-                }
-              } catch (e: any) {
-                console.error('Wallet top-up error:', e);
-                Alert.alert('Recharge Error', e?.message || 'Failed to process wallet top-up.');
-              }
-            }
+          text: 'Continue',
+          onPress: () => {
+            Linking.openURL(`${WEB_BASE_URL}/wallet`).catch(() => {});
           },
         },
       ]
@@ -596,17 +573,21 @@ export function ProfileModal({
           onPress: async () => {
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              // Only report erasure when the server confirms it. Previously an RPC failure fell back to
+              // a best-effort profile scrub and still told the user their account was erased.
+              let deletionError: string | null = null;
               try {
                 const { error } = await (supabase as any).rpc('delete_user_account');
-                if (error && user?.id) {
-                  // Fallback: Scrub profile record
-                  await supabase.from('profiles').update({
-                    full_name: 'DELETED_USER',
-                    phone: `DELETED_${Date.now()}`,
-                  }).eq('id', user.id);
-                }
-              } catch (e) {
-                console.warn('RPC deletion fallback:', e);
+                if (error) deletionError = error.message || 'Deletion service unavailable.';
+              } catch (e: any) {
+                deletionError = e?.message || 'Network error.';
+              }
+              if (deletionError) {
+                Alert.alert(
+                  'Deletion Not Completed',
+                  `We could not erase your account right now (${deletionError}). You are still signed in. Please try again later or contact support@orangetaxi.in.`
+                );
+                return;
               }
               try {
                 await AsyncStorage.clear();

@@ -166,7 +166,7 @@ export function ScheduleModal({
             <View>
               <Text style={[styles.title, isDark && styles.textWhite]}>Reserve a Ride</Text>
               <Text style={[styles.subTitle, isDark && styles.textMutedDark]}>
-                Advance booking up to 7 days · Locked fare & zero surge
+                Advance booking up to 7 days
               </Text>
             </View>
 
@@ -327,7 +327,7 @@ export function ScheduleModal({
             <View style={[styles.assurancePill, isDark && styles.assurancePillDark]}>
               <ShieldCheck size={14} color="#10B981" />
               <Text style={[styles.assuranceText, isDark && styles.textMutedDark]}>
-                Zero-surge locked · Chauffeur arrives 10m early · Free cancellation
+                Chauffeur arrives 10m early · Free to cancel until a driver accepts
               </Text>
             </View>
 

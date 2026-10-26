@@ -1785,7 +1785,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
+    paddingHorizontal: 6,
     backgroundColor: '#FFFFFF',
     paddingVertical: 11,
     borderRadius: 12,
@@ -1800,6 +1801,8 @@ export const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   paymentChipTextActive: {
     color: '#111827',

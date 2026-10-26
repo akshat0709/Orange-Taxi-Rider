@@ -117,7 +117,7 @@ export function AmenitiesModal({
     {
       icon: ShieldCheck,
       title: 'Uniformed & Verified Chauffeurs',
-      detail: 'Background-verified, professionally trained, courteous drivers with guaranteed zero cancellations.',
+      detail: 'Background-verified, professionally trained, courteous drivers.',
       tag: 'Zero Cancel Guarantee',
       color: '#34D399',
     },

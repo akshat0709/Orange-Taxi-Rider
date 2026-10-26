@@ -198,7 +198,7 @@ export function RideHistoryModal({
   async function handleCancelScheduledTrip(trip: Booking) {
     Alert.alert(
       'Cancel Scheduled Ride',
-      `Are you sure you want to cancel your scheduled ride for ${formatTripDate(trip.scheduled_at || trip.created_at)}? There is zero cancellation fee.`,
+      `Are you sure you want to cancel your scheduled ride for ${formatTripDate(trip.scheduled_at || trip.created_at)}? There is no cancellation fee.`,
       [
         { text: 'Keep Ride', style: 'cancel' },
         {
@@ -372,7 +372,7 @@ export function RideHistoryModal({
                 </View>
                 <Text style={[styles.emptyTitle, isDark && styles.textWhite]}>No Scheduled Rides</Text>
                 <Text style={[styles.emptySubtitle, isDark && styles.textMutedDark]}>
-                  You have no advance scheduled bookings. Use the Schedule button on the home screen to reserve your rides up to 7 days ahead with zero surge pricing!
+                  You have no advance scheduled bookings. Use the Schedule button on the home screen to reserve your rides up to 7 days ahead.
                 </Text>
                 <TouchableOpacity
                   style={[styles.emptyActionBtn, { backgroundColor: '#7C3AED' }]}
@@ -496,7 +496,7 @@ export function RideHistoryModal({
                           </Text>
                         </View>
                         <Text style={[styles.scheduledCardInfoText, isDark && styles.textMutedDark]}>
-                          {trip.scheduled_at ? getDispatchStatus(trip.scheduled_at).label : 'Zero surge fare locked.'} · Fleet Chauffeur assignment begins 15–30 mins before pickup.
+                          {trip.scheduled_at ? getDispatchStatus(trip.scheduled_at).label : 'Scheduled.'} · Fleet Chauffeur assignment begins 15–30 mins before pickup.
                         </Text>
                       </View>
                     )}

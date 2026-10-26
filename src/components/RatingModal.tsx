@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Star, CheckCircle, X, Sparkles, Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -76,68 +77,29 @@ export function RatingModal({
         tipText,
       ].filter(Boolean).join(' · ');
 
-      // 1. Update Supabase bookings table with rating and review
-      await supabase
+      // 1. Save rating and review on the booking. Errors used to be ignored (success shown anyway).
+      const { error: rateErr } = await supabase
         .from('bookings')
         .update({
           rating,
           review: fullReview,
         })
         .eq('id', bookingId);
-
-      // 2. Recalculate and update driver rating & total completed rides
-      let newAvgRating = rating;
-      let newTotalRides = 1;
-
-      let resolvedDriverId = driverId;
-      if (!resolvedDriverId && bookingId) {
-        try {
-          const { data: b } = await supabase
-            .from('bookings')
-            .select('driver_id')
-            .eq('id', bookingId)
-            .maybeSingle();
-          if (b?.driver_id) resolvedDriverId = b.driver_id;
-        } catch (e) {}
+      if (rateErr) {
+        Alert.alert('Rating Not Saved', rateErr.message || 'Please try again.');
+        return;
       }
 
-      if (resolvedDriverId) {
+      // 2. The driver's average rating and trip count are recomputed server-side by the
+      //    handle_booking_driver_stats trigger. The old client-side write to `drivers` was
+      //    rejected by RLS for passengers, so it is gone; show the server's value instead.
+      if (driverId) {
         try {
-          const [{ data: ratedBookings }, { count: completedCount }] = await Promise.all([
-            supabase
-              .from('bookings')
-              .select('id, rating')
-              .eq('driver_id', resolvedDriverId)
-              .not('rating', 'is', null),
-            supabase
-              .from('bookings')
-              .select('id', { count: 'exact', head: true })
-              .eq('driver_id', resolvedDriverId)
-              .eq('status', 'completed'),
-          ]);
-
-          const otherRatings = (ratedBookings || [])
-            .filter((b: any) => b.id !== bookingId && b.rating)
-            .map((b: any) => Number(b.rating));
-          otherRatings.push(rating);
-
-          newAvgRating = Number(
-            (otherRatings.reduce((a, b) => a + b, 0) / otherRatings.length).toFixed(1)
-          );
-          newTotalRides = Math.max(completedCount || 0, otherRatings.length, 1);
-
-          await supabase
-            .from('drivers')
-            .update({
-              rating: newAvgRating,
-              total_rides: newTotalRides,
-            })
-            .eq('id', resolvedDriverId);
-
-          onRatingSubmitted?.(newAvgRating, newTotalRides);
-        } catch (e) {
-          console.warn('Driver aggregate update notice in app:', e);
-        }
+          // Passenger-scoped RPC (the drivers table is not readable by riders after phase 2).
+          const { data: rows } = await supabase.rpc('get_assigned_driver', { _booking_id: bookingId });
+          const d = Array.isArray(rows) ? rows[0] : null;
+          if (d) onRatingSubmitted?.(Number(d.rating), Number(d.total_rides));
+        } catch (e) {}
       }
 
       setSubmitted(true);

@@ -16,6 +16,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { COMPANY, escapeHtml, getInvoiceFare, getInvoiceLocations, isInvoicePaid } from '../lib/invoice';
 import {
   X,
   FileText,
@@ -33,6 +34,9 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { Booking } from '../types';
+import { supabase } from '../lib/supabase';
+import { WEB_BASE_URL } from '../lib/config';
+import { paymentMethodLabel } from '../lib/onlinePayment';
 
 interface TaxInvoiceModalProps {
   visible: boolean;
@@ -68,7 +72,10 @@ export function TaxInvoiceModal({
   if (!trip) return null;
   const currentTrip = trip;
 
-  const fare = currentTrip.estimated_fare || 149;
+  // Bill what was actually charged (final_fare) rather than the booking-time estimate.
+  const fare = getInvoiceFare(currentTrip);
+  const isPaid = isInvoicePaid(currentTrip);
+  const paidLabel = isPaid ? 'PAID' : 'PAYMENT PENDING';
   // Indian GST for passenger transport by cab is 5% (inclusive in fare)
   // Taxable Value = fare / 1.05
   const taxableValue = Math.round((fare / 1.05) * 100) / 100;
@@ -86,14 +93,14 @@ export function TaxInvoiceModal({
     user?.user_metadata?.full_name ||
     user?.name ||
     user?.email?.split('@')[0] ||
-    'Executive Passenger';
+    'Passenger';
   const riderPhone =
-    user?.phone || user?.user_metadata?.phone || '+91 98765 43210';
-  const pickupLoc = currentTrip.pickup_address || currentTrip.pickup_area || 'Bangalore City';
-  const dropLoc = currentTrip.drop_address || currentTrip.drop_area || 'Kempegowda Int. Airport (BLR)';
-  const vehicleName = currentTrip.vehicle_name || 'Mahindra BE.6 Executive EV';
-  const vehicleNumber = currentTrip.vehicle_number || 'KA 01 EK 2026';
-  const paymentMethod = currentTrip.payment_method?.toUpperCase() || 'UPI / ONLINE';
+    user?.phone || user?.user_metadata?.phone || '—';
+  // pickup_address/drop_address are machine strings ("lat,lng | CABIN:{json}"); show the readable areas.
+  const { pickup: pickupLoc, drop: dropLoc } = getInvoiceLocations(currentTrip);
+  const vehicleName = currentTrip.vehicle_name || 'Orange Signature';
+  const vehicleNumber = currentTrip.vehicle_number || 'Plate not recorded';
+  const paymentMethod = paymentMethodLabel(currentTrip.payment_method);
 
   function formatInvoiceDate(isoString: string) {
     try {
@@ -116,17 +123,17 @@ export function TaxInvoiceModal({
       `          ORANGE TAXI LIMITED - TAX INVOICE       `,
       `  (Issued under Rule 46 of the CGST Rules, 2017)  `,
       `==================================================`,
-      `CIN: U49224DL2026PLC461350`,
-      `GSTIN: 29AABCO1234F1Z5  |  SAC: 9966 (Passenger Transport)`,
-      `Registered Office: Cyber Park, Electronic City, Bengaluru 560100`,
-      `Support: 1800-200-ORANGE  |  support@orangetaxi.in`,
+      `CIN: ${COMPANY.cin}`,
+      `GSTIN: ${COMPANY.gstin}  |  SAC: ${COMPANY.sac} (Passenger Transport by Taxi)`,
+      `Registered Office: ${COMPANY.address}`,
+      `Support: ${COMPANY.supportPhone}  |  ${COMPANY.supportEmail}`,
       `--------------------------------------------------`,
       `INVOICE DETAILS`,
       `Invoice No: ${invoiceNumber}`,
       `Invoice Date: ${formattedDate}`,
       `Booking ID: ${currentTrip.reference || currentTrip.id}`,
-      `State of Supply: Karnataka (Code: 29)`,
-      `Status: PAID IN FULL`,
+      `Supplier State: ${COMPANY.state} (Code: ${COMPANY.stateCode})`,
+      `Status: ${isPaid ? 'PAID IN FULL' : 'PAYMENT PENDING'}`,
       `--------------------------------------------------`,
       `BILLED TO (CUSTOMER)`,
       `Name: ${riderName}`,
@@ -137,7 +144,7 @@ export function TaxInvoiceModal({
       `Vehicle: ${vehicleName} (${vehicleNumber})`,
       `Pickup: ${pickupLoc}`,
       `Destination: ${dropLoc}`,
-      `Distance: ${currentTrip.distance_km || 12} km`,
+      `Distance: ${currentTrip.distance_km ?? '—'} km`,
       `--------------------------------------------------`,
       `ITEMIZED BILLING (INR)`,
       `1. Base & Chauffeur Charges:        ₹${baseCharge.toFixed(2)}`,
@@ -148,11 +155,10 @@ export function TaxInvoiceModal({
       `SGST @ 2.5%:                       ₹${sgst.toFixed(2)}`,
       `Total GST (5%):                    ₹${totalGst.toFixed(2)}`,
       `--------------------------------------------------`,
-      `TOTAL AMOUNT PAID:                 ₹${fare.toFixed(2)}`,
+      `${isPaid ? 'TOTAL AMOUNT PAID:  ' : 'TOTAL AMOUNT DUE:   '}               ₹${fare.toFixed(2)}`,
       `Payment Mode:                      ${paymentMethod}`,
       `--------------------------------------------------`,
       `SPECIAL ASSURANCES:`,
-      `* Zero Cancellation Guarantee Applied (No cancellation penalty)`,
       `* 100% Zero-Emission Executive Electric Mobility`,
       `* This is a computer-generated tax invoice and requires no physical signature.`,
       `==================================================`,
@@ -170,6 +176,48 @@ export function TaxInvoiceModal({
 
     setIsSending(true);
 
+    // Same as the website: the invoice is emailed from billing@orange-taxi.com by the server.
+    // Falls back to the phone's mail app if that isn't possible (no email, offline, …).
+    if (emailToSend) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const res = await fetch(`${WEB_BASE_URL.replace(/\/+$/, '')}/api/send-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              to: emailToSend,
+              invoiceNumber,
+              customerName: riderName,
+              customerPhone: riderPhone !== '—' ? riderPhone : undefined,
+              pickupArea: pickupLoc,
+              dropArea: dropLoc,
+              completedAt: formattedDate,
+              vehicleName,
+              vehiclePlate: currentTrip.vehicle_number || undefined,
+              paymentMethod,
+              subtotal: taxableValue,
+              cgst,
+              sgst,
+              igst: 0,
+              totalFare: fare,
+              distanceKm: Number(currentTrip.distance_km) || undefined,
+            }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && !json?.error) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Invoice Sent ✉️', `Tax invoice ${invoiceNumber} was emailed to ${emailToSend}.`);
+            setIsSending(false);
+            return;
+          }
+          console.warn('Invoice email server error:', json?.error || res.status);
+        }
+      } catch (e) {
+        console.warn('Invoice email request failed:', e);
+      }
+    }
+
     const subject = encodeURIComponent(
       `Tax Invoice ${invoiceNumber} · Orange Taxi Trip (₹${fare})`
     );
@@ -178,7 +226,7 @@ export function TaxInvoiceModal({
       `Dear ${riderName},\n\n` +
       `Thank you for riding with Orange Taxi. Please find below your official Tax Invoice for booking reference ${currentTrip.reference || currentTrip.id}.\n\n` +
       `${invoiceBody}\n\n` +
-      `For any corporate billing or GST reconciliation queries, write to accounts@orangetaxi.in.\n\n` +
+      `For any corporate billing or GST reconciliation queries, write to ${COMPANY.supportEmail}.\n\n` +
       `Warm regards,\n` +
       `Billing & Finance Team\n` +
       `Orange Taxi Limited`
@@ -237,32 +285,32 @@ export function TaxInvoiceModal({
           <div class="header">
             <h1 class="logo">ORANGE TAXI</h1>
             <div class="sub">Official Tax Invoice • Issued under Rule 46 CGST</div>
-            <div class="sub">GSTIN: 29AABCO1234F1Z5 • SAC: 9966 (Passenger Transport)</div>
+            <div class="sub">GSTIN: ${COMPANY.gstin} • SAC: ${COMPANY.sac} (Passenger Transport by Taxi)</div>
           </div>
           
           <div class="grid section">
             <div class="col">
               <div class="section-title">Invoice Details</div>
-              <div style="font-weight: 700; color: #0f172a;">#${invoiceNumber}</div>
-              <div style="font-size: 13px; margin-top: 5px;">Date: ${formattedDate}</div>
-              <div style="font-size: 13px; margin-top: 5px;">Ref: ${currentTrip.reference || currentTrip.id}</div>
-              <div style="font-size: 13px; margin-top: 5px; color: #10b981; font-weight: 700;">PAID • ${paymentMethod}</div>
+              <div style="font-weight: 700; color: #0f172a;">#${escapeHtml(invoiceNumber)}</div>
+              <div style="font-size: 13px; margin-top: 5px;">Date: ${escapeHtml(formattedDate)}</div>
+              <div style="font-size: 13px; margin-top: 5px;">Ref: ${escapeHtml(currentTrip.reference || currentTrip.id)}</div>
+              <div style="font-size: 13px; margin-top: 5px; color: ${isPaid ? '#10b981' : '#f97316'}; font-weight: 700;">${paidLabel} • ${escapeHtml(paymentMethod)}</div>
             </div>
             <div class="col" style="text-align: right;">
               <div class="section-title">Billed To</div>
-              <div style="font-weight: 700; color: #0f172a;">${riderName}</div>
-              <div style="font-size: 13px; margin-top: 5px;">${recipientEmail || user?.email || 'N/A'}</div>
-              <div style="font-size: 13px; margin-top: 5px;">${riderPhone}</div>
+              <div style="font-weight: 700; color: #0f172a;">${escapeHtml(riderName)}</div>
+              <div style="font-size: 13px; margin-top: 5px;">${escapeHtml(recipientEmail || user?.email || 'N/A')}</div>
+              <div style="font-size: 13px; margin-top: 5px;">${escapeHtml(riderPhone)}</div>
             </div>
           </div>
           
           <div class="section">
             <div class="section-title">Journey Details</div>
             <div style="font-size: 14px; line-height: 1.6;">
-              <strong>Vehicle:</strong> ${vehicleName} (${vehicleNumber})<br/>
-              <strong>Distance:</strong> ${currentTrip.distance_km || 12} km<br/>
-              <strong>From:</strong> ${pickupLoc}<br/>
-              <strong>To:</strong> ${dropLoc}
+              <strong>Vehicle:</strong> ${escapeHtml(vehicleName)} (${escapeHtml(vehicleNumber)})<br/>
+              <strong>Distance:</strong> ${escapeHtml(currentTrip.distance_km ?? 'N/A')} km<br/>
+              <strong>From:</strong> ${escapeHtml(pickupLoc)}<br/>
+              <strong>To:</strong> ${escapeHtml(dropLoc)}
             </div>
           </div>
           
@@ -288,14 +336,14 @@ export function TaxInvoiceModal({
             
             
             <div class="item-row total">
-              <span>Total Amount Paid</span>
+              <span>${isPaid ? 'Total Amount Paid' : 'Total Amount Due'}</span>
               <span>₹${fare.toFixed(2)}</span>
             </div>
           </div>
           
           <div class="footer">
-            Orange Taxi Limited • Cyber Park, Electronic City, Bengaluru 560100<br/>
-            Support: 1800-200-ORANGE • support@orangetaxi.in<br/>
+            ${escapeHtml(COMPANY.legalName)} • ${escapeHtml(COMPANY.address)}<br/>
+            Support: ${escapeHtml(COMPANY.supportPhone)} • ${escapeHtml(COMPANY.supportEmail)}<br/>
             This is a computer generated invoice and does not require a physical signature.
           </div>
         </body>
@@ -338,7 +386,7 @@ export function TaxInvoiceModal({
               <View>
                 <Text style={styles.headerTitle}>Official Tax Invoice</Text>
                 <Text style={styles.headerSubTitle}>
-                  Rule 46 CGST · GSTIN 29AABCO1234F1Z5
+                  Rule 46 CGST · GSTIN {COMPANY.gstin}
                 </Text>
               </View>
             </View>
@@ -385,16 +433,16 @@ export function TaxInvoiceModal({
                     </View>
                   </View>
                   <Text style={styles.legalEntityText}>
-                    Orange Taxi Limited (CIN: U49224DL2026PLC461350)
+                    Orange Taxi Limited (CIN: {COMPANY.cin})
                   </Text>
                   <Text style={styles.gstText}>
-                    GSTIN: <Text style={styles.boldText}>29AABCO1234F1Z5</Text> · SAC: 9966
+                    GSTIN: <Text style={styles.boldText}>{COMPANY.gstin}</Text> · SAC: {COMPANY.sac}
                   </Text>
                 </View>
 
                 <View style={styles.paidStamp}>
                   <CheckCircle2 size={14} color="#059669" />
-                  <Text style={styles.paidStampText}>PAID</Text>
+                  <Text style={styles.paidStampText}>{paidLabel}</Text>
                 </View>
               </View>
 
@@ -418,7 +466,7 @@ export function TaxInvoiceModal({
                   <Text style={styles.sectionHeading}>BILLED TO</Text>
                   <Text style={styles.customerName}>{riderName}</Text>
                   <Text style={styles.customerMeta}>{riderPhone}</Text>
-                  <Text style={styles.customerMeta}>State: Karnataka (29)</Text>
+                  <Text style={styles.customerMeta}>Supplier state: {COMPANY.state} ({COMPANY.stateCode})</Text>
                 </View>
                 <View style={styles.customerColRight}>
                   <Text style={styles.sectionHeading}>VEHICLE & FLEET</Text>
@@ -469,9 +517,9 @@ export function TaxInvoiceModal({
               <View style={styles.lineItemRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.lineItemTitle}>
-                    Distance Fare ({trip.distance_km || 12} km)
+                    Distance Fare ({trip.distance_km ?? '—'} km)
                   </Text>
-                  <Text style={styles.lineItemSub}>Zero surge EV propulsion charge</Text>
+                  <Text style={styles.lineItemSub}>Per-km charge</Text>
                 </View>
                 <Text style={styles.lineItemAmount}>₹{distanceCharge.toFixed(2)}</Text>
               </View>
@@ -489,7 +537,7 @@ export function TaxInvoiceModal({
               </View>
 
               <View style={styles.taxRow}>
-                <Text style={styles.taxLabel}>SGST @ 2.5% (State Tax Karnataka)</Text>
+                <Text style={styles.taxLabel}>SGST @ 2.5% (State Tax {COMPANY.state})</Text>
                 <Text style={styles.taxAmount}>₹{sgst.toFixed(2)}</Text>
               </View>
 
@@ -498,7 +546,7 @@ export function TaxInvoiceModal({
                 <View>
                   <Text style={styles.totalLabel}>TOTAL INVOICE AMOUNT</Text>
                   <Text style={styles.totalSub}>
-                    Paid via {paymentMethod} · Zero Cancellation Guarantee
+                    {isPaid ? `Paid via ${paymentMethod}` : `Due via ${paymentMethod}`}
                   </Text>
                 </View>
                 <Text style={styles.totalAmount}>₹{fare.toFixed(2)}</Text>
@@ -508,7 +556,7 @@ export function TaxInvoiceModal({
               <View style={styles.statutoryBox}>
                 <ShieldCheck size={16} color="#059669" />
                 <Text style={styles.statutoryText}>
-                  Valid Tax Invoice issued under Section 31 of CGST Act, 2017. Input Tax Credit (ITC) applicable for business registered entities under SAC 9966.
+                  Valid Tax Invoice issued under Section 31 of CGST Act, 2017. Input Tax Credit (ITC) applicable for business registered entities under SAC {COMPANY.sac}.
                 </Text>
               </View>
             </View>

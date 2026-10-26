@@ -1,3 +1,4 @@
+import { getGoogleMapsKey } from '../lib/config';
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from 'react-native-maps';
@@ -336,7 +337,7 @@ export function RideMap({
         : `${pickup.lat},${pickup.lng}`;
     const destination = `${target.lat},${target.lng}`;
     
-    const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+    const API_KEY = getGoogleMapsKey();
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&key=${API_KEY}`;
     
     fetch(url)

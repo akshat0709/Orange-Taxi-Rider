@@ -12,6 +12,8 @@ import {
   Platform,
   StatusBar,
   RefreshControl,
+  Linking,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -28,6 +30,7 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
+import { WEB_BASE_URL } from '../lib/config';
 
 interface WalletTransaction {
   id: string;
@@ -65,7 +68,6 @@ export function WalletModal({
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [upiId, setUpiId] = useState('');
   const [selectedAmount, setSelectedAmount] = useState<number>(500);
   const [adding, setAdding] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -106,57 +108,47 @@ export function WalletModal({
     }
   }, [visible, userId]);
 
+  // Refresh when the rider comes back from the website checkout.
+  useEffect(() => {
+    if (!visible || !userId) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        fetchTransactions();
+        fetchBalance();
+      }
+    });
+    return () => sub.remove();
+  }, [visible, userId, fetchTransactions, fetchBalance]);
+
   async function handleRefresh() {
     setRefreshing(true);
     await Promise.all([fetchTransactions(), fetchBalance()]);
     setRefreshing(false);
   }
 
+  // Top-ups are paid on the website (Razorpay checkout) and credited server-side only after
+  // Razorpay confirms the payment. The old flow called top_up_wallet with a made-up payment id,
+  // which the database rejects, so no top-up ever succeeded.
   async function handleAddMoney() {
     if (!userId) {
       Alert.alert('Sign In Required', 'Please sign in to use Orange Wallet.');
       return;
     }
-    if (!upiId.trim()) {
-      Alert.alert('UPI ID Required', 'Enter your UPI ID to add money.');
-      return;
-    }
-    if (selectedAmount < 10) {
-      Alert.alert('Minimum ₹10', 'Please add at least ₹10 to your wallet.');
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setAdding(true);
-
-    try {
-      const paymentRef = `upi_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc('top_up_wallet', {
-        _amount: selectedAmount,
-        _payment_id: paymentRef,
-        _description: `Top-up via UPI (${upiId.trim()})`,
-      });
-
-      if (rpcErr) {
-        throw new Error(rpcErr.message || 'Wallet service temporarily unavailable.');
-      } else if (rpcRes?.success) {
-        onBalanceUpdated(Number(rpcRes.new_balance));
-      } else {
-        throw new Error(rpcRes?.error || 'Top-up rejected');
-      }
-
-      setSuccess(true);
-      setUpiId('');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      await fetchTransactions();
-
-      setTimeout(() => setSuccess(false), 2500);
-    } catch (err: any) {
-      Alert.alert('Top-Up Failed', err?.message || 'Something went wrong. Please try again.');
-    } finally {
-      setAdding(false);
-    }
+    const url = `${WEB_BASE_URL}/wallet`;
+    Alert.alert(
+      'Add Money Securely',
+      `You'll pay ₹${selectedAmount} on orange-taxi.com with UPI or card. Sign in with the same account; your balance updates here as soon as the payment is confirmed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: () => {
+            Linking.openURL(url).catch(() => Alert.alert('Could Not Open', url));
+          },
+        },
+      ]
+    );
   }
 
   function formatDate(iso: string) {
@@ -270,20 +262,8 @@ export function WalletModal({
             ))}
           </View>
 
-          {/* UPI Input + Add Button */}
+          {/* Add Button (payment completes on the website) */}
           <View style={styles.upiRow}>
-            <View style={[styles.upiInputWrap, isDark && styles.upiInputWrapDark]}>
-              <CreditCard size={15} color="#94A3B8" style={{ marginRight: 6 }} />
-              <TextInput
-                style={[styles.upiInput, isDark && styles.textWhite]}
-                placeholder="Enter UPI ID (e.g. name@upi)"
-                placeholderTextColor={isDark ? '#475569' : '#94A3B8'}
-                value={upiId}
-                onChangeText={setUpiId}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
             <TouchableOpacity
               style={[styles.addBtn, (adding || success) && styles.addBtnDisabled]}
               onPress={handleAddMoney}

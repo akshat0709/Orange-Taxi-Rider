@@ -1,3 +1,4 @@
+import { getGoogleMapsKey } from './config';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
@@ -471,7 +472,7 @@ export async function searchPlaces(
     ).slice(0, 15);
   }
 
-  const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const GOOGLE_API_KEY = getGoogleMapsKey();
   if (!GOOGLE_API_KEY) return [];
 
   const locationParam = userCoords ? `&location=${userCoords.lat},${userCoords.lng}&radius=50000` : '';

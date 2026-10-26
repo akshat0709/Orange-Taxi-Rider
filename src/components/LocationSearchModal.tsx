@@ -1,3 +1,4 @@
+import { getGoogleMapsKey } from '../lib/config';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -173,7 +174,7 @@ export function LocationSearchModal({
     if (resolvedItem.lat === 0 && resolvedItem.lng === 0 && resolvedItem.id) {
       setLoading(true);
       try {
-        const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+        const GOOGLE_API_KEY = getGoogleMapsKey();
         const res = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedItem.id}&fields=geometry,name&key=${GOOGLE_API_KEY}`);
         if (res.ok) {
           const data = await res.json();

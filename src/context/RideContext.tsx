@@ -1,7 +1,9 @@
+import { getGoogleMapsKey } from '../lib/config';
 import { GuardianContact } from "../components/ProfileModal";
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Alert, Platform, StatusBar, Linking } from 'react-native';
+import { Alert, Platform, StatusBar, Linking, AppState } from 'react-native';
+import { createRidePaymentLink, getPaymentLinkStatus } from '../lib/onlinePayment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDistanceToPolyline, decodePolyline } from '../lib/geomUtils';
@@ -15,8 +17,17 @@ import Constants from 'expo-constants';
 
 
 import { supabase } from '../lib/supabase';
+import { DEFAULT_PRICING, cancellationPolicyText, fareFor, normalizePricing, surgeOf, PricingSettings } from '../lib/pricing';
 import { VehicleCategory, Booking, Driver, CustomSavedPlace } from '../types';
 import { getResolvedVehicleDetails } from '../lib/rideVehicle';
+import { parsePickupCoords, parseFinalDropCoords } from '../lib/bookingAddress';
+import {
+  PROMO_CODES,
+  ONE_TIME_PROMOS,
+  computePromoDiscount,
+  promoUsedStorageKey,
+  revalidateAppliedPromo,
+} from '../lib/promo';
 import { haversineMeters } from '../components/RideMap';
 import { HourlyPackage } from '../components/HourlyRentalModal';
 import { registerForPushNotificationsAsync, sendLocalNotification } from '../lib/notificationService';
@@ -204,6 +215,15 @@ const [bookingLoading, setBookingLoading] = useState(false);
 
 const [nearbyDrivers, setNearbyDrivers] = useState<{id: string, lat: number, lng: number}[]>([]);
 const [surgeMultiplier, setSurgeMultiplier] = useState(1.0);
+const [pricingSettings, setPricingSettings] = useState<PricingSettings>(DEFAULT_PRICING);
+// Unpaid cancellation fees from earlier rides; the server adds them to the next booking.
+const [unpaidDues, setUnpaidDues] = useState(0);
+const refreshDues = async () => {
+  try {
+    const { data } = await supabase.rpc('get_my_dues');
+    setUnpaidDues(Number(data) || 0);
+  } catch (e) {}
+};
 const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
 
 const [assignedDriver, setAssignedDriver] = useState<Driver | null>(null);
@@ -231,6 +251,9 @@ const [historyModalVisible, setHistoryModalVisible] = useState(false);
 const [amenitiesModalVisible, setAmenitiesModalVisible] = useState(false);
 
 const [walletBalance, setWalletBalance] = useState<number>(0);
+// Online ride payment (Razorpay payment link opened in the browser; settled by the server).
+const [onlinePayBusy, setOnlinePayBusy] = useState(false);
+const pendingPayLinkRef = useRef<{ id: string; bookingId: string } | null>(null);
 
 const [walletModalVisible, setWalletModalVisible] = useState(false);
 
@@ -298,18 +321,30 @@ useEffect(() => {
     // Poll for nearby online drivers every 10 seconds
     const fetchDrivers = async () => {
       try {
-        const { data } = await supabase
-          .from('drivers')
-          .select('id, current_lat, current_lng')
-          .eq('is_online', true)
-          .not('current_lat', 'is', null);
-        if (data) {
-          setNearbyDrivers(data.map(d => ({ id: d.id, lat: d.current_lat, lng: d.current_lng })));
+        // Positions only, via RPC (migration 20261025120000). Reading the drivers table directly
+        // exposed every online chauffeur's full record; fall back only if the RPC isn't deployed.
+        let rows: any[] | null = null;
+        const { data: rpcRows, error: rpcErr } = await supabase.rpc('get_online_driver_positions');
+        if (!rpcErr) {
+          rows = rpcRows as any[];
+        } else if (rpcErr.code === 'PGRST202' || rpcErr.code === '42883') {
+          const { data } = await supabase
+            .from('drivers')
+            .select('id, current_lat, current_lng')
+            .eq('is_online', true)
+            .not('current_lat', 'is', null);
+          rows = data;
+        }
+        if (rows) {
+          setNearbyDrivers(rows.map(d => ({ id: d.id, lat: Number(d.current_lat), lng: Number(d.current_lng) })));
         }
 
-        const { data: surgeData } = await supabase.rpc('get_surge_multiplier');
-        if (surgeData !== null && surgeData !== undefined) {
-          setSurgeMultiplier(Number(surgeData));
+        // Admin-set prices (Pricing tab on the website): picked up within one poll.
+        const { data: priceRow } = await supabase.from('pricing_settings').select('*').eq('id', 1).maybeSingle();
+        if (priceRow) {
+          const next = normalizePricing(priceRow);
+          setPricingSettings(next);
+          setSurgeMultiplier(surgeOf(next));
         }
 
       } catch (e) {}
@@ -381,18 +416,6 @@ useEffect(() => {
 
     // Load saved guardian contact from local storage
     AsyncStorage.getItem('@orange_guardian_contact').then((stored) => {
-
-    if (user?.id) {
-      const fetchWallet = async () => {
-        try {
-          const { data } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).single();
-          if (data?.wallet_balance != null) {
-            setWalletBalance(Number(data.wallet_balance));
-          }
-        } catch (e) {}
-      };
-      fetchWallet();
-    }
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -425,6 +448,29 @@ useEffect(() => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Load the wallet balance whenever the signed-in user changes. (Previously this ran inside the
+  // mount effect, where `user` was always the initial null, so the balance stayed ₹0 and wallet
+  // payments were rejected until the Wallet screen was opened.)
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) {
+      setWalletBalance(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.from('profiles').select('wallet_balance').eq('id', userId).single();
+        if (!cancelled && data?.wallet_balance != null) {
+          setWalletBalance(Number(data.wallet_balance));
+        }
+      } catch (e) {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Resend OTP 30-second cooldown timer
   useEffect(() => {
@@ -532,6 +578,10 @@ dropLocationRef.current = dropLocation;
 
 const lastDriverLocRef = useRef<{ lat: number; lng: number } | null>(null);
 
+const activeBookingIdRef = useRef<string | undefined>(activeBooking?.id);
+
+activeBookingIdRef.current = activeBooking?.id;
+
 useEffect(() => {
     const driverId = activeBooking?.driver_id;
     if (!driverId) {
@@ -542,11 +592,17 @@ useEffect(() => {
 
     async function fetchDriver() {
       try {
-        const { data } = await supabase
-          .from('drivers')
-          .select('*')
-          .eq('id', driverId)
-          .maybeSingle();
+        // Passenger-scoped read (no KYC fields); table fallback until the RPC is deployed.
+        let data: any = null;
+        const bookingId = activeBookingIdRef.current;
+        if (bookingId) {
+          const { data: rows, error: rpcErr } = await supabase.rpc('get_assigned_driver', { _booking_id: bookingId });
+          if (!rpcErr && Array.isArray(rows) && rows.length > 0) data = rows[0];
+        }
+        if (!data) {
+          const res = await supabase.from('drivers').select('*').eq('id', driverId).maybeSingle();
+          data = res.data;
+        }
 
         if (data) {
           let hydrated: any = { ...data };
@@ -642,6 +698,22 @@ useEffect(() => {
     };
   }, [activeBooking?.driver_id]);
 
+  // Fetch the ride OTP through the passenger-only RPC when the row doesn't carry it (phase 2).
+  useEffect(() => {
+    const b = activeBooking;
+    if (!b?.id || b.ride_otp || !['searching', 'scheduled', 'accepted', 'arrived'].includes(b.status)) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('get_ride_otp', { _booking_id: b.id });
+      if (!cancelled && typeof data === 'string' && data) {
+        setActiveBooking((prev) => (prev && prev.id === b.id ? { ...prev, ride_otp: data } : prev));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBooking?.id, activeBooking?.status, activeBooking?.ride_otp]);
+
 async function checkActiveRide(userId?: string) {
     try {
       let query = supabase
@@ -684,12 +756,36 @@ async function checkActiveRide(userId?: string) {
 
 async function initApp() {
     try {
-      // 1. Single vehicle category (Orange Signature)
+      // 1. Vehicles and prices as set in the admin Pricing tab (default Signature until they load).
       const defaults: VehicleCategory[] = [
         { id: '1', code: 'ORANGE_SIGNATURE', name: 'Orange Signature', tagline: 'Spotless, Pre-Cooled 100% Electric EV', seats: 4, base_fare: 99, per_km: 18, minimum_fare: 149, sort_order: 1 }
       ];
       setVehicles(defaults);
       setSelectedVehicle(defaults[0]);
+      try {
+        const [{ data: cats }, { data: priceRow }] = await Promise.all([
+          supabase.from('vehicle_categories').select('*').eq('is_active', true).order('sort_order'),
+          supabase.from('pricing_settings').select('*').eq('id', 1).maybeSingle(),
+        ]);
+        if (cats && cats.length > 0) {
+          const live = (cats as any[]).map((c) => ({
+            ...c,
+            base_fare: Number(c.base_fare),
+            per_km: Number(c.per_km),
+            minimum_fare: Number(c.minimum_fare),
+            seats: Number(c.seats),
+          })) as VehicleCategory[];
+          setVehicles(live);
+          setSelectedVehicle((prev) => live.find((v) => v.code === prev?.code) || live[0]);
+        }
+        if (priceRow) {
+          const next = normalizePricing(priceRow);
+          setPricingSettings(next);
+          setSurgeMultiplier(surgeOf(next));
+        }
+      } catch (e) {
+        console.warn('Pricing load notice:', e);
+      }
 
       // 2. Acquire sanitized location
       await refreshLocation(activeCity);
@@ -736,31 +832,43 @@ async function handleHomeMapPress(coords: { lat: number; lng: number }) {
 
 const rawDist = distKm;
 
-const baseFare = selectedVehicle?.base_fare || 99;
+const baseFare = selectedVehicle?.base_fare ?? 99;
 
-const perKm = selectedVehicle?.per_km || 18;
+const perKm = selectedVehicle?.per_km ?? 18;
 
-const minFare = selectedVehicle?.minimum_fare || 149;
-
-const distanceFare = Math.round(perKm * distKm);
+const minFare = selectedVehicle?.minimum_fare ?? 149;
 
 const stopFare = intermediateStop ? 35 : 0;
 
-const preTax = Math.max(minFare, baseFare + distanceFare + stopFare + tollFare);
+// Same formula as the website and the server (src/lib/pricing.ts); stop and toll charges on top.
+const fareQuote = fareFor({ base_fare: baseFare, per_km: perKm, minimum_fare: minFare }, distKm, pricingSettings, stopFare + tollFare);
 
-const taxAmount = Math.round(preTax * 0.05);
+const distanceFare = fareQuote.distance;
 
-const platformFee = 0;
+const preTax = fareQuote.preTax;
 
-const calculatedPreDiscount = preTax + taxAmount + platformFee;
+const taxAmount = fareQuote.tax;
+
+const platformFee = fareQuote.platform;
+
+const calculatedPreDiscount = fareQuote.total;
+
+const duesAmount = user ? unpaidDues : 0;
+
+useEffect(() => {
+  if (user) refreshDues();
+  else setUnpaidDues(0);
+}, [user?.id, step]);
 
 const discountAmount = appliedPromo ? Math.min(appliedPromo.discount, calculatedPreDiscount - minFare) : 0;
 
-const totalEstimatedFare = Math.max(minFare, calculatedPreDiscount - discountAmount);
+const totalEstimatedFare = Math.max(minFare, calculatedPreDiscount - discountAmount) + duesAmount;
 
-const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: number; minFare: number; desc: string }> = {
-    'FIRST100': { discountType: 'flat', value: 100, minFare: 180, desc: '₹100 welcome bonus on Orange fleet' },
-  };
+  // Drop or recompute an applied promo when the fare it was validated against changes
+  // (e.g. a shorter route pushes the fare below the promo's minimum).
+  useEffect(() => {
+    setAppliedPromo((prev) => revalidateAppliedPromo(prev, calculatedPreDiscount));
+  }, [calculatedPreDiscount]);
 
   useEffect(() => {
     if (pickupCoords.lat && dropLocation?.lat) {
@@ -768,7 +876,7 @@ const PROMO_CODES: Record<string, { discountType: 'flat' | 'percent'; value: num
         try {
           const origin = `${pickupCoords.lat},${pickupCoords.lng}`;
           const dest = `${dropLocation.lat},${dropLocation.lng}`;
-          const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+          const API_KEY = getGoogleMapsKey();
           
           // Google Directions API for exact route distance, duration and toll detection
           const dirRes = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&key=${API_KEY}`);
@@ -850,24 +958,19 @@ async function handleApplyPromo() {
       return;
     }
     
-    if (code === 'FIRST100') {
-      const used = await AsyncStorage.getItem(`@orange_promo_used_FIRST100_${user?.id || 'guest'}`);
+    if (ONE_TIME_PROMOS.has(code)) {
+      const used = await AsyncStorage.getItem(promoUsedStorageKey(code, user?.id));
       if (used) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setPromoError('You have already used the FIRST100 welcome bonus.');
+        setPromoError(`You have already used the ${code} welcome bonus.`);
         return;
       }
     }
-    if (calculatedPreDiscount < promo.minFare) {
+    const disc = computePromoDiscount(code, calculatedPreDiscount);
+    if (disc === null) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setPromoError(`Minimum ride fare of ₹${promo.minFare} required for ${code}.`);
       return;
-    }
-    let disc = 0;
-    if (promo.discountType === 'flat') {
-      disc = promo.value;
-    } else {
-      disc = Math.min(150, Math.round((calculatedPreDiscount * promo.value) / 100));
     }
     setAppliedPromo({ code, discount: disc, description: promo.desc });
     setPromoError(null);
@@ -926,6 +1029,9 @@ useEffect(() => {
 
       setActiveBooking((prev) => {
         if (!prev) return newBooking;
+        // After the phase-2 lockdown the bookings row no longer carries the OTP; keep the one fetched
+        // through get_ride_otp instead of wiping it on every poll.
+        if (!newBooking.ride_otp && prev.ride_otp) newBooking = { ...newBooking, ride_otp: prev.ride_otp };
         const statusChanged = prev.status !== newBooking.status;
         const driverChanged = prev.driver_id !== newBooking.driver_id;
         const vehicleChanged =
@@ -1100,6 +1206,63 @@ async function handleConfirmBooking() {
     await executeBookingSubmission(pickupCoords, pickupText);
   }
 
+  // Pay a ride online, like the website's "Online (UPI/Cards)" option. Opens Razorpay's payment page;
+  // the server marks the ride paid once Razorpay confirms, and the chauffeur sees "paid online".
+  async function payRideOnline(target?: Booking | null) {
+    const b = target || activeBooking;
+    if (!b?.id) return;
+    setOnlinePayBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setAuthModalVisible(true);
+        return;
+      }
+      const link = await createRidePaymentLink(b.id, session.access_token);
+      if (link.status === 'paid') return;
+      pendingPayLinkRef.current = { id: link.id, bookingId: b.id };
+      await Linking.openURL(link.image_url);
+    } catch (e: any) {
+      Alert.alert(
+        'Online Payment',
+        `${e?.message || 'Could not start the online payment.'}\n\nYou can pay the chauffeur at the end of the ride instead.`
+      );
+    } finally {
+      setOnlinePayBusy(false);
+    }
+  }
+
+  async function checkPendingOnlinePayment() {
+    const pending = pendingPayLinkRef.current;
+    if (!pending) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const latest = await getPaymentLinkStatus(pending.id, session.access_token);
+      if (latest.status === 'pending') return;
+      pendingPayLinkRef.current = null;
+      if (latest.status === 'paid') {
+        setActiveBooking((prev: Booking | null) =>
+          prev && prev.id === pending.bookingId
+            ? ({ ...prev, payment_status: 'paid', payment_made: 'yes', payment_method: 'upi' } as Booking)
+            : prev
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Payment Received ✅', 'Your ride is paid online. Please do not pay the chauffeur again.');
+      }
+    } catch (e) {
+      // try again next time the app comes to the foreground
+    }
+  }
+
+  // Coming back from the browser: check whether the payment went through.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkPendingOnlinePayment();
+    });
+    return () => sub.remove();
+  }, []);
+
 async function executeBookingSubmission(finalCoords?: { lat: number; lng: number }, finalAddress?: string) {
     const { data: { session } } = await supabase.auth.getSession();
     const activeUser = session?.user || user;
@@ -1115,7 +1278,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
     const effectiveAddress = finalAddress || pickupText;
     const effectivePickup = pickupPillar ? `${effectiveAddress} (${pickupPillar})` : effectiveAddress;
 
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    // The ride OTP is generated by the database and returned on insert.
     const ref = 'OT' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
     try {
@@ -1148,9 +1311,10 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
         payment_method: paymentMethod,
         payment_status: 'pending',
         payment_made: 'no',
-        ride_otp: otp,
         status: isAdvanceBooking ? 'scheduled' : 'searching',
         scheduled_at: scheduledIso,
+        // Validated and redeemed by the database (one-time FIRST100); fare is re-checked server-side.
+        promo_code: appliedPromo?.code || null,
       };
 
       let { data, error } = await supabase
@@ -1162,6 +1326,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
       if (error && error.message && error.message.includes('payment_made')) {
         const safePayload = { ...bookingPayload };
         delete safePayload.payment_made;
+        delete safePayload.promo_code;
         const retry = await supabase.from('bookings').insert(safePayload).select('*').single();
         data = retry.data;
         error = retry.error;
@@ -1189,6 +1354,30 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
       setPinPickerActive(false);
       setIsBookingPinConfirm(false);
 
+      // The server is authoritative for the fare and promo; tell the rider if it adjusted either.
+      if (data && Number(data.estimated_fare) > totalEstimatedFare + 1) {
+        Alert.alert(
+          'Fare Updated',
+          appliedPromo && !Number(data.discount_amount)
+            ? `${appliedPromo.code} could not be applied to this ride (already used or not eligible). Confirmed fare: ₹${data.estimated_fare}.`
+            : `The confirmed fare for this route is ₹${data.estimated_fare}.`
+        );
+      }
+
+      // One-time promos were checked but never marked as redeemed, so FIRST100 could be reused on
+      // every ride. Record the redemption and clear the promo so it isn't carried into the next trip.
+      if (appliedPromo) {
+        if (ONE_TIME_PROMOS.has(appliedPromo.code)) {
+          AsyncStorage.setItem(promoUsedStorageKey(appliedPromo.code, activeUser.id), new Date().toISOString()).catch(() => {});
+        }
+        setAppliedPromo(null);
+        setPromoInput('');
+      }
+
+      if (paymentMethod === 'upi' && data?.id) {
+        payRideOnline(data as Booking);
+      }
+
       if (isAdvanceBooking) {
         setActiveBooking(data as Booking);
         setScheduledDate(null);
@@ -1198,7 +1387,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
 
         Alert.alert(
           'Ride Scheduled Successfully! 🍊',
-          `Your advance ride is confirmed for ${scheduledFormatted}.\n\n• Zero-Surge Fare Locked: ₹${totalEstimatedFare}\n• Chauffeur broadcast starts 15–30 mins before departure\n• Pre-cooled AC at 22°C & sealed mineral water\n\nYou can view your scheduled ride on the Home screen or in Ride History.`,
+          `Your advance ride is confirmed for ${scheduledFormatted}.\n\n• Fare: ₹${totalEstimatedFare}\n• Chauffeur broadcast starts 15–30 mins before departure\n• Pre-cooled AC at 22°C & sealed mineral water\n\nYou can view your scheduled ride on the Home screen or in Ride History.`,
           [
             {
               text: 'View in Ride History',
@@ -1242,7 +1431,6 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
 
     setBookingLoading(true);
     try {
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
       const ref = 'OT' + Math.random().toString(36).substring(2, 8).toUpperCase();
       const dropTitle = `Hourly Rental · ${pkg.hours} Hours (${pkg.distanceKm} km)`;
 
@@ -1264,8 +1452,10 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
         payment_method: paymentMethod || 'cash',
         payment_status: 'pending',
         payment_made: 'no',
-        ride_otp: otp,
         status: 'searching',
+        // Server prices hourly rentals from its own package table (fn_hourly_package_price).
+        ride_type: 'hourly',
+        rental_hours: pkg.hours,
       };
 
       let { data, error } = await supabase
@@ -1304,6 +1494,7 @@ async function executeBookingSubmission(finalCoords?: { lat: number; lng: number
       setHourlyModalVisible(false);
       setActiveBooking(data as Booking);
       setStep(4);
+      if (paymentMethod === 'upi' && data?.id) payRideOnline(data as Booking);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
       Alert.alert('Booking Notice', err.message || 'Connecting to fleet...');
@@ -1458,26 +1649,32 @@ function handleRepeatTrip(trip: any) {
     setActiveTab('home');
     
     if (trip.pickup_area && trip.pickup_address) {
-      setPickupText(trip.pickup_area);
-      const [plat, plng] = trip.pickup_address.split('|')[0].trim().split(',').map(Number);
-      if (!isNaN(plat) && !isNaN(plng)) {
-        setPickupCoords({ lat: plat, lng: plng });
+      const pickup = parsePickupCoords(trip.pickup_address);
+      if (pickup) {
+        setPickupText(trip.pickup_area);
+        setPickupCoords(pickup);
       }
     }
-    
-    if (trip.drop_area && trip.drop_address) {
-      const [dlat, dlng] = trip.drop_address.split(',').map(Number);
-      if (!isNaN(dlat) && !isNaN(dlng)) {
-        setDropLocation({
-          id: 'repeat_' + Date.now(),
-          name: trip.drop_area,
-          subtitle: 'Past Trip Destination',
-          city: 'Other',
-          lat: dlat,
-          lng: dlng,
-        });
-      }
+
+    // drop_address is "stopLat,stopLng | lat,lng" for multi-stop trips; the old split(',') produced
+    // NaN for those, left the destination unset and still jumped to step 2.
+    const drop = trip.drop_address ? parseFinalDropCoords(trip.drop_address) : null;
+    if (!trip.drop_area || !drop) {
+      Alert.alert('Cannot Repeat Trip', 'The destination of this past trip could not be read. Please choose it again.');
+      setSearchTarget('drop');
+      setSearchModalVisible(true);
+      return;
     }
+    const dropName = String(trip.drop_area).replace(/^Via .+? ➔ /, '');
+    setIntermediateStop(null);
+    setDropLocation({
+      id: 'repeat_' + Date.now(),
+      name: dropName,
+      subtitle: 'Past Trip Destination',
+      city: 'Other',
+      lat: drop.lat,
+      lng: drop.lng,
+    });
     setStep(2);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
@@ -1485,22 +1682,53 @@ function handleRepeatTrip(trip: any) {
 async function handleCancelRide() {
     if (!activeBooking) return;
 
-    Alert.alert('Cancel Ride', 'Are you sure you want to cancel this ride? There is no cancellation fee.', [
+    // The server decides the fee with this same rule; ask it first so the rider sees the real amount.
+    let feeText = cancellationPolicyText(pricingSettings);
+    try {
+      const { data: preview } = await supabase.rpc('get_cancellation_fee', { _booking_id: activeBooking.id });
+      if (preview) {
+        const fee = Number((preview as any).fee) || 0;
+        feeText = fee > 0
+          ? `A ₹${fee} cancellation fee will be added to your next ride. ${(preview as any).reason || ''}`
+          : `No cancellation fee. ${(preview as any).reason || ''}`;
+      }
+    } catch (e) {}
+
+    Alert.alert('Cancel Ride', `Are you sure you want to cancel this ride?\n\n${feeText}`, [
       { text: 'Keep Ride', style: 'cancel' },
       {
         text: 'Cancel Ride',
         style: 'destructive',
         onPress: async () => {
-          await supabase
+          // Same window the database enforces (check_booking_update_integrity): no cancelling once
+          // the chauffeur has arrived. Surface failures instead of clearing local state.
+          const { data: cancelled, error } = await supabase
             .from('bookings')
             .update({ status: 'cancelled' })
-            .eq('id', activeBooking.id);
+            .eq('id', activeBooking.id)
+            .in('status', ['searching', 'scheduled', 'accepted'])
+            .select('id, cancellation_fee')
+            .maybeSingle();
+
+          if (error || !cancelled) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert(
+              'Could Not Cancel',
+              error?.message || 'This ride can no longer be cancelled from the app because your chauffeur has already arrived. Please contact support if you need help.'
+            );
+            return;
+          }
 
           setActiveBooking(null);
           setPendingSearchBooking(null);
           setAssignedDriver(null);
           setStep(1);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          const charged = Number((cancelled as any).cancellation_fee) || 0;
+          refreshDues();
+          if (charged > 0) {
+            Alert.alert('Ride Cancelled', `A ₹${charged} cancellation fee will be added to your next ride.`);
+          }
         },
       },
     ]);
@@ -1767,16 +1995,14 @@ async function handleAuthSubmit() {
 
   useEffect(() => {
     if (activeBooking?.status === 'in_progress' && expectedPolyline.length === 0 && activeBooking.pickup_address && activeBooking.drop_address) {
-      const pick = activeBooking.pickup_address.split('|')[0].trim().split(',').map(Number);
-      let dropStr = activeBooking.drop_address;
-      if (dropStr.includes('|')) dropStr = dropStr.split('|')[1].trim();
-      const drop = dropStr.split(',').map(Number);
-      
-      if (pick.length >= 2 && drop.length >= 2 && !isNaN(pick[0]) && !isNaN(drop[0])) {
+      const pick = parsePickupCoords(activeBooking.pickup_address);
+      const drop = parseFinalDropCoords(activeBooking.drop_address);
+
+      if (pick && drop) {
         const fetchPolyline = async () => {
           try {
-            const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${pick[0]},${pick[1]}&destination=${drop[0]},${drop[1]}&key=${GOOGLE_API_KEY}`;
+            const GOOGLE_API_KEY = getGoogleMapsKey();
+            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${pick.lat},${pick.lng}&destination=${drop.lat},${drop.lng}&key=${GOOGLE_API_KEY}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.routes && data.routes.length > 0) {
@@ -1828,7 +2054,7 @@ const inProgressDistKm = inProgressDistM !== null
     ? (inProgressDistM / 1000).toFixed(1)
     : (activeBooking?.distance_km?.toString() || '12');
 
-  const value = { insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authConfirmPassword, setAuthConfirmPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authOtp, setAuthOtp, authOtpResendCooldown, setAuthOtpResendCooldown, authOtpLockoutRemaining, handleVerifyOtp, handleResendOtp, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
+  const value = { payRideOnline, onlinePayBusy, insets, topSafeOffset, step, setStep, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authConfirmPassword, setAuthConfirmPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authOtp, setAuthOtp, authOtpResendCooldown, setAuthOtpResendCooldown, authOtpLockoutRemaining, handleVerifyOtp, handleResendOtp, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, cabinPreferences, updateCabinPreferences, cabinModalVisible, setCabinModalVisible, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, hasToll, tollFare, tollDetails, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, setNearbyDrivers, surgeMultiplier, pricingSettings, duesAmount, refreshDues, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleConfirmHourlyRental, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleForgotPassword, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm };
 
   return (
     <RideContext.Provider value={value}>

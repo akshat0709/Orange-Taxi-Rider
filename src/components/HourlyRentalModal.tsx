@@ -262,7 +262,7 @@ export function HourlyRentalModal({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.benefitTitle, isDark && styles.textWhite]}>
-                        Zero Cancellations & Zero Surge
+                        Dedicated Chauffeur
                       </Text>
                       <Text style={[styles.benefitDesc, isDark && styles.textMutedDark]}>
                         Dedicated verified chauffeur assigned immediately with guaranteed on-time pickup.

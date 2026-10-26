@@ -67,7 +67,7 @@ interface TalkToOrangeModalProps {
 const QUICK_SUGGESTIONS = [
   '🚕 Fares & Pricing',
   '✈️ Airport pickup & baggage',
-  '🛡️ Zero Cancellation policy',
+  '🛡️ Cancellation policy',
   '⚡ Mahindra BE.6 amenities',
   '💼 Corporate accounts',
   '📍 Book ride to Airport',
@@ -97,11 +97,10 @@ function getConciergeResponse(input: string, activeCity: string = 'Bengaluru'): 
   ) {
     return {
       text:
-        '🏷️ *Transparent Pricing Across Fleets:*\n\n' +
-        '• *Orange Signature (Mahindra BE 6):* ₹99 Base + ₹18/km (Min ₹149, 4 seats)\n\n' +
-        '✅ Zero surge pricing on advance scheduled rides.\n' +
-        '✅ 5% GST included with downloadable Tax Invoice.\n' +
-        '✅ No hidden booking or cancellation penalties.',
+        '🏷️ *How fares work:*\n\n' +
+        '• Base fare + a per-km rate (a minimum fare applies), plus GST and any surge in effect.\n' +
+        '• You see the exact fare for each vehicle before you book.\n' +
+        '• Downloadable GST tax invoice after every ride.',
       actionButton: {
         label: '📍 Select Ride & View Estimate',
         actionType: 'book_custom',
@@ -192,9 +191,9 @@ function getConciergeResponse(input: string, activeCity: string = 'Bengaluru'): 
   ) {
     return {
       text:
-        '🛡️ *Zero Cancellation Guarantee:*\n\n' +
-        'Orange Taxi has a strict zero driver cancellation policy. Once a chauffeur accepts your ride, they cannot cancel.\n\n' +
-        'If an unforeseen mechanical issue occurs, our Central Fleet Operations immediately auto-dispatches an alternate vehicle of equal or higher category without fare surge.',
+        '🛡️ *Cancellation policy:*\n\n' +
+        'Cancelling is free until a chauffeur accepts your ride, and for a few minutes after acceptance if the chauffeur has not yet travelled far towards you. After that a cancellation fee applies; the app shows the exact amount before you confirm.\n\n' +
+        'If a chauffeur has a mechanical issue, we dispatch another vehicle.',
     };
   }
 

@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MapPin, Navigation, Car, Home, Snowflake, VolumeX, Shield, ShieldCheck, CheckCircle, ArrowRight, Clock, Sparkles, Phone, Radio, X, Check, ChevronRight, Search, Crosshair, CreditCard, Banknote, RotateCcw, User as UserIcon, LogOut, Mail, Lock, MessageSquare, Star, Map as MapIcon, ArrowLeft, ChevronDown, Sun, Moon, Calendar, Wallet, Zap, Droplets, Newspaper, MonitorPlay, Music2, Leaf, Bell, Package, Plane, Briefcase, Plus, Trash2 } from 'lucide-react-native';
 import { searchPlaces } from '../lib/locationService';
 import { styles } from '../styles/AppStyles';
+import { RidePaymentBar } from '../components/RidePaymentBar';
 import { useRideContext, formatScheduleShort, formatScheduleDate } from '../context/RideContext';
 import { RideMap } from '../components/RideMap';
 import { InRideChatModal } from '../components/InRideChatModal';
@@ -26,10 +27,11 @@ import { RiderAuthModal } from '../components/RiderAuthModal';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { cancellationPolicyText, fareFor, surgeOf } from '../lib/pricing';
 
 export const HomeScreen = ({ navigation }: any) => {
   const context = useRideContext();
-  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, handleConfirmHourlyRental, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm } = context;
+  const { insets, topSafeOffset, user, setUser, authModalVisible, setAuthModalVisible, authMode, setAuthMode, authEmail, setAuthEmail, authPassword, setAuthPassword, authFullName, setAuthFullName, authPhone, setAuthPhone, authSubmitting, setAuthSubmitting, vehicles, setVehicles, selectedVehicle, setSelectedVehicle, loading, setLoading, activeCity, setActiveCity, cityPickerVisible, setCityPickerVisible, pickupText, setPickupText, pickupCoords, setPickupCoords, dropLocation, setDropLocation, pickupPillar, setPickupPillar, searchModalVisible, setSearchModalVisible, pinPickerActive, setPinPickerActive, pinPickerTarget, setPinPickerTarget, pinCurrentCoords, setPinCurrentCoords, pinAddressText, setPinAddressText, isBookingPinConfirm, setIsBookingPinConfirm, cabinClimate, setCabinClimate, quietRide, setQuietRide, paymentMethod, setPaymentMethod, bookingLoading, setBookingLoading, activeBooking, setActiveBooking, assignedDriver, setAssignedDriver, pendingSearchBooking, setPendingSearchBooking, chatModalVisible, setChatModalVisible, unreadChatCount, setUnreadChatCount, ratingModalVisible, setRatingModalVisible, profileModalVisible, setProfileModalVisible, guardianModalVisible, setGuardianModalVisible, guardianContact, setGuardianContact, sosAlertActive, setSosAlertActive, activeTab, setActiveTab, historyModalVisible, setHistoryModalVisible, amenitiesModalVisible, setAmenitiesModalVisible, walletBalance, setWalletBalance, walletModalVisible, setWalletModalVisible, scheduleModalVisible, setScheduleModalVisible, hourlyModalVisible, setHourlyModalVisible, handleConfirmHourlyRental, routeDeviationModalVisible, setRouteDeviationModalVisible, scheduledDate, setScheduledDate, talkToOrangeVisible, setTalkToOrangeVisible, intermediateStop, setIntermediateStop, searchTarget, setSearchTarget, promoInput, setPromoInput, appliedPromo, setAppliedPromo, promoError, setPromoError, inAppNotification, setInAppNotification, savedHomeAddress, setSavedHomeAddress, savedWorkAddress, setSavedWorkAddress, customSavedPlaces, saveCustomPlace, deleteCustomPlace, handleQuickCustomPlace, theme, setTheme, handleToggleTheme, bookingStatusRef, pickupCoordsRef, dropLocationRef, lastDriverLocRef, nearbyDrivers, checkActiveRide, initApp, refreshLocation, handleSelectCity, handleHomeMapPress, rawDist, distKm, durationMin, baseFare, perKm, minFare, distanceFare, stopFare, preTax, taxAmount, platformFee, calculatedPreDiscount, discountAmount, totalEstimatedFare, PROMO_CODES, handleApplyPromo, currentResumableBooking, activeScheduledBooking, rateNowBooking, dispatchStatus, setDispatchStatus, handlePinRegionChange, handleConfirmPinPicker, handleConfirmBooking, executeBookingSubmission, handleQuickHome, handleQuickWork, handleQuickAirport, handleRepeatTrip, handleCancelRide, handleAuthSubmit, handleSignOut, popularHubs, resolvedVehicle, driverDistM, driverEtaMin, inProgressDistM, inProgressDistKm, pricingSettings } = context;
   const { height } = Dimensions.get('window');
   const step: number = 1;
   const homeScrollRef = React.useRef<ScrollView>(null);
@@ -387,7 +389,7 @@ export const HomeScreen = ({ navigation }: any) => {
                     </Text>
                   </View>
                   <Text style={[styles.scheduledHudSubText, theme === 'dark' && styles.textMutedDark]}>
-                    Zero surge guarantee locked. Chauffeur assigned 30 mins before pickup with pre-cooled AC.
+                    Chauffeur assigned 30 mins before pickup with pre-cooled AC.
                   </Text>
                 </View>
               ) : activeBooking.status === 'searching' ? (
@@ -537,6 +539,9 @@ export const HomeScreen = ({ navigation }: any) => {
                 </View>
               ) : null}
 
+              {/* Payment status / pay online (like the website) */}
+              <RidePaymentBar />
+
               {/* Onboard Amenities Tray */}
               <TouchableOpacity
                 style={styles.onboardAmenitiesBar}
@@ -663,8 +668,8 @@ export const HomeScreen = ({ navigation }: any) => {
                   const vBase = v.base_fare;
                   const vPerKm = v.per_km;
                   const vMin = v.minimum_fare;
-                  const vPreTax = Math.max(vMin, vBase + Math.round(vPerKm * distKm));
-                  const vTotal = Math.round(vPreTax * 1.05);
+                  // Same formula as the server and the website (admin Pricing tab values).
+                  const vTotal = fareFor({ base_fare: vBase, per_km: vPerKm, minimum_fare: vMin }, distKm, pricingSettings, 0).total;
 
                   return (
                     <TouchableOpacity
@@ -746,7 +751,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 </View>
 
                 <View style={styles.step2AmenitiesFooter}>
-                  <Text style={[styles.step2AmenitiesFooterText, theme === 'dark' && styles.textMutedDark]}>Pre-cooled AC · Clean EV · Zero surge guarantee</Text>
+                  <Text style={[styles.step2AmenitiesFooterText, theme === 'dark' && styles.textMutedDark]}>Pre-cooled AC · Clean EV</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                     <Text style={styles.step2AmenitiesDetailsLink}>Details</Text>
                     <ChevronRight size={12} color="#F97316" />
@@ -829,7 +834,7 @@ export const HomeScreen = ({ navigation }: any) => {
                   <View style={styles.scheduledBannerInfo}>
                     <Sparkles size={12} color="#F97316" />
                     <Text style={[styles.scheduledBannerInfoText, theme === 'dark' && styles.textMutedDark]}>
-                      Zero surge locked · Chauffeur arrives 10 mins early with pre-cooled AC
+                      Chauffeur arrives 10 mins early with pre-cooled AC
                     </Text>
                   </View>
                 )}
@@ -886,7 +891,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               </View>
 
-              {/* ZERO SURGE GUARANTEE CARD */}
+              {/* PRICING CARD */}
               <View style={[styles.surgeFreeCard, theme === 'dark' && styles.surgeFreeCardDark]}>
                 <View style={styles.surgeFreeIconBadge}>
                   <ShieldCheck size={18} color="#10B981" />
@@ -894,14 +899,16 @@ export const HomeScreen = ({ navigation }: any) => {
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={[styles.surgeFreeTitle, theme === 'dark' && styles.textWhite]}>
-                      Zero Surge Guarantee
+                      Clear pricing
                     </Text>
-                    <View style={styles.surgeFreePill}>
-                      <Text style={styles.surgeFreePillText}>0% SURGE</Text>
-                    </View>
+                    {surgeOf(pricingSettings) > 1 && (
+                      <View style={styles.surgeFreePill}>
+                        <Text style={styles.surgeFreePillText}>{surgeOf(pricingSettings)}× SURGE</Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={[styles.surgeFreeSub, theme === 'dark' && styles.textMutedDark]}>
-                    Fare is 100% locked. Zero peak surge, rain multiplier, or cancellation fee guaranteed by Orange EV fleet.
+                    Your fare is shown before you book. Cancellation: {cancellationPolicyText(pricingSettings)}
                   </Text>
                 </View>
               </View>
@@ -1000,7 +1007,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 >
                   <Banknote size={16} color={paymentMethod === 'cash' ? '#F56B00' : '#9CA3AF'} />
                   <Text style={[styles.paymentChipText, paymentMethod === 'cash' && styles.paymentChipTextActive]}>
-                    Cash
+                    Pay Chauffeur
                   </Text>
                 </TouchableOpacity>
 
@@ -1017,7 +1024,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 >
                   <CreditCard size={16} color={paymentMethod === 'upi' ? '#F56B00' : '#9CA3AF'} />
                   <Text style={[styles.paymentChipText, paymentMethod === 'upi' && styles.paymentChipTextActive]}>
-                    UPI
+                    Online
                   </Text>
                 </TouchableOpacity>
 
@@ -1406,7 +1413,7 @@ export const HomeScreen = ({ navigation }: any) => {
                     Kempegowda International Airport (BLR)
                   </Text>
                   <Text style={[styles.uberRecentSubtitle, theme === 'dark' && styles.textMutedDark]} numberOfLines={1}>
-                    Terminal 1 & Terminal 2 Pickups · 0% Surge Fixed Fare
+                    Terminal 1 & Terminal 2 Pickups
                   </Text>
                 </View>
                 <ChevronRight size={18} color={theme === 'dark' ? '#64748B' : '#94A3B8'} />
@@ -1452,10 +1459,10 @@ export const HomeScreen = ({ navigation }: any) => {
                     />
                   </View>
 
-                  {/* Banner 2: Zero Surge & Pre-cooled AC (Executive Dark Slate) */}
+                  {/* Banner 2: Pre-cooled AC (Executive Dark Slate) */}
                   <View style={[styles.uberBannerCard, { backgroundColor: theme === 'dark' ? '#1E293B' : '#0F172A' }]}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
-                      <Text style={[styles.uberBannerBadge, { color: '#F97316' }]}>⚡ ZERO SURGE GUARANTEE</Text>
+                      <Text style={[styles.uberBannerBadge, { color: '#F97316' }]}>⚡ PREMIUM EV</Text>
                       <Text style={[styles.uberBannerTitle, { color: '#FFFFFF' }]}>
                         Pre-Cooled AC &{'\n'}In-Seat Screens
                       </Text>
@@ -1777,7 +1784,7 @@ export const HomeScreen = ({ navigation }: any) => {
                         Schedule in Advance
                       </Text>
                       <Text style={[styles.uberCarouselCardSub, theme === 'dark' && styles.textMutedDark]}>
-                        Lock in rides up to 7 days ahead with 0% surge
+                        Book rides up to 7 days ahead
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1965,7 +1972,7 @@ export const HomeScreen = ({ navigation }: any) => {
                   }}
                 >
                   <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
-                    0% Surge Guaranteed · 100% Electric EV ⓘ
+                    100% Electric EV ⓘ
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
