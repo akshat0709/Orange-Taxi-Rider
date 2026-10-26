@@ -199,8 +199,25 @@ useEffect(() => {
       } catch {}
     }
   }).catch(() => {});
-  registerForPushNotificationsAsync().catch(() => {});
 }, []);
+
+// Push notifications: save this phone's Expo push token on the passenger's profile so the
+// server can tell them when a chauffeur accepts, arrives or cancels, even if the app is closed.
+useEffect(() => {
+  const userId = user?.id;
+  if (!userId) return;
+  let cancelled = false;
+  registerForPushNotificationsAsync()
+    .then(async (token) => {
+      if (cancelled || !token) return;
+      const { error } = await supabase.from('profiles').update({ push_token: token }).eq('id', userId);
+      if (error) console.warn('Could not save push token:', error.message);
+    })
+    .catch(() => {});
+  return () => {
+    cancelled = true;
+  };
+}, [user?.id]);
 
 const updateCabinPreferences = (updated: Partial<CabinPreferences>) => {
   setCabinPreferences((prev) => {
@@ -403,17 +420,6 @@ useEffect(() => {
       }
     });
 
-
-    // Request push notifications and save token
-    // registerForPushNotificationsAsync().then(async (token) => {
-    //   if (token && user) {
-    //     try {
-    //       await supabase.from('profiles').update({ push_token: token }).eq('id', user.id);
-    //     } catch (e) {
-    //       console.log('Push token DB update error', e);
-    //     }
-    //   }
-    // });
 
     // Load saved guardian contact from local storage
     AsyncStorage.getItem('@orange_guardian_contact').then((stored) => {
