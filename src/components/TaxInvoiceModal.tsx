@@ -185,24 +185,8 @@ export function TaxInvoiceModal({
           const res = await fetch(`${WEB_BASE_URL.replace(/\/+$/, '')}/api/send-invoice`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({
-              to: emailToSend,
-              invoiceNumber,
-              customerName: riderName,
-              customerPhone: riderPhone !== '—' ? riderPhone : undefined,
-              pickupArea: pickupLoc,
-              dropArea: dropLoc,
-              completedAt: formattedDate,
-              vehicleName,
-              vehiclePlate: currentTrip.vehicle_number || undefined,
-              paymentMethod,
-              subtotal: taxableValue,
-              cgst,
-              sgst,
-              igst: 0,
-              totalFare: fare,
-              distanceKm: Number(currentTrip.distance_km) || undefined,
-            }),
+            // The server builds the invoice from the booking itself; send only the ride and inbox.
+            body: JSON.stringify({ bookingId: currentTrip.id, to: emailToSend }),
           });
           const json = await res.json().catch(() => ({}));
           if (res.ok && !json?.error) {
